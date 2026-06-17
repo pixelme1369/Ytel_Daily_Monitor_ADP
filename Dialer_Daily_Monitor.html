@@ -591,14 +591,20 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
   if(shortPct>30) issues.push({sev:'high',title:deadCalls.toLocaleString()+' calls ≤30s ('+shortPct.toFixed(1)+'% dead weight)',detail:'Over 30% of calls ended before any real conversation. This is list quality degradation and/or agents hanging up early. Pull recordings for top-volume agents with highest short rates.'});
   if(dropPct>5){
     const agentDrops={},agentTimeouts={};
+    const timeoutPhones=[];
     calls.forEach(r=>{
       const n=r._name||'Unknown';
       if(r._status==='DROP'){agentDrops[n]=(agentDrops[n]||0)+1;}
-      if(r._status==='TIMEOT'){agentTimeouts[n]=(agentTimeouts[n]||0)+1;}
+      if(r._status==='TIMEOT'){
+        agentTimeouts[n]=(agentTimeouts[n]||0)+1;
+        if(r._phone) timeoutPhones.push(r._phone);
+      }
     });
     const topDrops=Object.entries(agentDrops).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>n+' ('+c+')').join(', ')||'—';
     const topTimeouts=Object.entries(agentTimeouts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>n+' ('+c+')').join(', ')||'—';
-    issues.push({sev:'high',title:'Drop/timeout rate at '+pct(drops,total)+' ('+drops+' calls)',detail:'Higher than the 5% acceptable threshold. Check queue depth, agent availability settings, and shift scheduling against call volume.\n\nMost Drops: '+topDrops+'\nMost Timeouts: '+topTimeouts});
+    const uniqueTimeoutPhones=[...new Set(timeoutPhones)];
+    const phoneList=uniqueTimeoutPhones.length?uniqueTimeoutPhones.join(' · '):'—';
+    issues.push({sev:'high',title:'Drop/timeout rate at '+pct(drops,total)+' ('+drops+' calls)',detail:'Higher than the 5% acceptable threshold. Check queue depth, agent availability settings, and shift scheduling against call volume.\n\nMost Drops: '+topDrops+'\nMost Timeouts: '+topTimeouts+'\n\nMissed Callers ('+uniqueTimeoutPhones.length+' unique numbers):\n'+phoneList});
   }
 
   // Agent-specific coaching issues
