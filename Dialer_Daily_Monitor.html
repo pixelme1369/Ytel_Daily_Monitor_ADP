@@ -101,8 +101,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* ── AGENT TABLE ── */
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{background:var(--gray-800);color:#fff;padding:8px 10px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+thead th{background:var(--gray-800);color:#fff;padding:8px 10px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;cursor:pointer;user-select:none}
 thead th:first-child{text-align:left}
+thead th:hover{background:var(--gray-700)}
+thead th.sort-asc::after{content:' ▲';font-size:9px;opacity:.9}
+thead th.sort-desc::after{content:' ▼';font-size:9px;opacity:.9}
 tbody tr{border-bottom:1px solid var(--border)}
 tbody tr:hover{background:var(--gray-50)}
 tbody td{padding:7px 10px;text-align:right;color:var(--text-muted);white-space:nowrap}
@@ -255,18 +258,18 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <div class="card-title">Campaign / queue breakdown</div>
     <div class="tbl-wrap">
       <table id="campTable">
-        <thead>
+        <thead id="campHead">
           <tr>
-            <th style="text-align:left">Campaign</th>
-            <th>Calls</th>
-            <th>Dead ≤30s</th>
-            <th>&lt;2 min</th>
-            <th>2–10 min</th>
-            <th>&gt;15 min</th>
-            <th>&gt;30 min</th>
-            <th>Drops</th>
-            <th>Avg Talk</th>
-            <th>Enrolled</th>
+            <th style="text-align:left" data-col="0">Campaign</th>
+            <th data-col="1">Calls</th>
+            <th data-col="2">Dead ≤30s</th>
+            <th data-col="3">&lt;2 min</th>
+            <th data-col="4">2–10 min</th>
+            <th data-col="5">&gt;15 min</th>
+            <th data-col="6">&gt;30 min</th>
+            <th data-col="7">Drops</th>
+            <th data-col="8">Avg Talk</th>
+            <th data-col="9">Enrolled</th>
           </tr>
         </thead>
         <tbody id="campBody"></tbody>
@@ -723,6 +726,31 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
       <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll||'—'}</td>
     </tr>`).join('');
+
+  // ── Campaign table column sorting ──
+  (function(){
+    const thead=document.getElementById('campHead');
+    const tbody=document.getElementById('campBody');
+    let sortCol=-1, sortDir=1;
+    function cellVal(td){
+      const n=parseFloat(td.textContent.replace(/[^0-9.\-]/g,''));
+      return isNaN(n)?td.textContent.trim().toLowerCase():n;
+    }
+    thead.querySelectorAll('th[data-col]').forEach(th=>{
+      th.addEventListener('click',()=>{
+        const col=parseInt(th.dataset.col);
+        if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=-1;}
+        thead.querySelectorAll('th').forEach(h=>{h.classList.remove('sort-asc','sort-desc');});
+        th.classList.add(sortDir===1?'sort-asc':'sort-desc');
+        const rows=[...tbody.querySelectorAll('tr')];
+        rows.sort((a,b)=>{
+          const av=cellVal(a.cells[col]), bv=cellVal(b.cells[col]);
+          return av<bv?-sortDir:av>bv?sortDir:0;
+        });
+        rows.forEach(r=>tbody.appendChild(r));
+      });
+    });
+  })();
 
   // ── Top attempted numbers ──
   const phoneMap={};
