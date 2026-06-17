@@ -242,7 +242,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th>Total Talk</th>
             <th>Enrolled</th>
             <th>Debt $</th>
-            <th>Conv% (enr/>10m)</th>
+            <th>Conv% (enr/>15m)</th>
           </tr>
         </thead>
         <tbody id="agentBody"></tbody>
@@ -669,7 +669,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
   const maxCalls=agentRows[0]?agentRows[0].calls:1;
   document.getElementById('agentCount').textContent=agentRows.length+' agents';
   document.getElementById('agentBody').innerHTML=agentRows.map(a=>{
-    const convPct=a.uniqueCalls>0&&a.enr>0?pct(a.enr,a.uniqueCalls):'—';
+    const convPct=a.gt15m>0&&a.enr>0?pct(a.enr,a.gt15m):'—';
     const shortCls=a.shortPct>55?'bad':'';
     return `<tr>
       <td>${a.name}</td>
