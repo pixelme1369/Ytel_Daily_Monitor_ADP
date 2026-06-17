@@ -272,6 +272,25 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- TOP ATTEMPTED NUMBERS -->
+  <div class="card">
+    <div class="card-title">Top 5 most attempted numbers <span class="card-title-sub">potential over-dial risk</span></div>
+    <div class="tbl-wrap">
+      <table id="topNumTable">
+        <thead>
+          <tr>
+            <th style="text-align:left">Phone Number</th>
+            <th>Attempts</th>
+            <th>Agents</th>
+            <th>Last Status</th>
+            <th>Enrolled?</th>
+          </tr>
+        </thead>
+        <tbody id="topNumBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- VDCL SECTION -->
   <div class="card">
     <div class="card-title">VDCL / system drop analysis <span class="card-title-sub" id="vdclSub"></span></div>
@@ -439,10 +458,17 @@ function runAnalysis(){
 
   if(calls.length===0){ showToast('No calls found for '+dateStr+' — check the date'); return; }
 
-  // Enrolled = calls where the Cordoba Enrolled Date matches the same call date
+  // Enrolled = Closers only, enrollment date matches call date, one per unique phone number
+  const seenPhones=new Set();
   const enrolledRows=calls.filter(r=>{
+    const ug=(r['user_group']||'').trim();
+    if(ug!=='Closers') return false;
     const v=r['Cordoba Enrolled Date']||r['Enrolled Date']||'';
-    return getDateStr(v)===dateStr;
+    if(getDateStr(v)!==dateStr) return false;
+    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
+    if(seenPhones.has(phone)) return false;
+    seenPhones.add(phone);
+    return true;
   });
 
   document.getElementById('hdrDate').textContent=dateStr;
@@ -465,7 +491,7 @@ function buildDashboard(calls, enrolledRows, dateStr){
     r._statusName=(r['status_name']||r['Status Name']||r['dispo']||r._status).trim();
     r._hour=(String(r['call_date']||r['date']||'')).slice(11,13)||'00';
     r._ug=(r['user_group']||'').trim();
-    r._enrolled=getDateStr(r['Cordoba Enrolled Date']||r['Enrolled Date']||'')===dateStr;
+    r._enrolled=getDateStr(r['Cordoba Enrolled Date']||r['Enrolled Date']||'')===dateStr && (r['user_group']||'').trim()==='Closers';
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
   });
@@ -653,6 +679,28 @@ function buildDashboard(calls, enrolledRows, dateStr){
       <td>${d.drops>0?'<span style="color:var(--red);font-weight:600">'+d.drops+'</span>':'—'}</td>
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
       <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll||'—'}</td>
+    </tr>`).join('');
+
+  // ── Top attempted numbers ──
+  const phoneMap={};
+  calls.forEach(r=>{
+    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
+    if(!phone) return;
+    if(!phoneMap[phone]) phoneMap[phone]={attempts:0,agents:new Set(),lastStatus:'',enrolled:false};
+    const p=phoneMap[phone];
+    p.attempts++;
+    if(r._name) p.agents.add(r._name);
+    p.lastStatus=r._statusName||r._status;
+    if(r._enrolled) p.enrolled=true;
+  });
+  const top5=Object.entries(phoneMap).sort((a,b)=>b[1].attempts-a[1].attempts).slice(0,5);
+  document.getElementById('topNumBody').innerHTML=top5.map(([phone,p])=>`
+    <tr>
+      <td style="font-family:monospace;font-size:13px">${phone}</td>
+      <td><span style="font-weight:700;color:${p.attempts>=5?'var(--red)':p.attempts>=3?'var(--amber)':'var(--text)'}">${p.attempts}</span></td>
+      <td style="color:var(--text-muted)">${[...p.agents].join(', ')||'—'}</td>
+      <td style="color:var(--text-muted)">${p.lastStatus||'—'}</td>
+      <td>${p.enrolled?'<span style="color:var(--green-dk);font-weight:700">✓ Yes</span>':'<span style="color:var(--gray-400)">No</span>'}</td>
     </tr>`).join('');
 
   // ── VDCL section ──
