@@ -260,7 +260,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th data-col="13">Total Talk</th>
             <th data-col="14">Enrolled</th>
             <th data-col="15">Debt $</th>
-            <th data-col="16">Conv% (enr/>15m)</th>
+            <th data-col="16">Conv% (enr/>5m)</th>
           </tr>
         </thead>
         <tbody id="agentBody"></tbody>
@@ -309,6 +309,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th data-col="9">Drops</th>
             <th data-col="10">Avg Talk</th>
             <th data-col="11">Enrolled</th>
+            <th data-col="12">Conv% (enr/>5m)</th>
           </tr>
         </thead>
         <tbody id="campBody"></tbody>
@@ -634,7 +635,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'Total Calls',val:total.toLocaleString(),sub:'all dispositions',cls:'blue'},
     {label:'Unique Calls',val:uniquePhones.toLocaleString(),sub:'distinct phone numbers',cls:'blue'},
     {label:'Total Enrolled',val:totalEnrolled,sub:'with Cordoba Enrolled Date',cls:'green'},
-    {label:'Conv Rate',val:pct(totalEnrolled,uniquePhones),sub:'enrolled / unique calls',cls:'green'},
+    {label:'Conv Rate',val:pct(totalEnrolled,calls.filter(r=>r._sec>=300).length),sub:'enrolled / calls >5 min',cls:'green'},
     {label:'Total Debt Enrolled',val:totalDebt>0?fmt$(totalDebt):'—',sub:'sum of Enrolled Debt',cls:'green'},
     {label:'Dead ≤30s',val:deadCalls.toLocaleString(),sub:pct(deadCalls,total)+' wasted',cls:'red'},
     {label:'DNC Still Dialed',val:dncCount,sub:dncUnique+' unique · '+pct(dncUnique,uniquePhones)+' of unique calls',cls:'red'},
@@ -841,7 +842,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const maxCalls=agentRows[0]?agentRows[0].calls:1;
   document.getElementById('agentCount').textContent=agentRows.length+' agents';
   document.getElementById('agentBody').innerHTML=agentRows.map((a,i)=>{
-    const convPct=a.gt15m>0&&a.enr>0?pct(a.enr,a.gt15m):'—';
+    const convPct=a.gt5m>0&&a.enr>0?pct(a.enr,a.gt5m):'—';
     const shortCls=a.shortPct>55?'bad':'';
     const rowId='agent-hr-'+i;
     const hours=agentHourMap[a.name]||{};
@@ -1056,6 +1057,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <td>${d.drops>0?'<span style="color:var(--red);font-weight:600">'+d.drops+'</span>':'—'}</td>
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
       <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll||'—'}</td>
+      <td>${d.gt5m>0&&d.enroll>0?pct(d.enroll,d.gt5m):'—'}</td>
     </tr>${agentSubRows}`;
   }).join('');
 
@@ -1079,6 +1081,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     <td>${cTot.drops>0?'<span style="color:var(--red);font-weight:600">'+cTot.drops+'</span>':'—'}</td>
     <td>${fmtDur(cTot.calls?Math.round(cTot.sec/cTot.calls):0)}</td>
     <td class="${cTot.enroll>0?'enroll-num':'enroll-zero'}">${cTot.enroll||'—'}</td>
+    <td>${cTot.gt5m>0&&cTot.enroll>0?pct(cTot.enroll,cTot.gt5m):'—'}</td>
   </tr>`;
 
   // ── Campaign table column sorting ──
