@@ -112,6 +112,9 @@ tbody td{padding:7px 10px;text-align:center;color:var(--text-muted);white-space:
 tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 .enroll-num{font-weight:700;color:var(--green-dk)}
 .enroll-zero{color:var(--gray-300)}
+.agent-main-row:hover{background:var(--gray-100)}
+.agent-toggle{font-size:9px;color:var(--text-muted);margin-right:4px;display:inline-block;transition:transform .15s}
+.agent-hour-row td{background:var(--gray-50);font-size:11px;color:var(--text-muted)}
 .bar-mini{display:inline-flex;align-items:center;gap:5px}
 .bar-bg{background:var(--gray-200);border-radius:3px;height:6px;width:60px;overflow:hidden;display:inline-block;vertical-align:middle}
 .bar-fg{height:100%;border-radius:3px;background:var(--blue)}
@@ -350,6 +353,13 @@ function fmtDur(s){
 }
 function pct(n,d){ return d?((n/d)*100).toFixed(1)+'%':'0%'; }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
+function toggleAgentHours(rowId){
+  const rows=document.querySelectorAll('[data-parent="'+rowId+'"]');
+  const tog=document.getElementById('tog-'+rowId);
+  const hidden=rows[0]&&rows[0].style.display==='none';
+  rows.forEach(r=>r.style.display=hidden?'':'none');
+  if(tog) tog.textContent=hidden?'▼':'▶';
+}
 function showToast(msg,dur=2500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -670,6 +680,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
 
   // ── Agent table ──
   const agentMap={};
+  const agentHourMap={};
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)).forEach(r=>{
     if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,b2to10m:0,gt15m:0,gt30m:0,phones:new Set(),enrolledPhones:new Set()};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
@@ -679,6 +690,20 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
     if(r._sec>900) d.gt15m++;
     if(r._sec>1800) d.gt30m++;
     if(r._phone) d.phones.add(r._phone);
+    // hourly breakdown
+    const hr=parseInt(r._hour);
+    if(!isNaN(hr)){
+      if(!agentHourMap[r._name]) agentHourMap[r._name]={};
+      const hk=String(hr).padStart(2,'0')+':00';
+      if(!agentHourMap[r._name][hk]) agentHourMap[r._name][hk]={calls:0,short:0,lt2m:0,b2to10m:0,gt15m:0,gt30m:0,sec:0,enr:0};
+      const h=agentHourMap[r._name][hk]; h.calls++; h.sec+=r._sec;
+      if(r._sec<=30) h.short++;
+      if(r._sec<120) h.lt2m++;
+      if(r._sec>=120&&r._sec<600) h.b2to10m++;
+      if(r._sec>900) h.gt15m++;
+      if(r._sec>1800) h.gt30m++;
+      if(r._enrolled) h.enr++;
+    }
   });
 
   const agentRows=Object.entries(agentMap)
@@ -692,11 +717,33 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
 
   const maxCalls=agentRows[0]?agentRows[0].calls:1;
   document.getElementById('agentCount').textContent=agentRows.length+' agents';
-  document.getElementById('agentBody').innerHTML=agentRows.map(a=>{
+  document.getElementById('agentBody').innerHTML=agentRows.map((a,i)=>{
     const convPct=a.gt15m>0&&a.enr>0?pct(a.enr,a.gt15m):'—';
     const shortCls=a.shortPct>55?'bad':'';
-    return `<tr>
-      <td>${a.name}</td>
+    const rowId='agent-hr-'+i;
+    const hours=agentHourMap[a.name]||{};
+    const hourKeys=Object.keys(hours).sort();
+    const hourRows=hourKeys.map(hk=>{
+      const h=hours[hk];
+      const hShortPct=h.calls?Math.round(h.short/h.calls*100):0;
+      return `<tr class="agent-hour-row" style="display:none" data-parent="${rowId}">
+        <td style="text-align:left;padding-left:32px;color:var(--text-muted);font-size:11px">↳ ${hk}</td>
+        <td>${h.calls}</td>
+        <td>—</td>
+        <td>${hShortPct}%</td>
+        <td>${h.lt2m}</td>
+        <td>${h.b2to10m}</td>
+        <td>${h.gt15m}</td>
+        <td>${h.gt30m}</td>
+        <td>${fmtDur(h.calls?Math.round(h.sec/h.calls):0)}</td>
+        <td>${fmtDur(h.sec)}</td>
+        <td class="${h.enr>0?'enroll-num':'enroll-zero'}">${h.enr||'—'}</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>`;
+    }).join('');
+    return `<tr class="agent-main-row" id="${rowId}" style="cursor:pointer" onclick="toggleAgentHours('${rowId}')">
+      <td style="text-align:left"><span class="agent-toggle" id="tog-${rowId}">▶</span> ${a.name}</td>
       <td><div class="bar-mini"><div class="bar-bg"><div class="bar-fg" style="width:${(a.calls/maxCalls*100).toFixed(0)}%"></div></div>${a.calls}</div></td>
       <td>${a.uniqueCalls}</td>
       <td><div class="bar-mini"><div class="bar-bg"><div class="bar-fg ${shortCls}" style="width:${a.shortPct.toFixed(0)}%"></div></div>${a.shortPct.toFixed(0)}%</div></td>
@@ -709,7 +756,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
       <td class="${a.enr>0?'enroll-num':'enroll-zero'}">${a.enr||'—'}</td>
       <td>${a.debt>0?fmt$(a.debt):'—'}</td>
       <td>${convPct}</td>
-    </tr>`;
+    </tr>${hourRows}`;
   }).join('');
 
   // Agent table totals row
