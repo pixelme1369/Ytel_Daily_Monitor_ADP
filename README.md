@@ -42,15 +42,15 @@ The dashboard expects a **single merged file** that combines Ytel call data and 
 | **Total Calls** | Count of all rows | All dispositions included |
 | **Unique Calls** | Distinct phone numbers | Deduplicates repeat dials to same number |
 | **Total Enrolled** | Unique phones with enrolled date = call date | One enrollment per phone number |
-| **Conv Rate** | Enrolled ÷ Unique Calls | Conversion rate across unique contacts |
+| **Conv Rate** | Enrolled ÷ Calls > 5 min | Only counts calls that lasted over 5 minutes as real opportunities |
 | **Total Debt Enrolled** | Sum of `Enrolled Debt` for enrolled phones | Dollar value of day's enrollments |
 | **Dead ≤30s** | Calls where duration ≤ 30s | Based on total calls |
 | **DNC Still Dialed** | Calls with DNC status | Shows total DNC calls + unique DNC numbers + % of unique calls |
 | **Drop / Timeout** | Calls with DROP or TIMEOT status | % of total calls |
-| **< 2 Min (Lost)** | Calls under 2 minutes | Based on total calls |
 | **2 – 10 Min** | Calls between 2 and 10 minutes | Non-overlapping bucket |
 | **> 15 Min** | Unique phones where best call > 15 min | Based on unique callers, not total calls |
 | **> 30 Min** | Unique phones where best call > 30 min | Based on unique callers, not total calls |
+| **> 45 Min** | Unique phones where best call > 45 min | Based on unique callers, not total calls |
 | **Total Talk Time** | Sum of all call durations | Formatted as hours/minutes/seconds |
 
 ---
@@ -84,6 +84,7 @@ A sortable table with one row per campaign. Click any column header to sort asce
 | Drops | DROP + TIMEOT calls |
 | Avg Talk | Average call duration |
 | Enrolled | Enrollments for this campaign |
+| Conv% (enr/>5m) | Enrolled ÷ calls over 5 min for this campaign |
 
 A **TOTAL** row is pinned at the bottom summing all campaigns.
 
@@ -107,7 +108,7 @@ One row per agent (VDCL/system rows excluded). Sortable by any column. Click an 
 | Total Talk | Total time on calls |
 | Enrolled | Enrollments credited to this agent |
 | Debt $ | Total enrolled debt credited to this agent |
-| Conv% (enr/>15m) | Enrolled ÷ calls over 15 min |
+| Conv% (enr/>5m) | Enrolled ÷ calls over 5 min |
 
 **Enrollment credit rules:**
 - Enrollment is counted only if `Cordoba Enrolled Date` matches the call date
