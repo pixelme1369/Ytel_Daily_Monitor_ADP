@@ -842,7 +842,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
     const agentRows=Object.entries(campAgentMap[camp]||{}).sort((a,b)=>b[1].calls-a[1].calls);
     const agentSubRows=agentRows.map(([ag,a])=>`
       <tr class="camp-agent-row" style="display:none" data-parent="${rowId}">
-        <td style="text-align:left;padding-left:32px;color:var(--text-muted);font-size:11px">↳ ${ag}</td>
+        <td style="text-align:left;padding-left:32px;color:var(--text-muted);font-size:11px">↳ ${ag}${OPENERS.has(ag.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
         <td>${a.calls}</td>
         <td>${a.short} <span style="color:var(--text-muted);font-size:11px">${pct(a.short,a.calls)}</span></td>
         <td>${a.lt2m} <span style="color:var(--text-muted);font-size:11px">${pct(a.lt2m,a.calls)}</span></td>
