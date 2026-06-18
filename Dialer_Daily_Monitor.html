@@ -231,6 +231,12 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- DISPOSITION BREAKDOWN FOR <2 MIN CALLS -->
+  <div class="card">
+    <div class="card-title">Disposition breakdown — calls under 2 minutes <span class="card-title-sub">all dispositions · sorted by count</span></div>
+    <div id="dispoLt2List" style="max-height:220px;overflow-y:auto"></div>
+  </div>
+
   <!-- AGENT TABLE -->
   <div class="card">
     <div class="card-title">Agent performance <span class="card-title-sub" id="agentCount"></span></div>
@@ -748,6 +754,25 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <div class="dispo-bar-bg"><div class="dispo-bar-fill" style="width:${(d.n/maxD*100).toFixed(0)}%"></div></div>
       <div class="dispo-count">${d.n}</div>
       <div class="dispo-pct">${pct(d.n,total)}</div>
+    </div>`).join('');
+
+  // ── Dispo breakdown for <2 min calls ──
+  const dispoLt2={};
+  calls.filter(r=>r._sec<120).forEach(r=>{
+    const k=r._status;
+    if(!dispoLt2[k]) dispoLt2[k]={name:r._statusName,n:0};
+    dispoLt2[k].n++;
+  });
+  const dispoLt2Sorted=Object.entries(dispoLt2).sort((a,b)=>b[1].n-a[1].n);
+  const totalLt2=dispoLt2Sorted.reduce((s,[,d])=>s+d.n,0);
+  const maxD2=dispoLt2Sorted[0]?dispoLt2Sorted[0][1].n:1;
+  document.getElementById('dispoLt2List').innerHTML=dispoLt2Sorted.map(([code,d])=>`
+    <div class="dispo-row">
+      <div class="dispo-code">${code}</div>
+      <div class="dispo-name">${d.name||'—'}</div>
+      <div class="dispo-bar-bg"><div class="dispo-bar-fill" style="width:${(d.n/maxD2*100).toFixed(0)}%"></div></div>
+      <div class="dispo-count">${d.n}</div>
+      <div class="dispo-pct">${pct(d.n,totalLt2)}</div>
     </div>`).join('');
 
   // ── Agent table ──
