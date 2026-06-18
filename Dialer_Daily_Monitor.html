@@ -712,6 +712,30 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
     </tr>`;
   }).join('');
 
+  // Agent table totals row
+  const agTot=agentRows.reduce((t,a)=>({
+    calls:t.calls+a.calls, uniqueCalls:t.uniqueCalls+a.uniqueCalls,
+    short:t.short+a.short, lt2m:t.lt2m+a.lt2m, b2to10m:t.b2to10m+a.b2to10m,
+    gt15m:t.gt15m+a.gt15m, gt30m:t.gt30m+a.gt30m,
+    sec:t.sec+a.sec, enr:t.enr+a.enr, debt:t.debt+a.debt
+  }),{calls:0,uniqueCalls:0,short:0,lt2m:0,b2to10m:0,gt15m:0,gt30m:0,sec:0,enr:0,debt:0});
+  const agTotShortPct=agTot.calls?agTot.short/agTot.calls*100:0;
+  document.getElementById('agentBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+    <td style="text-align:left">TOTAL</td>
+    <td>${agTot.calls}</td>
+    <td>${agTot.uniqueCalls}</td>
+    <td>${agTotShortPct.toFixed(0)}%</td>
+    <td>${agTot.lt2m}</td>
+    <td>${agTot.b2to10m}</td>
+    <td>${agTot.gt15m}</td>
+    <td>${agTot.gt30m}</td>
+    <td>—</td>
+    <td>${fmtDur(agTot.sec)}</td>
+    <td>${agTot.enr||'—'}</td>
+    <td>${agTot.debt>0?fmt$(agTot.debt):'—'}</td>
+    <td>—</td>
+  </tr>`;
+
   // ── Campaign table ──
   const campMap={};
   calls.forEach(r=>{
@@ -742,6 +766,25 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, totalEnrolledC
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
       <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll||'—'}</td>
     </tr>`).join('');
+
+  // Campaign table totals row
+  const cTot=campRows.reduce((t,[,d])=>({
+    calls:t.calls+d.calls, short:t.short+d.short, lt2m:t.lt2m+d.lt2m,
+    b2to10m:t.b2to10m+d.b2to10m, gt15m:t.gt15m+d.gt15m, gt30m:t.gt30m+d.gt30m,
+    drops:t.drops+d.drops, sec:t.sec+d.sec, enroll:t.enroll+d.enroll
+  }),{calls:0,short:0,lt2m:0,b2to10m:0,gt15m:0,gt30m:0,drops:0,sec:0,enroll:0});
+  document.getElementById('campBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+    <td style="text-align:left">TOTAL</td>
+    <td>${cTot.calls}</td>
+    <td>${cTot.short} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.short,cTot.calls)}</span></td>
+    <td>${cTot.lt2m} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.lt2m,cTot.calls)}</span></td>
+    <td>${cTot.b2to10m} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.b2to10m,cTot.calls)}</span></td>
+    <td>${cTot.gt15m} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.gt15m,cTot.calls)}</span></td>
+    <td>${cTot.gt30m} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.gt30m,cTot.calls)}</span></td>
+    <td>${cTot.drops>0?'<span style="color:var(--red);font-weight:600">'+cTot.drops+'</span>':'—'}</td>
+    <td>${fmtDur(cTot.calls?Math.round(cTot.sec/cTot.calls):0)}</td>
+    <td class="${cTot.enroll>0?'enroll-num':'enroll-zero'}">${cTot.enroll||'—'}</td>
+  </tr>`;
 
   // ── Campaign table column sorting ──
   (function(){
