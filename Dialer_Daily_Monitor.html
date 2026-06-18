@@ -645,7 +645,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'> 15 Min',val:gt15mUnique.toLocaleString(),sub:pct(gt15mUnique,uniquePhones)+' of unique calls',cls:'green'},
     {label:'> 30 Min',val:gt30mUnique.toLocaleString(),sub:pct(gt30mUnique,uniquePhones)+' of unique calls',cls:'purple'},
     {label:'> 45 Min',val:gt45mUnique.toLocaleString(),sub:pct(gt45mUnique,uniquePhones)+' of unique calls',cls:'purple'},
-    {label:'Total Talk Time',val:fmtDur(totalSec),sub:'all agents',cls:'blue'},
+
   ];
   document.getElementById('kpiGrid').innerHTML=kpiData.map(k=>`
     <div class="kpi ${k.cls}">
