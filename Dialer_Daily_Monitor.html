@@ -231,6 +231,12 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- DISPOSITION BREAKDOWN FOR <2 MIN CALLS -->
+  <div class="card">
+    <div class="card-title">Disposition breakdown — calls under 2 minutes <span class="card-title-sub">all dispositions · sorted by count</span></div>
+    <div id="dispoLt2List" style="max-height:220px;overflow-y:auto"></div>
+  </div>
+
   <!-- AGENT TABLE -->
   <div class="card">
     <div class="card-title">Agent performance <span class="card-title-sub" id="agentCount"></span></div>
@@ -264,18 +270,19 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 
   <!-- AGENT FUNNEL RATIO TABLE -->
   <div class="card">
-    <div class="card-title">Agent call funnel — % of total calls <span class="card-title-sub">click column to sort</span></div>
+    <div class="card-title">Agent call funnel — % of total calls <span class="card-title-sub">Each % = bucket count ÷ agent's total calls. <2min = calls lost under 2 min. >2/>5/>10/>15/>30 = cumulative calls that reached that duration. Click column to sort.</span></div>
     <div class="tbl-wrap">
       <table id="funnelTable">
         <thead id="funnelHead">
           <tr>
             <th style="text-align:left;min-width:160px" data-col="0">Agent</th>
-            <th data-col="1">&lt;2 min</th>
-            <th data-col="2">&gt;2 min</th>
-            <th data-col="3">&gt;5 min</th>
-            <th data-col="4">&gt;10 min</th>
-            <th data-col="5">&gt;15 min</th>
-            <th data-col="6">&gt;30 min</th>
+            <th data-col="1">Total Calls</th>
+            <th data-col="2">&lt;2 min</th>
+            <th data-col="3">&gt;2 min</th>
+            <th data-col="4">&gt;5 min</th>
+            <th data-col="5">&gt;10 min</th>
+            <th data-col="6">&gt;15 min</th>
+            <th data-col="7">&gt;30 min</th>
           </tr>
         </thead>
         <tbody id="funnelBody"></tbody>
@@ -749,6 +756,25 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <div class="dispo-pct">${pct(d.n,total)}</div>
     </div>`).join('');
 
+  // ── Dispo breakdown for <2 min calls ──
+  const dispoLt2={};
+  calls.filter(r=>r._sec<120).forEach(r=>{
+    const k=r._status;
+    if(!dispoLt2[k]) dispoLt2[k]={name:r._statusName,n:0};
+    dispoLt2[k].n++;
+  });
+  const dispoLt2Sorted=Object.entries(dispoLt2).sort((a,b)=>b[1].n-a[1].n);
+  const totalLt2=dispoLt2Sorted.reduce((s,[,d])=>s+d.n,0);
+  const maxD2=dispoLt2Sorted[0]?dispoLt2Sorted[0][1].n:1;
+  document.getElementById('dispoLt2List').innerHTML=dispoLt2Sorted.map(([code,d])=>`
+    <div class="dispo-row">
+      <div class="dispo-code">${code}</div>
+      <div class="dispo-name">${d.name||'—'}</div>
+      <div class="dispo-bar-bg"><div class="dispo-bar-fill" style="width:${(d.n/maxD2*100).toFixed(0)}%"></div></div>
+      <div class="dispo-count">${d.n}</div>
+      <div class="dispo-pct">${pct(d.n,totalLt2)}</div>
+    </div>`).join('');
+
   // ── Agent table ──
   // Build per-agent first-direction map: agent+phone → {dir, ts}
   const agentPhoneFirstDir={};
@@ -892,16 +918,20 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   </tr>`;
 
   // ── Agent funnel ratio table ──
-  const fpct=(n,d)=>d>0?((n/d)*100).toFixed(1)+'%':'0%';
+  const fcell=(n,d,color)=>{
+    const pct=d>0?((n/d)*100).toFixed(1)+'%':'0%';
+    return `<span style="color:${color||'inherit'}">${n}</span> <span style="font-size:10px;color:var(--text-muted)">(${pct})</span>`;
+  };
   document.getElementById('funnelBody').innerHTML=agentRows.map(a=>`
     <tr>
       <td style="text-align:left;font-weight:600;color:var(--text)">${a.name}${OPENERS.has(a.name.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
-      <td style="color:var(--red)">${fpct(a.lt2m,a.calls)}</td>
-      <td>${fpct(a.gt2m,a.calls)}</td>
-      <td>${fpct(a.gt5m,a.calls)}</td>
-      <td>${fpct(a.gt10m,a.calls)}</td>
-      <td style="color:var(--green-dk)">${fpct(a.gt15m,a.calls)}</td>
-      <td style="color:var(--green-dk)">${fpct(a.gt30m,a.calls)}</td>
+      <td>${a.calls}</td>
+      <td>${fcell(a.lt2m,a.calls,'var(--red)')}</td>
+      <td>${fcell(a.gt2m,a.calls,null)}</td>
+      <td>${fcell(a.gt5m,a.calls,null)}</td>
+      <td>${fcell(a.gt10m,a.calls,null)}</td>
+      <td>${fcell(a.gt15m,a.calls,'var(--green-dk)')}</td>
+      <td>${fcell(a.gt30m,a.calls,'var(--green-dk)')}</td>
     </tr>`).join('');
 
   // Funnel table sorting
