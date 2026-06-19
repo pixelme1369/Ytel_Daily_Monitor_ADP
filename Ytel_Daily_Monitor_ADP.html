@@ -395,6 +395,21 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- MISSED CALLBACKS -->
+  <div class="card" id="missedCallbackCard" style="display:none">
+    <div class="card-title" style="color:var(--red)">⚠ Clients / Calls — Timed Out &amp; Never Called Back</div>
+    <div class="two-col" style="gap:16px;align-items:start">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Enrolled Clients <span id="missedEnrolledCount" style="font-size:10px;font-weight:400;color:var(--text-muted)"></span></div>
+        <div id="missedEnrolledList" style="font-size:12px;color:var(--text);line-height:1.9"></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Other Calls <span id="missedOtherCount" style="font-size:10px;font-weight:400;color:var(--text-muted)"></span></div>
+        <div id="missedOtherList" style="font-size:12px;color:var(--text);line-height:1.9"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- EMPTY STATE -->
@@ -768,12 +783,26 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
   });
   const missedPhones=Object.keys(timeoutTs).filter(p=>!calledBack.has(p));
+  // Split into enrolled clients vs other calls
+  const enrolledPhoneSet=new Set(Object.keys(enrolledPhoneAgent));
+  // Also check any phone that has a Cordoba Enrolled Date anywhere in today's calls
+  const anyEnrolledPhone=new Set();
+  calls.forEach(r=>{ if(r['Cordoba Enrolled Date']||r['Enrolled Date']) anyEnrolledPhone.add(r._phone); });
+  const missedEnrolled=missedPhones.filter(p=>anyEnrolledPhone.has(p));
+  const missedOther=missedPhones.filter(p=>!anyEnrolledPhone.has(p));
+  const card=document.getElementById('missedCallbackCard');
   if(missedPhones.length){
-    const detail=missedPhones.map(p=>{
+    card.style.display='';
+    const rowHtml=phones=>phones.map(p=>{
       const agents=[...(timeoutAgents[p]||[])].join(', ')||'—';
-      return `${p}  (timed out on: ${agents})`;
-    }).join('\n');
-    issues.push({sev:'crit',title:`${missedPhones.length} client${missedPhones.length>1?'s':''} called in, timed out, and were NEVER called back`,detail:'These clients reached out and waited — no agent picked up and no one followed up.\n\n'+detail});
+      return `<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span style="font-family:monospace;font-weight:600">${p}</span> <span style="color:var(--text-muted);font-size:11px">— timed out on: ${agents}</span></div>`;
+    }).join('')||'<div style="color:var(--text-muted);font-size:11px">None</div>';
+    document.getElementById('missedEnrolledCount').textContent='('+missedEnrolled.length+')';
+    document.getElementById('missedEnrolledList').innerHTML=rowHtml(missedEnrolled);
+    document.getElementById('missedOtherCount').textContent='('+missedOther.length+')';
+    document.getElementById('missedOtherList').innerHTML=rowHtml(missedOther);
+  } else {
+    card.style.display='none';
   }
   const vdclAfterHours=vdclCalls.filter(r=>parseInt(r._hour)>=18).length;
   const shortPct=deadCalls/total*100;
