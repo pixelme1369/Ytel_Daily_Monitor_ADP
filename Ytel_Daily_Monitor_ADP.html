@@ -639,8 +639,8 @@ function runAnalysis(){
 
   if(calls.length===0){ showToast('No calls found for '+dateStr+' — check the date'); return; }
 
-  // For each enrolled phone: find the last agent who talked to that client (latest timestamp)
-  // enrolledPhoneAgent[phone] = {agent, debt}
+  // For each enrolled phone: credit goes to the "Assigned To" agent (one enrollment per unique phone)
+  // enrolledPhoneAgent[phone] = {agent, debt, ts}
   const enrolledPhoneAgent={};
   calls.forEach(r=>{
     const v=r['Cordoba Enrolled Date']||r['Enrolled Date']||'';
@@ -649,8 +649,11 @@ function runAnalysis(){
     if(!phone) return;
     const ts=parseTs(r['call_date']||r['date']||'');
     const debt=parseDebt(r['Enrolled Debt']||0);
+    // Use "Assigned To" if present, otherwise fall back to last-call agent
+    const assignedTo=(r['Assigned To']||'').trim();
+    const agent=assignedTo||(r['full_name']||r['user']||'Unknown').trim();
     if(!enrolledPhoneAgent[phone]||ts>enrolledPhoneAgent[phone].ts){
-      enrolledPhoneAgent[phone]={agent:(r['full_name']||r['user']||'Unknown').trim(),ts,debt};
+      enrolledPhoneAgent[phone]={agent,ts,debt};
     }
   });
   // enrolledRows: one representative row per enrolled phone (for total count / debt)
