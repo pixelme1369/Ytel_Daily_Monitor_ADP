@@ -117,6 +117,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 .agent-hour-row td{background:var(--gray-50);font-size:11px;color:var(--text-muted)}
 .camp-agent-row td{background:var(--gray-50);font-size:11px;color:var(--text-muted)}
 .tag-opener{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:10px;background:#FEF3C7;color:#92400E;margin-left:4px;vertical-align:middle}
+.tag-retention{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:10px;background:#EDE9FE;color:#5B21B6;margin-left:4px;vertical-align:middle}
 .af-btn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;transition:all .15s}
 .af-btn:hover{background:var(--gray-200)}
 .af-btn.af-active{background:var(--navy);color:#fff;border-color:var(--navy)}
@@ -437,7 +438,8 @@ function funnelCell(val,denom,color){
   return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
-const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomora','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul sims','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','logan apana','brian smith','emren salim','alex tambouly']);
+const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomora','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul sims','john tade','dylan gallagher','lindsey magnusen','angel espraza','logan apana','brian smith','emren salim']);
+const RETENTION=new Set(['eli riano']);
 let _agentRoleFilter='all';
 function filterAgents(type){
   if(type){
@@ -1004,7 +1006,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
           <td>—</td><td>—</td>
         </tr>`;
       }).join('');
-      const openerTag=isOpener?'<span class="tag-opener">Opener</span>':'';
+      const nameLC=a.name.toLowerCase();
+      const openerTag=RETENTION.has(nameLC)?'<span class="tag-retention">Retention</span>':isOpener?'<span class="tag-opener">Opener</span>':'';
       const agentCamps=[...(agentCampsMap[a.name]||[])].join('|');
       return `<tr class="agent-main-row" id="${rowId}" data-camps="${agentCamps}" style="cursor:pointer" onclick="toggleAgentHours('${rowId}')">
         <td style="text-align:left"><span class="agent-toggle" id="tog-${rowId}">▶</span> ${a.name} ${openerTag}</td>
@@ -1059,7 +1062,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   };
   document.getElementById('funnelBody').innerHTML=agentRows.map(a=>`
     <tr>
-      <td style="text-align:left;font-weight:600;color:var(--text)">${a.name}${!CLOSERS.has(a.name.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
+      <td style="text-align:left;font-weight:600;color:var(--text)">${a.name}${RETENTION.has(a.name.toLowerCase())?'<span class="tag-retention">Retention</span>':!CLOSERS.has(a.name.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
       <td>${a.calls}</td>
       <td>${fcell(a.lt2m,a.calls,'var(--red)')}</td>
       <td>${fcell(a.gt2m,a.calls,null)}</td>
@@ -1208,7 +1211,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const agentRows=Object.entries(campAgentMap[camp]||{}).sort((a,b)=>b[1].calls-a[1].calls);
     const agentSubRows=agentRows.map(([ag,a])=>`
       <tr class="camp-agent-row" style="display:none" data-parent="${rowId}">
-        <td style="text-align:left;padding-left:32px;color:var(--text-muted);font-size:11px">↳ ${ag}${!CLOSERS.has(ag.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
+        <td style="text-align:left;padding-left:32px;color:var(--text-muted);font-size:11px">↳ ${ag}${RETENTION.has(ag.toLowerCase())?'<span class="tag-retention">Retention</span>':!CLOSERS.has(ag.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
         <td>${a.calls}</td>
         <td>${a.short} <span style="color:var(--text-muted);font-size:11px">${pct(a.short,a.calls)}</span></td>
         <td>${funnelCell(a.lt2m,a.calls,"var(--red)")}</td>
