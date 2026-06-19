@@ -427,7 +427,7 @@ function funnelCell(val,denom,color){
   return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
-const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomora','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul sims','john tade','dylan gallagher','lindsey magnusen','angel espraza','logan apana','brian smith','emren salim']);
+const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomora','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul sims','john tade','dylan gallagher','lindsey magnusen','angel espraza','logan apana','brian smith','emren salim','alex tambouly']);
 function filterAgents(type){
   document.querySelectorAll('.af-btn').forEach(b=>b.classList.remove('af-active'));
   document.getElementById('af-'+type).classList.add('af-active');
