@@ -247,8 +247,8 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th style="text-align:left;min-width:160px" data-col="0">Agent</th>
             <th data-col="1">Calls</th>
             <th data-col="2">Unique #s</th>
-            <th data-col="3">Inbound</th>
-            <th data-col="4">Outbound</th>
+            <th data-col="3" title="Unique phones where first call of the day was inbound. Hourly rows show unique per hour — same phone can appear in multiple hours so hourly totals won't sum to the main row.">Inbound <span style="font-size:9px;font-weight:400;opacity:.7">(unique/hr↗)</span></th>
+            <th data-col="4" title="Unique phones where first call of the day was outbound. Hourly rows show unique per hour — same phone can appear in multiple hours so hourly totals won't sum to the main row.">Outbound <span style="font-size:9px;font-weight:400;opacity:.7">(unique/hr↗)</span></th>
             <th data-col="5">Short% ≤30s</th>
             <th data-col="6">&lt;2 min</th>
             <th data-col="7">&gt;2 min</th>
