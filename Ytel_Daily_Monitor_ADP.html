@@ -441,8 +441,12 @@ function filterAgents(type){
     if(type==='closer') show=!isOpener;
     if(type==='opener') show=isOpener;
     row.style.display=show?'':'none';
-    // hide/show hourly sub-rows too
-    if(row.id) document.querySelectorAll('[data-parent="'+row.id+'"]').forEach(sub=>sub.style.display=show?'none':'');
+    // always collapse hourly sub-rows when filtering
+    if(row.id){
+      document.querySelectorAll('[data-parent="'+row.id+'"]').forEach(sub=>sub.style.display='none');
+      const tog=document.getElementById('tog-'+row.id);
+      if(tog) tog.textContent='▶';
+    }
   });
   // always keep total row visible
   tbody.querySelectorAll('tr:not(.agent-main-row):not(.agent-hour-row)').forEach(r=>r.style.display='');
