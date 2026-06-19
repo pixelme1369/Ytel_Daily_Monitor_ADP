@@ -395,6 +395,26 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- MISSED CALLBACKS -->
+  <div class="card" id="missedCallbackCard" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="card-title" style="color:var(--red);margin:0">⚠ Clients / Calls — Timed Out &amp; Never Called Back</div>
+      <select id="missedCampFilter" onchange="renderMissedCallbacks()" style="margin-left:auto;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--white);color:var(--text);cursor:pointer">
+        <option value="">All Campaigns</option>
+      </select>
+    </div>
+    <div class="two-col" style="gap:16px;align-items:start">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Enrolled Clients <span id="missedEnrolledCount" style="font-size:10px;font-weight:400;color:var(--text-muted)"></span></div>
+        <div id="missedEnrolledList" style="font-size:12px;color:var(--text);line-height:1.9"></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Other Calls <span id="missedOtherCount" style="font-size:10px;font-weight:400;color:var(--text-muted)"></span></div>
+        <div id="missedOtherList" style="font-size:12px;color:var(--text);line-height:1.9"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- EMPTY STATE -->
@@ -497,6 +517,17 @@ function toggleAgentHours(rowId){
   if(tog) tog.textContent=hidden?'▼':'▶';
 }
 function toggleEl(id){const el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'':'none';}
+function renderMissedCallbacks(){
+  const camp=document.getElementById('missedCampFilter').value;
+  const data=(window._missedData||[]).filter(d=>!camp||d.camps.includes(camp));
+  const enrolled=data.filter(d=>d.enrolled);
+  const other=data.filter(d=>!d.enrolled);
+  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span style="font-family:monospace;font-weight:600">${d.phone}</span> <span style="color:var(--text-muted);font-size:11px">— timed out on: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  document.getElementById('missedEnrolledCount').textContent='('+enrolled.length+')';
+  document.getElementById('missedEnrolledList').innerHTML=rowHtml(enrolled);
+  document.getElementById('missedOtherCount').textContent='('+other.length+')';
+  document.getElementById('missedOtherList').innerHTML=rowHtml(other);
+}
 function toggleCampAgents(rowId){
   const rows=document.querySelectorAll('[data-parent="'+rowId+'"]');
   const tog=document.getElementById('tog-'+rowId);
@@ -752,12 +783,15 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   // Find all inbound TIMEOT phones and check if any outbound call followed
   const timeoutTs={};       // phone → latest inbound TIMEOT timestamp
   const timeoutAgents={};   // phone → Set of agents who timed out
+  const timeoutCamps={};    // phone → Set of campaigns seen on TIMEOT calls
   calls.forEach(r=>{
     if(r._status==='TIMEOT'&&r._dir==='inbound'&&r._phone){
       const ts=parseTs(r['call_date']||r['date']||'');
       if(!timeoutTs[r._phone]||ts>timeoutTs[r._phone]) timeoutTs[r._phone]=ts;
       if(!timeoutAgents[r._phone]) timeoutAgents[r._phone]=new Set();
+      if(!timeoutCamps[r._phone]) timeoutCamps[r._phone]=new Set();
       if(r._name&&r._name!=='Unknown') timeoutAgents[r._phone].add(r._name);
+      if(r._campaign) timeoutCamps[r._phone].add(r._campaign);
     }
   });
   const calledBack=new Set();
@@ -768,13 +802,22 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
   });
   const missedPhones=Object.keys(timeoutTs).filter(p=>!calledBack.has(p));
-  if(missedPhones.length){
-    const detail=missedPhones.map(p=>{
-      const agents=[...(timeoutAgents[p]||[])].join(', ')||'—';
-      return `${p}  (timed out on: ${agents})`;
-    }).join('\n');
-    issues.push({sev:'crit',title:`${missedPhones.length} client${missedPhones.length>1?'s':''} called in, timed out, and were NEVER called back`,detail:'These clients reached out and waited — no agent picked up and no one followed up.\n\n'+detail});
-  }
+  const anyEnrolledPhone=new Set();
+  calls.forEach(r=>{ if(r['Cordoba Enrolled Date']||r['Enrolled Date']) anyEnrolledPhone.add(r._phone); });
+  // Build full data array for filter function
+  const missedData=missedPhones.map(p=>({
+    phone:p,
+    agents:[...(timeoutAgents[p]||[])].join(', ')||'—',
+    camps:[...(timeoutCamps[p]||[])],
+    enrolled:anyEnrolledPhone.has(p)
+  }));
+  const allMissedCamps=[...new Set(missedData.flatMap(d=>d.camps))].sort();
+  const campSel=document.getElementById('missedCampFilter');
+  campSel.innerHTML='<option value="">All Campaigns</option>'+allMissedCamps.map(c=>`<option value="${c}">${c}</option>`).join('');
+  window._missedData=missedData;
+  const card=document.getElementById('missedCallbackCard');
+  if(missedPhones.length){ card.style.display=''; renderMissedCallbacks(); }
+  else card.style.display='none';
   const vdclAfterHours=vdclCalls.filter(r=>parseInt(r._hour)>=18).length;
   const shortPct=deadCalls/total*100;
   const dropPct=drops/total*100;
