@@ -405,7 +405,7 @@ function funnelCell(val,denom,color){
   return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
-const OPENERS=new Set(['spencer porterfield','abdelrhaman nianaa','mohamad dadou','stanley randolph','riley malone','jon stults','liz arredondo','lindsey magnusen','jaiden lopez','logan apana','brian smith','walter urbina','tabitha jaggers','rachel calderon','mercy morse','joselyn lorenzo','joseph nassif','alexander tulkoff','darrin ford']);
+const OPENERS=new Set(['spencer porterfield','abdelrhaman nianaa','mohamad dadou','stanley randolph','riley malone','jon stults','liz arredondo','lindsey magnusen','jaiden lopez','brian smith','walter urbina','tabitha jaggers','rachel calderon','mercy morse','joselyn lorenzo','joseph nassif','alexander tulkoff','darrin ford']);
 function toggleAgentHours(rowId){
   const rows=document.querySelectorAll('[data-parent="'+rowId+'"]');
   const tog=document.getElementById('tog-'+rowId);
