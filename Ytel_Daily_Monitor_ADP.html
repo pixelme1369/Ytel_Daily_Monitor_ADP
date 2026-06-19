@@ -594,8 +594,13 @@ function parseTs(val){
 function getDateStr(val){
   if(!val && val!==0) return '';
   if(val instanceof Date){
-    // Use local date parts — toISOString() is UTC and shifts the date in east-of-UTC timezones
-    const y=val.getFullYear(), mo=String(val.getMonth()+1).padStart(2,'0'), d=String(val.getDate()).padStart(2,'0');
+    // Date-only cells (e.g. Cordoba Enrolled Date) arrive as UTC midnight from SheetJS — use UTC parts.
+    // Datetime cells (e.g. call_date with a time component) store local time "as UTC" — use local parts.
+    if(val.getUTCHours()===0&&val.getUTCMinutes()===0&&val.getUTCSeconds()===0){
+      const y=val.getUTCFullYear(),mo=String(val.getUTCMonth()+1).padStart(2,'0'),d=String(val.getUTCDate()).padStart(2,'0');
+      return `${y}-${mo}-${d}`;
+    }
+    const y=val.getFullYear(),mo=String(val.getMonth()+1).padStart(2,'0'),d=String(val.getDate()).padStart(2,'0');
     return `${y}-${mo}-${d}`;
   }
   const s=String(val);
@@ -886,11 +891,24 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   // ── Agent table ──
   // Build per-agent first-direction map: agent+phone → {dir, ts}
   const agentPhoneFirstDir={};
+  // Also track first/last call per agent+phone for hourly unique and enrollment hour
+  const agentPhoneFirstCall={}; // {name:{phone:{hk,ts,dir}}}
+  const agentPhoneLastCall={};  // {name:{phone:{hk,ts}}}
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._phone).forEach(r=>{
     const key=r._name+'||'+r._phone;
     const ts=parseTs(r['call_date']||r['date']||'');
     if(!agentPhoneFirstDir[key]||ts<agentPhoneFirstDir[key].ts)
       agentPhoneFirstDir[key]={dir:r._dir,ts};
+    const hr=parseInt(r._hour);
+    if(!isNaN(hr)){
+      const hk=String(hr).padStart(2,'0')+':00';
+      if(!agentPhoneFirstCall[r._name]) agentPhoneFirstCall[r._name]={};
+      if(!agentPhoneLastCall[r._name]) agentPhoneLastCall[r._name]={};
+      if(!agentPhoneFirstCall[r._name][r._phone]||ts<agentPhoneFirstCall[r._name][r._phone].ts)
+        agentPhoneFirstCall[r._name][r._phone]={hk,ts,dir:r._dir};
+      if(!agentPhoneLastCall[r._name][r._phone]||ts>agentPhoneLastCall[r._name][r._phone].ts)
+        agentPhoneLastCall[r._name][r._phone]={hk,ts};
+    }
   });
 
   const agentMap={};
@@ -929,7 +947,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(!isNaN(hr)){
       if(!agentHourMap[r._name]) agentHourMap[r._name]={};
       const hk=String(hr).padStart(2,'0')+':00';
-      if(!agentHourMap[r._name][hk]) agentHourMap[r._name][hk]={calls:0,short:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,sec:0,enr:0,phoneFirstDir:{}};
+      if(!agentHourMap[r._name][hk]) agentHourMap[r._name][hk]={calls:0,short:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,sec:0};
       const h=agentHourMap[r._name][hk]; h.calls++; h.sec+=r._sec;
       if(r._sec<=30) h.short++;
       if(r._sec<120) h.lt2m++;
@@ -938,13 +956,29 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       if(r._sec>=600) h.gt10m++;
       if(r._sec>=900) h.gt15m++;
       if(r._sec>=1800) h.gt30m++;
-      if(r._enrolled) h.enr++;
-      if(r._phone){
-        const ts=parseTs(r['call_date']||r['date']||'');
-        if(!h.phoneFirstDir[r._phone]||ts<h.phoneFirstDir[r._phone].ts)
-          h.phoneFirstDir[r._phone]={dir:r._dir,ts};
-      }
     }
+  });
+
+  // Post-process: populate hourly unique counts (first-call-of-day hour per phone)
+  Object.entries(agentPhoneFirstCall).forEach(([name,phoneMap])=>{
+    Object.entries(phoneMap).forEach(([phone,{hk,dir}])=>{
+      if(!agentHourMap[name]||!agentHourMap[name][hk]) return;
+      const h=agentHourMap[name][hk];
+      if(!h.uniqueFirstDir) h.uniqueFirstDir={};
+      h.uniqueFirstDir[phone]=dir;
+    });
+  });
+
+  // Post-process: populate hourly enrollment counts (last-call-of-day hour per enrolled phone)
+  Object.entries(agentEnrollPhones).forEach(([agentNameLc,phones])=>{
+    const agentName=Object.keys(agentPhoneLastCall).find(n=>n.toLowerCase()===agentNameLc);
+    if(!agentName) return;
+    phones.forEach(phone=>{
+      const last=agentPhoneLastCall[agentName]&&agentPhoneLastCall[agentName][phone];
+      if(!last) return;
+      if(!agentHourMap[agentName]||!agentHourMap[agentName][last.hk]) return;
+      agentHourMap[agentName][last.hk].enrHour=(agentHourMap[agentName][last.hk].enrHour||0)+1;
+    });
   });
 
   const agentRows=Object.entries(agentMap)
@@ -995,9 +1029,9 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         return `<tr class="agent-hour-row" style="display:none" data-parent="${rowId}">
           <td style="text-align:left;padding-left:32px;color:var(--text-muted);font-size:11px">↳ ${hk}</td>
           <td>${h.calls}</td>
-          <td>${Object.keys(h.phoneFirstDir||{}).length||'—'}</td>
-          <td style="color:var(--blue)">${Object.values(h.phoneFirstDir||{}).filter(v=>v.dir==='inbound').length||'—'}</td>
-          <td>${Object.values(h.phoneFirstDir||{}).filter(v=>v.dir!=='inbound').length||'—'}</td>
+          <td>${Object.keys(h.uniqueFirstDir||{}).length||'—'}</td>
+          <td style="color:var(--blue)">${Object.values(h.uniqueFirstDir||{}).filter(v=>v==='inbound').length||'—'}</td>
+          <td>${Object.values(h.uniqueFirstDir||{}).filter(v=>v!=='inbound').length||'—'}</td>
           <td>${hShortPct}%</td>
           <td>${funnelCell(h.lt2m,h.calls,"var(--red)")}</td>
           <td>${funnelCell(h.gt2m,0,null)}</td>
@@ -1007,7 +1041,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
           <td>${funnelCell(h.gt30m,h.calls,"var(--green-dk)")}</td>
           <td>${fmtDur(h.calls?Math.round(h.sec/h.calls):0)}</td>
           <td>${fmtDur(h.sec)}</td>
-          <td class="${h.enr>0?'enroll-num':'enroll-zero'}">${h.enr||'—'}</td>
+          <td class="${(h.enrHour||0)>0?'enroll-num':'enroll-zero'}">${h.enrHour||'—'}</td>
           <td>—</td><td>—</td>
         </tr>`;
       }).join('');
