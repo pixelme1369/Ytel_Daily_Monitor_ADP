@@ -340,11 +340,18 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
   <div class="card">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <span>Campaign / queue breakdown</span>
-      <select id="campDirFilter" onchange="filterCampDir()" style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
-        <option value="">All Directions</option>
-        <option value="inbound">Inbound</option>
-        <option value="outbound">Outbound</option>
-      </select>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <div id="campRoleBtns" style="display:flex;align-items:center;gap:4px">
+          <button onclick="filterCampTable('all')"    id="cr-all"    class="af-btn af-active">All</button>
+          <button onclick="filterCampTable('closer')" id="cr-closer" class="af-btn">Closers</button>
+          <button onclick="filterCampTable('opener')" id="cr-opener" class="af-btn">Openers</button>
+        </div>
+        <select id="campDirFilter" onchange="filterCampTable()" style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
+          <option value="">All Directions</option>
+          <option value="inbound">Inbound</option>
+          <option value="outbound">Outbound</option>
+        </select>
+      </div>
     </div>
     <div class="tbl-wrap">
       <table id="campTable">
@@ -567,12 +574,45 @@ function filterFunnel(type){
   if(_funnelRoleFilter==='opener') rows=rows.filter(a=>OPENERS.has(a.name.toLowerCase()));
   window.renderFunnelBody(rows);
 }
-function filterCampDir(){
+let _campRoleFilter='all';
+function filterCampTable(role){
+  if(role){
+    _campRoleFilter=role;
+    document.querySelectorAll('#campRoleBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
+    const id={all:'cr-all',closer:'cr-closer',opener:'cr-opener'}[role];
+    if(id) document.getElementById(id)?.classList.add('af-active');
+  }
+  if(!window.renderCampBody||!window._campCalls) return;
   const dir=document.getElementById('campDirFilter')?.value||'';
-  if(!window.renderCampBody) return;
-  if(!dir) window.renderCampBody(window._campMap||{});
-  else window.renderCampBody((window._campDirMap||{})[dir]||{});
+  // If no filters, use prebuilt maps
+  if(_campRoleFilter==='all' && !dir){ window.renderCampBody(window._campMap||{}); return; }
+  if(_campRoleFilter==='all' && dir){ window.renderCampBody((window._campDirMap||{})[dir]||{}); return; }
+  // Role filter: rebuild campMap from raw calls filtered by role+dir
+  const filtered=window._campCalls.filter(r=>{
+    if(dir && r._dir!==dir) return false;
+    const n=(r._name||'').toLowerCase();
+    if(_campRoleFilter==='closer') return CLOSERS.has(n);
+    if(_campRoleFilter==='opener') return OPENERS.has(n);
+    return true;
+  });
+  const map={};
+  filtered.forEach(r=>{
+    const c=r._campaign;
+    if(!map[c]) map[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set()};
+    const d=map[c]; d.calls++; d.sec+=r._sec;
+    if(r._sec<=30) d.short++;
+    if(r._sec<120) d.lt2m++;
+    if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
+    if(r._sec>=300) d.gt5m++;
+    if(r._sec>=600) d.gt10m++;
+    if(r._sec>=900) d.gt15m++;
+    if(r._sec>=1800) d.gt30m++;
+    if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
+    if(r._enrolled) d.enroll++;
+  });
+  window.renderCampBody(map);
 }
+function filterCampDir(){ filterCampTable(); }
 function toggleAgentHours(rowId){
   const rows=document.querySelectorAll('[data-parent="'+rowId+'"]');
   const tog=document.getElementById('tog-'+rowId);
@@ -1384,6 +1424,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
 
   window._campMap=campMap;
   window._campDirMap=campDirMap;
+  window._campCalls=calls;
 
   const typeOrder={Marketing:0,Manual:1,Other:2,VDCL:3};
   window.renderCampBody=function(sourceMap){
