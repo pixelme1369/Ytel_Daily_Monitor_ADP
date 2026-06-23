@@ -265,6 +265,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <option value="inbound">Inbound</option>
           <option value="outbound">Outbound</option>
         </select>
+        <input id="af-name" type="text" oninput="filterAgents()" placeholder="Search agent…" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text);font-family:var(--font);outline:none;width:130px">
       </div>
     </div>
     <div class="tbl-wrap">
@@ -558,8 +559,11 @@ function filterAgents(type){
   }
   const campFilter=(document.getElementById('af-camp')?.value||'');
   const dirFilter=(document.getElementById('af-dir')?.value||'');
+  const nameFilter=(document.getElementById('af-name')?.value||'').toLowerCase().trim();
   const tbody=document.getElementById('agentBody');
   if(!tbody) return;
+
+  const applyNameFilter=rows=>nameFilter?rows.filter(a=>a.name.toLowerCase().includes(nameFilter)):rows;
 
   function buildRowsFromMap(agentDataMap, forcedDir){
     return Object.entries(agentDataMap).map(([name,d])=>{
@@ -585,6 +589,7 @@ function filterAgents(type){
     let rows=buildRowsFromMap(sourceMap);
     if(_agentRoleFilter==='closer') rows=rows.filter(a=>CLOSERS.has(a.name.toLowerCase()));
     if(_agentRoleFilter==='opener') rows=rows.filter(a=>OPENERS.has(a.name.toLowerCase()));
+    rows=applyNameFilter(rows);
     const label=campFilter+(dirFilter?' · '+dirFilter:'');
     document.getElementById('agentCount').textContent=rows.length+' agents ('+label+')';
     window.renderAgentBody(rows);
@@ -596,16 +601,18 @@ function filterAgents(type){
     let rows=buildRowsFromMap(window._agentDirMap[dirFilter]||{}, dirFilter);
     if(_agentRoleFilter==='closer') rows=rows.filter(a=>CLOSERS.has(a.name.toLowerCase()));
     if(_agentRoleFilter==='opener') rows=rows.filter(a=>OPENERS.has(a.name.toLowerCase()));
+    rows=applyNameFilter(rows);
     document.getElementById('agentCount').textContent=rows.length+' agents ('+dirFilter+')';
     window.renderAgentBody(rows);
     return;
   }
 
-  // No filters: full data
+  // No filters (or name-only): full data
   if(window._agentAllRows){
     let rows=window._agentAllRows;
     if(_agentRoleFilter==='closer') rows=rows.filter(a=>CLOSERS.has(a.name.toLowerCase()));
     if(_agentRoleFilter==='opener') rows=rows.filter(a=>OPENERS.has(a.name.toLowerCase()));
+    rows=applyNameFilter(rows);
     document.getElementById('agentCount').textContent=rows.length+' agents';
     window.renderAgentBody(rows);
   }
