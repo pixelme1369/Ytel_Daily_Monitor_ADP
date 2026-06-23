@@ -278,16 +278,16 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th data-col="4" title="Unique phones where first call of the day was outbound. Hourly rows show unique per hour — same phone can appear in multiple hours so hourly totals won't sum to the main row.">Outbound <span style="font-size:9px;font-weight:400;opacity:.7">(unique/hr↗)</span></th>
             <th data-col="5">Short% ≤30s</th>
             <th data-col="6">&lt;2 min</th>
-            <th data-col="7">&gt;2 min</th>
-            <th data-col="8">&gt;5 min</th>
-            <th data-col="9">&gt;10 min</th>
-            <th data-col="10">&gt;15 min</th>
-            <th data-col="11">&gt;30 min</th>
+            <th data-col="7">5–10 min</th>
+            <th data-col="8">10–15 min</th>
+            <th data-col="9">15–20 min</th>
+            <th data-col="10">20–30 min</th>
+            <th data-col="11">30+ min</th>
             <th data-col="12">Avg Talk</th>
             <th data-col="13">Total Talk</th>
             <th data-col="14">Enrolled</th>
             <th data-col="15">Debt $</th>
-            <th data-col="16">Conv% (enr/>2m)</th>
+            <th data-col="16">Conv% (enr/calls)</th>
           </tr>
         </thead>
         <tbody id="agentBody"></tbody>
@@ -320,11 +320,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th style="text-align:left;min-width:160px" data-col="0">Agent</th>
             <th data-col="1">Total Calls</th>
             <th data-col="2">&lt;2 min</th>
-            <th data-col="3">&gt;2 min</th>
-            <th data-col="4">&gt;5 min</th>
-            <th data-col="5">&gt;10 min</th>
-            <th data-col="6">&gt;15 min</th>
-            <th data-col="7">&gt;30 min</th>
+            <th data-col="3">5–10 min</th>
+            <th data-col="4">10–15 min</th>
+            <th data-col="5">15–20 min</th>
+            <th data-col="6">20–30 min</th>
+            <th data-col="7">30+ min</th>
           </tr>
         </thead>
         <tbody id="funnelBody"></tbody>
@@ -372,11 +372,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th data-col="1">Calls (total)</th>
             <th data-col="2">Dead ≤30s</th>
             <th data-col="3">&lt;2 min</th>
-            <th data-col="4">&gt;2 min</th>
-            <th data-col="5">&gt;5 min</th>
-            <th data-col="6">&gt;10 min</th>
-            <th data-col="7">&gt;15 min</th>
-            <th data-col="8">&gt;30 min</th>
+            <th data-col="4">5–10 min</th>
+            <th data-col="5">10–15 min</th>
+            <th data-col="6">15–20 min</th>
+            <th data-col="7">20–30 min</th>
+            <th data-col="8">30+ min</th>
             <th data-col="9">Drops</th>
             <th data-col="10">Avg Talk</th>
             <th data-col="11">Enrolled</th>
@@ -660,15 +660,16 @@ function filterCampTable(role){
   const map={};
   filtered.forEach(r=>{
     const c=r._campaign;
-    if(!map[c]) map[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
+    if(!map[c]) map[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
     const d=map[c]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
     if(r._sec<120) d.lt2m++;
     if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
-    if(r._sec>=300) d.gt5m++;
-    if(r._sec>=600) d.gt10m++;
-    if(r._sec>=900) d.gt15m++;
-    if(r._sec>=1800) d.gt30m++;
+    if(r._sec>=300&&r._sec<600) d.r5to10++;
+    else if(r._sec>=600&&r._sec<900) d.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) d.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
+    else if(r._sec>=1800) d.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
     if(r._enrolled){ d.enroll++; if(r._phone) d.enrolledPhones.add(r._phone); }
   });
@@ -1260,41 +1261,44 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentCampsMap={};
   const agentCampDataMap={}; // {camp: {agentName: stats}}
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)).forEach(r=>{
-    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,phones:new Set(),enrolledPhones:new Set()};
+    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set()};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
     if(r._sec<120) d.lt2m++;
     if(r._sec>=120) d.gt2m++;
-    if(r._sec>=300) d.gt5m++;
-    if(r._sec>=600) d.gt10m++;
-    if(r._sec>=900) d.gt15m++;
-    if(r._sec>=1800) d.gt30m++;
+    if(r._sec>=300&&r._sec<600) d.r5to10++;
+    else if(r._sec>=600&&r._sec<900) d.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) d.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
+    else if(r._sec>=1800) d.gt30m++;
     if(r._phone) d.phones.add(r._phone);
     // direction breakdown
     const dkey=r._dir==='inbound'?'inbound':'outbound';
-    if(!agentDirMap[dkey][r._name]) agentDirMap[dkey][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,phones:new Set(),enr:0,debt:0};
+    if(!agentDirMap[dkey][r._name]) agentDirMap[dkey][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enr:0,debt:0};
     const dd=agentDirMap[dkey][r._name]; dd.calls++; dd.sec+=r._sec;
     if(r._sec<=30) dd.short++;
     if(r._sec<120) dd.lt2m++;
     if(r._sec>=120) dd.gt2m++;
-    if(r._sec>=300) dd.gt5m++;
-    if(r._sec>=600) dd.gt10m++;
-    if(r._sec>=900) dd.gt15m++;
-    if(r._sec>=1800) dd.gt30m++;
+    if(r._sec>=300&&r._sec<600) dd.r5to10++;
+    else if(r._sec>=600&&r._sec<900) dd.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) dd.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) dd.r20to30++;
+    else if(r._sec>=1800) dd.gt30m++;
     if(r._phone) dd.phones.add(r._phone);
     if(r._campaign){
       if(!agentCampsMap[r._name]) agentCampsMap[r._name]=new Set();
       agentCampsMap[r._name].add(r._campaign);
       if(!agentCampDataMap[r._campaign]) agentCampDataMap[r._campaign]={};
-      if(!agentCampDataMap[r._campaign][r._name]) agentCampDataMap[r._campaign][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,phones:new Set(),enr:0,debt:0};
+      if(!agentCampDataMap[r._campaign][r._name]) agentCampDataMap[r._campaign][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enr:0,debt:0};
       const cd=agentCampDataMap[r._campaign][r._name]; cd.calls++; cd.sec+=r._sec;
       if(r._sec<=30) cd.short++;
       if(r._sec<120) cd.lt2m++;
       if(r._sec>=120) cd.gt2m++;
-      if(r._sec>=300) cd.gt5m++;
-      if(r._sec>=600) cd.gt10m++;
-      if(r._sec>=900) cd.gt15m++;
-      if(r._sec>=1800) cd.gt30m++;
+      if(r._sec>=300&&r._sec<600) cd.r5to10++;
+      else if(r._sec>=600&&r._sec<900) cd.r10to15++;
+      else if(r._sec>=900&&r._sec<1200) cd.r15to20++;
+      else if(r._sec>=1200&&r._sec<1800) cd.r20to30++;
+      else if(r._sec>=1800) cd.gt30m++;
       if(r._phone) cd.phones.add(r._phone);
       if(r._enrolled){ cd.enr++; cd.debt+=(parseFloat(r['Enrolled Debt']||r['enrolled_debt']||0)||0); }
     }
@@ -1303,15 +1307,15 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(!isNaN(hr)){
       if(!agentHourMap[r._name]) agentHourMap[r._name]={};
       const hk=String(hr).padStart(2,'0')+':00';
-      if(!agentHourMap[r._name][hk]) agentHourMap[r._name][hk]={calls:0,short:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,sec:0};
+      if(!agentHourMap[r._name][hk]) agentHourMap[r._name][hk]={calls:0,short:0,lt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0};
       const h=agentHourMap[r._name][hk]; h.calls++; h.sec+=r._sec;
       if(r._sec<=30) h.short++;
       if(r._sec<120) h.lt2m++;
-      if(r._sec>=120) h.gt2m++;
-      if(r._sec>=300) h.gt5m++;
-      if(r._sec>=600) h.gt10m++;
-      if(r._sec>=900) h.gt15m++;
-      if(r._sec>=1800) h.gt30m++;
+      if(r._sec>=300&&r._sec<600) h.r5to10++;
+      else if(r._sec>=600&&r._sec<900) h.r10to15++;
+      else if(r._sec>=900&&r._sec<1200) h.r15to20++;
+      else if(r._sec>=1200&&r._sec<1800) h.r20to30++;
+      else if(r._sec>=1800) h.gt30m++;
     }
   });
 
@@ -1391,10 +1395,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
           <td>${Object.values(h.uniqueFirstDir||{}).filter(v=>v!=='inbound').length||'—'}</td>
           <td>${hShortPct}%</td>
           <td>${funnelCell(h.lt2m,h.calls,"var(--red)")}</td>
-          <td>${funnelCell(h.gt2m,0,null)}</td>
-          <td>${funnelCell(h.gt5m,0,null)}</td>
-          <td>${funnelCell(h.gt10m,0,null)}</td>
-          <td>${funnelCell(h.gt15m,h.calls,"var(--green-dk)")}</td>
+          <td>${funnelCell(h.r5to10,h.calls,"var(--text-muted)")}</td>
+          <td>${funnelCell(h.r10to15,h.calls,"var(--text-muted)")}</td>
+          <td>${funnelCell(h.r15to20,h.calls,"var(--text-muted)")}</td>
+          <td>${funnelCell(h.r20to30,h.calls,"var(--green-dk)")}</td>
           <td>${funnelCell(h.gt30m,h.calls,"var(--green-dk)")}</td>
           <td>${fmtDur(h.calls?Math.round(h.sec/h.calls):0)}</td>
           <td>${fmtDur(h.sec)}</td>
@@ -1414,9 +1418,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <td><div class="bar-mini"><div class="bar-bg"><div class="bar-fg ${shortCls}" style="width:${a.shortPct.toFixed(0)}%"></div></div>${a.shortPct.toFixed(0)}%</div></td>
         <td>${funnelCell(a.lt2m,a.calls,"var(--red)")}</td>
         <td>${gt2mCell}</td>
-        <td>${funnelCell(a.gt5m,0,null)}</td>
-        <td>${funnelCell(a.gt10m,0,null)}</td>
-        <td>${funnelCell(a.gt15m,a.calls,"var(--green-dk)")}</td>
+        <td>${funnelCell(a.r5to10,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r10to15,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r15to20,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r20to30,a.calls,"var(--green-dk)")}</td>
         <td>${funnelCell(a.gt30m,a.calls,"var(--green-dk)")}</td>
         <td>${fmtDur(a.avg)}</td>
         <td>${fmtDur(a.sec)}</td>
@@ -1428,20 +1433,22 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     // totals row
     const agTot=rows.reduce((t,a)=>({
       calls:t.calls+a.calls, uniqueCalls:t.uniqueCalls+(a.uniqueCalls||0),
-      short:t.short+a.short, lt2m:t.lt2m+a.lt2m, gt2m:t.gt2m+a.gt2m, gt5m:t.gt5m+a.gt5m,
-      gt10m:t.gt10m+a.gt10m, gt15m:t.gt15m+a.gt15m, gt30m:t.gt30m+a.gt30m,
+      short:t.short+a.short, lt2m:t.lt2m+a.lt2m, gt2m:t.gt2m+a.gt2m,
+      r5to10:t.r5to10+a.r5to10, r10to15:t.r10to15+a.r10to15, r15to20:t.r15to20+a.r15to20,
+      r20to30:t.r20to30+a.r20to30, gt30m:t.gt30m+a.gt30m,
       sec:t.sec+a.sec, enr:t.enr+a.enr, debt:t.debt+a.debt
-    }),{calls:0,uniqueCalls:0,short:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,sec:0,enr:0,debt:0});
+    }),{calls:0,uniqueCalls:0,short:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0,enr:0,debt:0});
     const agTotShortPct=agTot.calls?agTot.short/agTot.calls*100:0;
     document.getElementById('agentBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
       <td style="text-align:left">TOTAL</td>
       <td>${agTot.calls}</td><td>${agTot.uniqueCalls}</td><td>—</td><td>—</td>
       <td>${agTotShortPct.toFixed(0)}%</td>
       <td>${funnelCell(agTot.lt2m,agTot.calls,"var(--red)")}</td>
-      <td>${funnelCell(agTot.gt2m,0,null)}</td>
-      <td>${funnelCell(agTot.gt5m,0,null)}</td>
-      <td>${funnelCell(agTot.gt10m,0,null)}</td>
-      <td>${funnelCell(agTot.gt15m,agTot.calls,"var(--green-dk)")}</td>
+      <td>${funnelCell(agTot.gt2m,agTot.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(agTot.r5to10,agTot.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(agTot.r10to15,agTot.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(agTot.r15to20,agTot.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(agTot.r20to30,agTot.calls,"var(--green-dk)")}</td>
       <td>${funnelCell(agTot.gt30m,agTot.calls,"var(--green-dk)")}</td>
       <td>—</td><td>${fmtDur(agTot.sec)}</td>
       <td>${agTot.enr||'—'}</td>
@@ -1462,10 +1469,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <td style="text-align:left;font-weight:600;color:var(--text)">${a.name}${RETENTION.has(a.name.toLowerCase())?'<span class="tag-retention">Retention</span>':OPENERS.has(a.name.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
         <td>${a.calls}</td>
         <td>${fcell(a.lt2m,a.calls,'var(--red)')}</td>
-        <td>${fcell(a.gt2m,a.calls,null)}</td>
-        <td>${fcell(a.gt5m,a.calls,null)}</td>
-        <td>${fcell(a.gt10m,a.calls,null)}</td>
-        <td>${fcell(a.gt15m,a.calls,'var(--green-dk)')}</td>
+        <td>${fcell(a.r5to10,a.calls,null)}</td>
+        <td>${fcell(a.r10to15,a.calls,null)}</td>
+        <td>${fcell(a.r15to20,a.calls,null)}</td>
+        <td>${fcell(a.r20to30,a.calls,'var(--green-dk)')}</td>
         <td>${fcell(a.gt30m,a.calls,'var(--green-dk)')}</td>
       </tr>`).join('');
   };
@@ -1560,50 +1567,52 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       </div>`;
     }).join('')||'<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Not enough data (min 20 calls)</div>';
   }
-  rankList(agentRows, a=>a.calls>0?a.gt5m/a.calls*100:0,  null, 'rankOpenerList', 'var(--blue)',    'var(--red)');
-  rankList(agentRows, a=>a.calls>0?a.gt15m/a.calls*100:0, null, 'rankCloserList', 'var(--green-dk)','var(--red)');
+  rankList(agentRows, a=>a.calls>0?(a.r5to10+a.r10to15+a.r15to20+a.r20to30+a.gt30m)/a.calls*100:0, null, 'rankOpenerList', 'var(--blue)',    'var(--red)');
+  rankList(agentRows, a=>a.calls>0?(a.r15to20+a.r20to30+a.gt30m)/a.calls*100:0,                    null, 'rankCloserList', 'var(--green-dk)','var(--red)');
 
   // ── Campaign table ──
   const campMap={};
   const campDirMap={inbound:{},outbound:{}}; // direction-filtered camp stats
   const campAgentMap={};
   calls.forEach(r=>{
-    const c=r._campaign; if(!campMap[c]) campMap[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
+    const c=r._campaign; if(!campMap[c]) campMap[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
     const d=campMap[c]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
     if(r._sec<120) d.lt2m++;
     if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
-    if(r._sec>=300) d.gt5m++;
-    if(r._sec>=600) d.gt10m++;
-    if(r._sec>=900) d.gt15m++;
-    if(r._sec>=1800) d.gt30m++;
+    if(r._sec>=300&&r._sec<600) d.r5to10++;
+    else if(r._sec>=600&&r._sec<900) d.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) d.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
+    else if(r._sec>=1800) d.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
     if(r._enrolled){ d.enroll++; if(r._phone) d.enrolledPhones.add(r._phone); }
     // direction breakdown
     const dir=r._dir==='inbound'?'inbound':'outbound';
-    if(!campDirMap[dir][c]) campDirMap[dir][c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
+    if(!campDirMap[dir][c]) campDirMap[dir][c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
     const dd=campDirMap[dir][c]; dd.calls++; dd.sec+=r._sec;
     if(r._sec<=30) dd.short++;
     if(r._sec<120) dd.lt2m++;
     if(r._sec>=120){ dd.gt2m++; if(r._phone) dd.phonesGt2m.add(r._phone); }
-    if(r._sec>=300) dd.gt5m++;
-    if(r._sec>=600) dd.gt10m++;
-    if(r._sec>=900) dd.gt15m++;
-    if(r._sec>=1800) dd.gt30m++;
+    if(r._sec>=300&&r._sec<600) dd.r5to10++;
+    else if(r._sec>=600&&r._sec<900) dd.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) dd.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) dd.r20to30++;
+    else if(r._sec>=1800) dd.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) dd.drops++;
     if(r._enrolled){ dd.enroll++; if(r._phone) dd.enrolledPhones.add(r._phone); }
     // per-campaign per-agent
     if(!campAgentMap[c]) campAgentMap[c]={};
     const ag=r._name||'Unknown';
-    if(!campAgentMap[c][ag]) campAgentMap[c][ag]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,enroll:0,enrolledPhones:new Set()};
+    if(!campAgentMap[c][ag]) campAgentMap[c][ag]={calls:0,short:0,sec:0,lt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,enrolledPhones:new Set()};
     const da=campAgentMap[c][ag]; da.calls++; da.sec+=r._sec;
     if(r._sec<=30) da.short++;
     if(r._sec<120) da.lt2m++;
-    if(r._sec>=120) da.gt2m++;
-    if(r._sec>=300) da.gt5m++;
-    if(r._sec>=600) da.gt10m++;
-    if(r._sec>=900) da.gt15m++;
-    if(r._sec>=1800) da.gt30m++;
+    if(r._sec>=300&&r._sec<600) da.r5to10++;
+    else if(r._sec>=600&&r._sec<900) da.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) da.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) da.r20to30++;
+    else if(r._sec>=1800) da.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) da.drops++;
     if(r._enrolled){ da.enroll++; if(r._phone) da.enrolledPhones.add(r._phone); }
   });
@@ -1635,10 +1644,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <td>${a.calls}</td>
         <td>${a.short} <span style="color:var(--text-muted);font-size:11px">${pct(a.short,a.calls)}</span></td>
         <td>${funnelCell(a.lt2m,a.calls,"var(--red)")}</td>
-        <td>${funnelCell(a.gt2m,a.calls,"var(--text-muted)")}</td>
-        <td>${funnelCell(a.gt5m,a.calls,"var(--text-muted)")}</td>
-        <td>${funnelCell(a.gt10m,a.calls,"var(--text-muted)")}</td>
-        <td>${funnelCell(a.gt15m,a.calls,"var(--green-dk)")}</td>
+        <td>${funnelCell(a.r5to10,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r10to15,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r15to20,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r20to30,a.calls,"var(--green-dk)")}</td>
         <td>${funnelCell(a.gt30m,a.calls,"var(--green-dk)")}</td>
         <td>${a.drops>0?'<span style="color:var(--red);font-weight:600">'+a.drops+'</span>':'—'}</td>
         <td>${fmtDur(a.calls?Math.round(a.sec/a.calls):0)}</td>
@@ -1649,15 +1658,15 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <td>${d.calls}</td>
       <td>${d.short} <span style="color:var(--text-muted);font-size:11px">${pct(d.short,d.calls)}</span></td>
       <td>${funnelCell(d.lt2m,d.calls,"var(--red)")}</td>
-      <td>${funnelCell(d.gt2m,d.calls,"var(--text-muted)")}</td>
-      <td>${funnelCell(d.gt5m,d.calls,"var(--text-muted)")}</td>
-      <td>${funnelCell(d.gt10m,d.calls,"var(--text-muted)")}</td>
-      <td>${funnelCell(d.gt15m,d.calls,"var(--green-dk)")}</td>
+      <td>${funnelCell(d.r5to10,d.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(d.r10to15,d.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(d.r15to20,d.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(d.r20to30,d.calls,"var(--green-dk)")}</td>
       <td>${funnelCell(d.gt30m,d.calls,"var(--green-dk)")}</td>
       <td>${d.drops>0?'<span style="color:var(--red);font-weight:600">'+d.drops+'</span>':'—'}</td>
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
       <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...d.enrolledPhones])},${JSON.stringify(camp)})'>${d.enroll}</span>`:'—'}</td>
-      <td>${d.gt2m>0&&d.enroll>0?pct(d.enroll,d.gt2m):'—'}</td>
+      <td>${d.calls>0&&d.enroll>0?pct(d.enroll,d.calls):'—'}</td>
       <td>${d.phonesGt2m.size>0&&d.enroll>0?pct(d.enroll,d.phonesGt2m.size):'—'}</td>
     </tr>${agentSubRows}`;
   }).join('');
@@ -1665,24 +1674,25 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   // Campaign table totals row
   const cTot=campRows.reduce((t,[,d])=>({
     calls:t.calls+d.calls, short:t.short+d.short, lt2m:t.lt2m+d.lt2m,
-    gt2m:t.gt2m+d.gt2m, gt5m:t.gt5m+d.gt5m, gt10m:t.gt10m+d.gt10m,
-    gt15m:t.gt15m+d.gt15m, gt30m:t.gt30m+d.gt30m,
+    gt2m:t.gt2m+d.gt2m, r5to10:t.r5to10+d.r5to10, r10to15:t.r10to15+d.r10to15,
+    r15to20:t.r15to20+d.r15to20, r20to30:t.r20to30+d.r20to30, gt30m:t.gt30m+d.gt30m,
     drops:t.drops+d.drops, sec:t.sec+d.sec, enroll:t.enroll+d.enroll
-  }),{calls:0,short:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,sec:0,enroll:0});
+  }),{calls:0,short:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,sec:0,enroll:0});
   document.getElementById('campBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
     <td style="text-align:left">TOTAL</td>
     <td>${cTot.calls}</td>
     <td>${cTot.short} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.short,cTot.calls)}</span></td>
     <td>${funnelCell(cTot.lt2m,cTot.calls,"var(--red)")}</td>
     <td>${funnelCell(cTot.gt2m,cTot.calls,"var(--text-muted)")}</td>
-    <td>${funnelCell(cTot.gt5m,cTot.calls,"var(--text-muted)")}</td>
-    <td>${funnelCell(cTot.gt10m,cTot.calls,"var(--text-muted)")}</td>
-    <td>${funnelCell(cTot.gt15m,cTot.calls,"var(--green-dk)")}</td>
+    <td>${funnelCell(cTot.r5to10,cTot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(cTot.r10to15,cTot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(cTot.r15to20,cTot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(cTot.r20to30,cTot.calls,"var(--green-dk)")}</td>
     <td>${funnelCell(cTot.gt30m,cTot.calls,"var(--green-dk)")}</td>
     <td>${cTot.drops>0?'<span style="color:var(--red);font-weight:600">'+cTot.drops+'</span>':'—'}</td>
     <td>${fmtDur(cTot.calls?Math.round(cTot.sec/cTot.calls):0)}</td>
     <td class="${cTot.enroll>0?'enroll-num':'enroll-zero'}">${cTot.enroll||'—'}</td>
-    <td>${cTot.gt2m>0&&cTot.enroll>0?pct(cTot.enroll,cTot.gt2m):'—'}</td>
+    <td>${cTot.calls>0&&cTot.enroll>0?pct(cTot.enroll,cTot.calls):'—'}</td>
     <td>—</td>
   </tr>`;
   }; // end renderCampBody
