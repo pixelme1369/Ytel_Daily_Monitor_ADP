@@ -480,11 +480,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th>Calls (total)</th>
             <th>Dead ≤30s</th>
             <th>&lt;2 min</th>
-            <th>&gt;2 min</th>
-            <th>&gt;5 min</th>
-            <th>&gt;10 min</th>
-            <th>&gt;15 min</th>
-            <th>&gt;30 min</th>
+            <th>2–5 min</th>
+            <th>5–10 min</th>
+            <th>10–15 min</th>
+            <th>15–30 min</th>
+            <th>30+ min</th>
             <th>Drops</th>
             <th>Avg Talk</th>
             <th>Enrolled</th>
@@ -687,9 +687,15 @@ function renderOpenerTable(){
     if(dirF && r._dir!==dirF) return false;
     return true;
   });
-  // Build {agent: {camp: stats}}
-  const emptyS=()=>({calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,enroll:0,
-    enrolledPhones:new Set(),cltrns:{lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0}});
+  // Build {agent: {camp: stats}} using NON-CUMULATIVE ranges
+  const emptyS=()=>({calls:0,short:0,sec:0,drops:0,enroll:0,enrolledPhones:new Set(),
+    lt2m:0,          cltrns_lt2m:0,
+    r2to5:0,         cltrns_2to5:0,
+    r5to10:0,        cltrns_5to10:0,
+    r10to15:0,       cltrns_10to15:0,
+    r15to30:0,       cltrns_15to30:0,
+    gt30m:0,         cltrns_gt30:0
+  });
   const agCampMap={};
   filtered.forEach(r=>{
     const ag=r._name||'Unknown'; const c=r._campaign;
@@ -699,68 +705,63 @@ function renderOpenerTable(){
     s.calls++; s.sec+=r._sec;
     if(r._sec<=30) s.short++;
     const isCL=r._status==='CLtrns';
-    if(r._sec<120){ s.lt2m++; if(isCL) s.cltrns.lt2m++; }
-    if(r._sec>=120){ s.gt2m++; if(isCL) s.cltrns.gt2m++; }
-    if(r._sec>=300){ s.gt5m++; if(isCL) s.cltrns.gt5m++; }
-    if(r._sec>=600){ s.gt10m++; if(isCL) s.cltrns.gt10m++; }
-    if(r._sec>=900){ s.gt15m++; if(isCL) s.cltrns.gt15m++; }
-    if(r._sec>=1800){ s.gt30m++; if(isCL) s.cltrns.gt30m++; }
     if(['DROP','TIMEOT'].includes(r._status)) s.drops++;
     if(r._enrolled){ s.enroll++; if(r._phone) s.enrolledPhones.add(r._phone); }
+    const sec=r._sec;
+    if(sec<120){                       s.lt2m++;    if(isCL) s.cltrns_lt2m++; }
+    else if(sec<300){                  s.r2to5++;   if(isCL) s.cltrns_2to5++; }
+    else if(sec<600){                  s.r5to10++;  if(isCL) s.cltrns_5to10++; }
+    else if(sec<900){                  s.r10to15++; if(isCL) s.cltrns_10to15++; }
+    else if(sec<1800){                 s.r15to30++; if(isCL) s.cltrns_15to30++; }
+    else{                              s.gt30m++;   if(isCL) s.cltrns_gt30++; }
   });
-  const clCell=(val,cl)=>{
-    const pctStr=cl>0?`<div style="font-size:9px;color:var(--blue);font-weight:600;margin-top:1px">${cl} CLtrns</div>`:'';
-    return val+pctStr;
+  const clCell=(val,cl,totalForPct)=>{
+    const pct_=totalForPct>0?`<div style="font-size:9px;color:var(--text-muted);margin-top:1px">${Math.round(val/totalForPct*100)}%</div>`:'';
+    const clLine=cl>0?`<div style="font-size:9px;color:var(--blue);font-weight:600">${cl} CLtrns</div>`:'';
+    return val+pct_+clLine;
   };
-  const sumTot=entries=>entries.reduce((t,[,s])=>({
-    calls:t.calls+s.calls,short:t.short+s.short,sec:t.sec+s.sec,
-    lt2m:t.lt2m+s.lt2m,gt2m:t.gt2m+s.gt2m,gt5m:t.gt5m+s.gt5m,
-    gt10m:t.gt10m+s.gt10m,gt15m:t.gt15m+s.gt15m,gt30m:t.gt30m+s.gt30m,
-    drops:t.drops+s.drops,enroll:t.enroll+s.enroll,
-    cltrns:{lt2m:t.cltrns.lt2m+s.cltrns.lt2m,gt2m:t.cltrns.gt2m+s.cltrns.gt2m,
-      gt5m:t.cltrns.gt5m+s.cltrns.gt5m,gt10m:t.cltrns.gt10m+s.cltrns.gt10m,
-      gt15m:t.cltrns.gt15m+s.cltrns.gt15m,gt30m:t.cltrns.gt30m+s.cltrns.gt30m},
+  const addS=(t,s)=>({
+    calls:t.calls+s.calls,short:t.short+s.short,sec:t.sec+s.sec,drops:t.drops+s.drops,enroll:t.enroll+s.enroll,
+    lt2m:t.lt2m+s.lt2m,         cltrns_lt2m:t.cltrns_lt2m+s.cltrns_lt2m,
+    r2to5:t.r2to5+s.r2to5,     cltrns_2to5:t.cltrns_2to5+s.cltrns_2to5,
+    r5to10:t.r5to10+s.r5to10,  cltrns_5to10:t.cltrns_5to10+s.cltrns_5to10,
+    r10to15:t.r10to15+s.r10to15,cltrns_10to15:t.cltrns_10to15+s.cltrns_10to15,
+    r15to30:t.r15to30+s.r15to30,cltrns_15to30:t.cltrns_15to30+s.cltrns_15to30,
+    gt30m:t.gt30m+s.gt30m,      cltrns_gt30:t.cltrns_gt30+s.cltrns_gt30,
     enrolledPhones:new Set([...t.enrolledPhones,...s.enrolledPhones])
-  }),{calls:0,short:0,sec:0,lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0,drops:0,enroll:0,
-    cltrns:{lt2m:0,gt2m:0,gt5m:0,gt10m:0,gt15m:0,gt30m:0},enrolledPhones:new Set()});
+  });
+  const zeroTot=()=>({calls:0,short:0,sec:0,drops:0,enroll:0,
+    lt2m:0,cltrns_lt2m:0,r2to5:0,cltrns_2to5:0,r5to10:0,cltrns_5to10:0,
+    r10to15:0,cltrns_10to15:0,r15to30:0,cltrns_15to30:0,gt30m:0,cltrns_gt30:0,
+    enrolledPhones:new Set()});
+  const renderRow=(s,ag,camp,isAgent,agId)=>{
+    const enrollCell=s.enroll>0
+      ?`<span class="enroll-click" onclick='event.stopPropagation();showEnrolledPhones(${JSON.stringify([...s.enrolledPhones])},${JSON.stringify(ag+(camp?' · '+camp:''))})'>${s.enroll}</span>`:'—';
+    const base=isAgent
+      ?`<td style="text-align:left"><span class="agent-toggle" id="tog-${agId}">▶</span> ${ag} <span class="tag-opener">Opener</span></td><td style="color:var(--text-muted);font-size:11px;text-align:left">—</td>`
+      :`<td style="text-align:left;padding-left:28px;color:var(--text-muted);font-size:11px">↳ ${ag}</td><td style="text-align:left;font-size:12px;font-weight:600">${camp}</td>`;
+    return `<tr ${isAgent?`id="${agId}" class="ot-agent-row" style="font-weight:700;background:var(--gray-100);cursor:pointer" onclick="toggleOpenerAgent('${agId}')"`:`class="ot-sub-row" data-parent="${agId}" style="display:none"`}>
+      ${base}
+      <td>${s.calls}</td>
+      <td>${s.short} <span style="color:var(--text-muted);font-size:11px">${pct(s.short,s.calls)}</span></td>
+      <td style="color:var(--red)">${clCell(s.lt2m,s.cltrns_lt2m,s.calls)}</td>
+      <td>${clCell(s.r2to5,s.cltrns_2to5,s.calls)}</td>
+      <td>${clCell(s.r5to10,s.cltrns_5to10,s.calls)}</td>
+      <td>${clCell(s.r10to15,s.cltrns_10to15,s.calls)}</td>
+      <td>${clCell(s.r15to30,s.cltrns_15to30,s.calls)}</td>
+      <td>${clCell(s.gt30m,s.cltrns_gt30,s.calls)}</td>
+      <td>${s.drops>0?'<span style="color:var(--red);font-weight:600">'+s.drops+'</span>':'—'}</td>
+      <td>${fmtDur(s.calls?Math.round(s.sec/s.calls):0)}</td>
+      <td class="${s.enroll>0?'enroll-num':'enroll-zero'}">${enrollCell}</td>
+    </tr>`;
+  };
   const agEntries=Object.entries(agCampMap).sort((a,b)=>a[0].localeCompare(b[0]));
   const rows=agEntries.map(([ag,camps],idx)=>{
     const campEntries=Object.entries(camps).sort((a,b)=>b[1].calls-a[1].calls);
-    const tot=sumTot(campEntries);
+    const tot=campEntries.reduce((t,[,s])=>addS(t,s),zeroTot());
     const agId='ot-ag-'+idx;
-    const enrollCell=(s,lbl)=>s.enroll>0
-      ?`<span class="enroll-click" onclick='event.stopPropagation();showEnrolledPhones(${JSON.stringify([...s.enrolledPhones])},${JSON.stringify(lbl)})'>${s.enroll}</span>`:'—';
-    const agRow=`<tr id="${agId}" class="ot-agent-row" style="font-weight:700;background:var(--gray-100);cursor:pointer" onclick="toggleOpenerAgent('${agId}')">
-      <td style="text-align:left"><span class="agent-toggle" id="tog-${agId}">▶</span> ${ag} <span class="tag-opener">Opener</span></td>
-      <td style="color:var(--text-muted);font-size:11px;text-align:left">${campEntries.length} campaign${campEntries.length>1?'s':''}</td>
-      <td>${tot.calls}</td>
-      <td>${tot.short} <span style="color:var(--text-muted);font-size:11px">${pct(tot.short,tot.calls)}</span></td>
-      <td>${funnelCell(tot.lt2m,tot.calls,'var(--red)')}</td>
-      <td>${clCell(tot.gt2m,tot.cltrns.gt2m)}</td>
-      <td>${clCell(tot.gt5m,tot.cltrns.gt5m)}</td>
-      <td>${clCell(tot.gt10m,tot.cltrns.gt10m)}</td>
-      <td>${clCell(tot.gt15m,tot.cltrns.gt15m)}</td>
-      <td>${clCell(tot.gt30m,tot.cltrns.gt30m)}</td>
-      <td>${tot.drops>0?'<span style="color:var(--red);font-weight:600">'+tot.drops+'</span>':'—'}</td>
-      <td>${fmtDur(tot.calls?Math.round(tot.sec/tot.calls):0)}</td>
-      <td class="${tot.enroll>0?'enroll-num':'enroll-zero'}">${enrollCell(tot,ag)}</td>
-    </tr>`;
-    const subRows=campEntries.map(([camp,s])=>`<tr class="ot-sub-row" data-parent="${agId}" style="display:none">
-      <td style="text-align:left;padding-left:28px;color:var(--text-muted);font-size:11px">↳ ${ag}</td>
-      <td style="text-align:left;font-size:12px;font-weight:600">${camp}</td>
-      <td>${s.calls}</td>
-      <td>${s.short} <span style="color:var(--text-muted);font-size:11px">${pct(s.short,s.calls)}</span></td>
-      <td>${funnelCell(s.lt2m,s.calls,'var(--red)')}</td>
-      <td>${clCell(s.gt2m,s.cltrns.gt2m)}</td>
-      <td>${clCell(s.gt5m,s.cltrns.gt5m)}</td>
-      <td>${clCell(s.gt10m,s.cltrns.gt10m)}</td>
-      <td>${clCell(s.gt15m,s.cltrns.gt15m)}</td>
-      <td>${clCell(s.gt30m,s.cltrns.gt30m)}</td>
-      <td>${s.drops>0?'<span style="color:var(--red);font-weight:600">'+s.drops+'</span>':'—'}</td>
-      <td>${fmtDur(s.calls?Math.round(s.sec/s.calls):0)}</td>
-      <td class="${s.enroll>0?'enroll-num':'enroll-zero'}">${enrollCell(s,ag+' · '+camp)}</td>
-    </tr>`).join('');
-    return agRow+subRows;
+    return renderRow(tot,ag,'',true,agId)
+      +campEntries.map(([camp,s])=>renderRow(s,ag,camp,false,agId)).join('');
   }).join('');
   document.getElementById('openerTransferBody').innerHTML=rows;
 }
