@@ -517,13 +517,13 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 
   <!-- OPENERS LOWEST CONVERSION 2-15 MIN -->
   <div class="card" id="openerConvCard" style="display:none">
-    <div class="card-title">Openers — Lowest Transfer Rate on 2–15 min Calls <span class="card-title-sub">transfers ÷ calls in 2–15 min range · sorted by rate ascending</span></div>
+    <div class="card-title">Openers — Lowest Transfer Rate on Calls Over 2 min <span class="card-title-sub">transfers ÷ calls over 2 min · sorted by rate ascending</span></div>
     <div class="tbl-wrap">
       <table id="openerConvTable">
         <thead>
           <tr>
             <th style="text-align:left">Agent</th>
-            <th>Calls (2–15 min)</th>
+            <th>Calls (>2 min)</th>
             <th>Transfers</th>
             <th>Conversion Rate</th>
           </tr>
@@ -898,11 +898,11 @@ function renderOpenerTable(){
     </tr>`;
   document.getElementById('openerSummaryCard').style.display='';
 
-  // Lowest transfer rate (2–15 min) per agent
+  // Lowest transfer rate (all calls over 2 min) per agent
   const convRows=agEntries.map(([ag,camps])=>{
     const tot=Object.values(camps).reduce((t,s)=>addS(t,s),zeroTot());
-    const calls=(tot.r2to5m||0)+(tot.r5to10||0)+(tot.r10to15||0);
-    const trns=(tot.cltrns_2to5m||0)+(tot.cltrns_5to10||0)+(tot.cltrns_10to15||0);
+    const calls=(tot.r2to5m||0)+(tot.r5to10||0)+(tot.r10to15||0)+(tot.r15to20||0)+(tot.r20to30||0)+(tot.gt30m||0);
+    const trns=(tot.cltrns_2to5m||0)+(tot.cltrns_5to10||0)+(tot.cltrns_10to15||0)+(tot.cltrns_15to20||0)+(tot.cltrns_20to30||0)+(tot.cltrns_gt30||0);
     return {ag,calls,trns,rate:calls>0?trns/calls:null};
   }).filter(r=>r.calls>0).sort((a,b)=>a.rate-b.rate);
   document.getElementById('openerConvBody').innerHTML=convRows.map(r=>{
