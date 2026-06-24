@@ -1544,9 +1544,13 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         thead.querySelectorAll('th').forEach(h=>h.classList.remove('sort-asc','sort-desc'));
         th.classList.add(sortDir===1?'sort-asc':'sort-desc');
         const rows=[...tbody.querySelectorAll('tr')];
+        function funnelCellVal(td){
+          const m=td.textContent.match(/\((\d+)\)/);
+          return m?parseInt(m[1]):parseFloat(td.textContent)||0;
+        }
         rows.sort((a,b)=>{
-          const av=parseFloat(a.cells[col].textContent)||0;
-          const bv=parseFloat(b.cells[col].textContent)||0;
+          const av=funnelCellVal(a.cells[col]);
+          const bv=funnelCellVal(b.cells[col]);
           return (av-bv)*sortDir;
         });
         rows.forEach(r=>tbody.appendChild(r));
