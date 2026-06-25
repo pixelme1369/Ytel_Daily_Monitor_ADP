@@ -348,7 +348,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
   <!-- CAMPAIGN TABLE -->
   <div class="card">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <span>Campaign / queue breakdown</span>
+      <span>Campaign / queue breakdown <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:6px" title="⚠️ Enrolled count may be inflated when a phone touches multiple campaigns on the same day. Example: a CLtrns call on TransferK + a SALE on AGENTDIRECT for the same phone both carry Cordoba Enrolled Date, so each campaign counts +1 enrolled — but it is one real enrollment. Use the clickable enrolled number to see the actual phones and spot duplicates.">⚠️ Enrolled = per-row, not per-phone</span></span>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <div id="campRoleBtns" style="display:flex;align-items:center;gap:4px">
           <button onclick="filterCampTable('all')"    id="cr-all"    class="af-btn af-active">All</button>
@@ -587,7 +587,7 @@ function funnelCell(val,denom,color){
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
 const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','logan apana','brian smith','emren salim']);
 const RETENTION=new Set(['eli riano','erika ceja']);
-const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','jaiden lopez','stanley randolph','spencer porterfield','jon stultz','walter urbina','mark claros','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','mohamad dadou']);
+const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','jaiden lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','mohamad dadou']);
 let _agentRoleFilter='all', _funnelRoleFilter='all';
 function filterAgents(type){
   if(type){
@@ -1131,10 +1131,10 @@ function runAnalysis(){
   document.getElementById('filterHint').textContent=
     calls.length.toLocaleString()+' calls · '+totalEnrolledCount+' enrollments on '+dateStr;
 
-  buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr);
+  buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent);
 }
 
-function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr){
+function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent){
   // Normalize call fields
   calls.forEach(r=>{
     r._sec=parseInt(r['length_in_sec']||r['duration']||r['Duration']||r['talk_sec']||0,10)||0;
@@ -1148,7 +1148,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._hour=(String(r['call_date']||r['date']||'')).slice(11,13)||'00';
     r._ug=(r['user_group']||'').trim();
     r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    r._enrolled=getDateStr(r['Cordoba Enrolled Date']||r['Enrolled Date']||'')===dateStr;
+    const _ep=enrolledPhoneAgent&&enrolledPhoneAgent[r._phone];
+    r._enrolled=!!(_ep && parseTs(r['call_date']||r['date']||'')=== _ep.ts);
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
   });
