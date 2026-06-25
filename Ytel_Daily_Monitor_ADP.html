@@ -171,6 +171,13 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 #enrollModalTitle{font-size:14px;font-weight:700;color:var(--text)}
 #enrollModalList{overflow-y:auto;display:flex;flex-direction:column;gap:4px}
 #enrollModalList span{font-size:13px;color:var(--text-muted);padding:4px 8px;border-radius:4px;background:var(--gray-100);font-family:monospace;letter-spacing:.03em}
+.ms-wrap{position:relative;display:inline-block}
+.ms-btn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.ms-btn:hover{background:var(--gray-200,#e5e7eb)}
+.ms-panel{position:absolute;top:calc(100% + 4px);right:0;background:var(--white);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:200;min-width:160px;padding:6px 0;max-height:260px;overflow-y:auto}
+.ms-item{display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:12px;color:var(--text);white-space:nowrap}
+.ms-item:hover{background:var(--gray-50)}
+.ms-item input[type=checkbox]{cursor:pointer;accent-color:var(--blue,#2563eb)}
 </style>
 </head>
 <body>
@@ -356,9 +363,10 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <button onclick="filterCampTable('closer')" id="cr-closer" class="af-btn">Closers</button>
           <button onclick="filterCampTable('opener')" id="cr-opener" class="af-btn">Openers</button>
         </div>
-        <select id="campNameFilter" onchange="filterCampTable()" style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
-          <option value="">All Campaigns</option>
-        </select>
+        <div class="ms-wrap" id="campNameFilter">
+          <button class="ms-btn" onclick="toggleMs('campNameFilter')"><span class="ms-lbl">All Campaigns</span> ▾</button>
+          <div class="ms-panel" id="campNameFilter-panel" style="display:none"></div>
+        </div>
         <select id="campDirFilter" onchange="filterCampTable()" style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
           <option value="">All Directions</option>
           <option value="inbound">Inbound</option>
@@ -440,9 +448,10 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
   <div class="card" id="missedCallbackCard" style="display:none">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
       <div class="card-title" style="color:var(--red);margin:0">⚠ Clients / Calls — Timed Out &amp; Never Called Back</div>
-      <select id="missedCampFilter" onchange="renderMissedCallbacks()" style="margin-left:auto;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--white);color:var(--text);cursor:pointer">
-        <option value="">All Campaigns</option>
-      </select>
+      <div class="ms-wrap" id="missedCampFilter" style="margin-left:auto">
+        <button class="ms-btn" style="background:var(--white);border-radius:4px" onclick="toggleMs('missedCampFilter')"><span class="ms-lbl">All Campaigns</span> ▾</button>
+        <div class="ms-panel" id="missedCampFilter-panel" style="display:none"></div>
+      </div>
     </div>
     <div class="two-col" style="gap:16px;align-items:start">
       <div>
@@ -460,9 +469,10 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
   <div class="card" id="dpcCard" style="display:none">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
       <div class="card-title" style="color:var(--red);margin:0">⚠ DPC — Dropped Calls Never Called Back</div>
-      <select id="dpcCampFilter" onchange="renderDpcDrops()" style="margin-left:auto;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--white);color:var(--text);cursor:pointer">
-        <option value="">All Campaigns</option>
-      </select>
+      <div class="ms-wrap" id="dpcCampFilter" style="margin-left:auto">
+        <button class="ms-btn" style="background:var(--white);border-radius:4px" onclick="toggleMs('dpcCampFilter')"><span class="ms-lbl">All Campaigns</span> ▾</button>
+        <div class="ms-panel" id="dpcCampFilter-panel" style="display:none"></div>
+      </div>
     </div>
     <div class="two-col" style="gap:16px;align-items:start">
       <div>
@@ -483,9 +493,10 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
         <span class="card-title-sub">Transfer = successful transfer to closer · click agent to expand</span>
       </span>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <select id="otCampFilter" onchange="filterOpenerTable()" style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
-          <option value="">All Campaigns</option>
-        </select>
+        <div class="ms-wrap" id="otCampFilter">
+          <button class="ms-btn" onclick="toggleMs('otCampFilter')"><span class="ms-lbl">All Campaigns</span> ▾</button>
+          <div class="ms-panel" id="otCampFilter-panel" style="display:none"></div>
+        </div>
         <select id="otDirFilter" onchange="filterOpenerTable()" style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
           <option value="">All Directions</option>
           <option value="inbound">Inbound</option>
@@ -606,6 +617,49 @@ function funnelCell(val,denom,color){
   return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
+function toggleMs(id){
+  const panel=document.getElementById(id+'-panel');
+  if(!panel) return;
+  const opening=panel.style.display==='none';
+  document.querySelectorAll('.ms-panel').forEach(p=>p.style.display='none');
+  if(opening) panel.style.display='';
+}
+function setMsOptions(id, options, onchange){
+  const panel=document.getElementById(id+'-panel');
+  if(!panel) return;
+  panel.innerHTML=`<label class="ms-item"><input type="checkbox" value="" checked onchange="onMsAll('${id}','${onchange}')"> All</label>`
+    +options.map(o=>`<label class="ms-item"><input type="checkbox" value="${o}" onchange="onMsItem('${id}','${onchange}')">${o}</label>`).join('');
+  updateMsLabel(id);
+}
+function getMsValues(id){
+  const panel=document.getElementById(id+'-panel');
+  if(!panel) return [];
+  const allCb=panel.querySelector('input[value=""]');
+  if(!allCb||allCb.checked) return [];
+  return [...panel.querySelectorAll('input:not([value=""])')].filter(cb=>cb.checked).map(cb=>cb.value);
+}
+function onMsAll(id,onchange){
+  const panel=document.getElementById(id+'-panel');
+  panel.querySelectorAll('input:not([value=""])').forEach(cb=>cb.checked=false);
+  panel.querySelector('input[value=""]').checked=true;
+  updateMsLabel(id);
+  if(onchange&&window[onchange]) window[onchange]();
+}
+function onMsItem(id,onchange){
+  const panel=document.getElementById(id+'-panel');
+  const items=[...panel.querySelectorAll('input:not([value=""])')];
+  panel.querySelector('input[value=""]').checked=!items.some(cb=>cb.checked);
+  updateMsLabel(id);
+  if(onchange&&window[onchange]) window[onchange]();
+}
+function updateMsLabel(id){
+  const panel=document.getElementById(id+'-panel');
+  const lbl=document.querySelector('#'+id+' .ms-lbl');
+  if(!panel||!lbl) return;
+  const sel=[...panel.querySelectorAll('input:not([value=""])')].filter(cb=>cb.checked);
+  lbl.textContent=sel.length===0?'All Campaigns':sel.length===1?sel[0].value:sel.length+' campaigns';
+}
+document.addEventListener('click',function(e){if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-panel').forEach(p=>p.style.display='none');});
 const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','logan apana','brian smith','emren salim']);
 const RETENTION=new Set(['eli riano','erika ceja']);
 const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','jaiden lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','mohamad dadou']);
@@ -714,13 +768,13 @@ function filterCampTable(role){
   }
   if(!window.renderCampBody||!window._campCalls) return;
   const dir=document.getElementById('campDirFilter')?.value||'';
-  const campName=document.getElementById('campNameFilter')?.value||'';
+  const campNames=getMsValues('campNameFilter');
   // If no filters, use prebuilt maps
-  if(_campRoleFilter==='all' && !dir && !campName){ window.renderCampBody(window._campMap||{}); return; }
-  if(_campRoleFilter==='all' && dir && !campName){ window.renderCampBody((window._campDirMap||{})[dir]||{},(window._campAgentDirMap||{})[dir]||{}); return; }
+  if(_campRoleFilter==='all' && !dir && !campNames.length){ window.renderCampBody(window._campMap||{}); return; }
+  if(_campRoleFilter==='all' && dir && !campNames.length){ window.renderCampBody((window._campDirMap||{})[dir]||{},(window._campAgentDirMap||{})[dir]||{}); return; }
   // Rebuild campMap + campAgentMap from raw calls with active filters
   const filtered=window._campCalls.filter(r=>{
-    if(campName && r._campaign!==campName) return false;
+    if(campNames.length && !campNames.includes(r._campaign)) return false;
     if(dir && r._dir!==dir) return false;
     const n=(r._name||'').toLowerCase();
     if(_campRoleFilter==='closer') return CLOSERS.has(n);
@@ -765,10 +819,10 @@ function filterOpenerTable(){ renderOpenerTable(); }
 function renderOpenerTable(){
   const calls=window._openerCalls||[];
   if(!calls.length) return;
-  const campF=document.getElementById('otCampFilter')?.value||'';
+  const campFs=getMsValues('otCampFilter');
   const dirF=document.getElementById('otDirFilter')?.value||'';
   const filtered=calls.filter(r=>{
-    if(campF && r._campaign!==campF) return false;
+    if(campFs.length && !campFs.includes(r._campaign)) return false;
     if(dirF && r._dir!==dirF) return false;
     return true;
   });
@@ -954,8 +1008,8 @@ function toggleAgentHours(rowId){
 }
 function toggleEl(id){const el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'':'none';}
 function renderMissedCallbacks(){
-  const camp=document.getElementById('missedCampFilter').value;
-  const data=(window._missedData||[]).filter(d=>!camp||d.camps.includes(camp));
+  const camps=getMsValues('missedCampFilter');
+  const data=(window._missedData||[]).filter(d=>!camps.length||d.camps.some(c=>camps.includes(c)));
   const enrolled=data.filter(d=>d.enrolled);
   const other=data.filter(d=>!d.enrolled);
   const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span style="font-family:monospace;font-weight:600">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— timed out on: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
@@ -965,8 +1019,8 @@ function renderMissedCallbacks(){
   document.getElementById('missedOtherList').innerHTML=rowHtml(other);
 }
 function renderDpcDrops(){
-  const camp=document.getElementById('dpcCampFilter').value;
-  const data=(window._dpcData||[]).filter(d=>!camp||d.camps.includes(camp));
+  const camps=getMsValues('dpcCampFilter');
+  const data=(window._dpcData||[]).filter(d=>!camps.length||d.camps.some(c=>camps.includes(c)));
   const enrolled=data.filter(d=>d.enrolled);
   const other=data.filter(d=>!d.enrolled);
   const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span style="font-family:monospace;font-weight:600">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— dropped by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
@@ -1283,8 +1337,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     debt:phoneDebt[p]||0
   }));
   const allMissedCamps=[...new Set(missedData.flatMap(d=>d.camps))].sort();
-  const missedCampSel=document.getElementById('missedCampFilter');
-  missedCampSel.innerHTML='<option value="">All Campaigns</option>'+allMissedCamps.map(c=>`<option value="${c}">${c}</option>`).join('');
+  setMsOptions('missedCampFilter', allMissedCamps, 'renderMissedCallbacks');
   window._missedData=missedData;
   const card=document.getElementById('missedCallbackCard');
   if(missedPhones.length){ card.style.display=''; renderMissedCallbacks(); }
@@ -1329,8 +1382,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     debt:phoneDebt[p]||0
   }));
   const allDpcCamps=[...new Set(dpcData.flatMap(d=>d.camps))].sort();
-  const dpcCampSel=document.getElementById('dpcCampFilter');
-  dpcCampSel.innerHTML='<option value="">All Campaigns</option>'+allDpcCamps.map(c=>`<option value="${c}">${c}</option>`).join('');
+  setMsOptions('dpcCampFilter', allDpcCamps, 'renderDpcDrops');
   window._dpcData=dpcData;
   const dpcCard=document.getElementById('dpcCard');
   if(dpcPhones.length){ dpcCard.style.display=''; renderDpcDrops(); }
@@ -1732,8 +1784,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   if(ffCampSel){ ffCampSel.innerHTML='<option value="">All Campaigns</option>'+allCamps.map(c=>`<option value="${c}">${c}</option>`).join(''); }
 
   // Populate campaign breakdown campaign dropdown
-  const campNameSel=document.getElementById('campNameFilter');
-  if(campNameSel){ campNameSel.innerHTML='<option value="">All Campaigns</option>'+allCamps.map(c=>`<option value="${c}">${c}</option>`).join(''); }
+  setMsOptions('campNameFilter', allCamps, 'filterCampTable');
 
   // Funnel table sorting
   (function(){
@@ -1881,8 +1932,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   // ── Openers transfer breakdown ──
   window._openerCalls=calls.filter(r=>OPENERS.has((r._name||'').toLowerCase()));
   const otCamps=[...new Set(window._openerCalls.map(r=>r._campaign))].sort();
-  const otCampSel=document.getElementById('otCampFilter');
-  if(otCampSel) otCampSel.innerHTML='<option value="">All Campaigns</option>'+otCamps.map(c=>`<option value="${c}">${c}</option>`).join('');
+  setMsOptions('otCampFilter', otCamps, 'filterOpenerTable');
   document.getElementById('openerTransferCard').style.display=window._openerCalls.length?'':'none';
   renderOpenerTable();
 

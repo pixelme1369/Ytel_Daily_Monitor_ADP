@@ -5,6 +5,29 @@
 Single-file HTML call center dashboard: `Ytel_Daily_Monitor_ADP.html`
 No framework, no build step — vanilla JS + SheetJS 0.18.5 + Chart.js 4.4.0 via CDN.
 
+## Campaign Filter UI — Multi-Select Dropdowns
+
+All 4 campaign `<select>` filters have been replaced with a custom `.ms-wrap` multi-select component.
+
+| ID | Section | Filter function |
+|----|---------|----------------|
+| `campNameFilter` | Campaign / Queue Breakdown | `filterCampTable()` |
+| `missedCampFilter` | Missed Callbacks | `renderMissedCallbacks()` |
+| `dpcCampFilter` | DPC Never Called Back | `renderDpcDrops()` |
+| `otCampFilter` | Opener Transfer Breakdown | `filterOpenerTable()` |
+
+### Key helper functions (defined after `fmt$`)
+- `toggleMs(id)` — opens/closes panel; closes all others
+- `setMsOptions(id, options, onchange)` — populates panel (replaces `.innerHTML=...` populate calls)
+- `getMsValues(id)` — returns `[]` (all) or array of selected values
+- `onMsAll(id, onchange)` / `onMsItem(id, onchange)` — checkbox change handlers
+- `updateMsLabel(id)` — updates button label text
+
+### Filter function convention
+- Old: `const camp = ...value` then `if(camp && r._campaign!==camp)`
+- New: `const camps = getMsValues(id)` then `if(camps.length && !camps.includes(r._campaign))`
+- Missed/DPC use `.some(c=>camps.includes(c))` since `d.camps` is an array
+
 ## Rules
 
 - Read existing files before editing.
