@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Performance — Date Range</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0F2444;--blue:#1377bd;--blue-lt:#E6F1FB;--blue-dk:#0C447C;
+  --green:#059669;--green-lt:#D1FAE5;--green-dk:#065F46;
+  --red:#DC2626;--red-lt:#FEE2E2;--red-dk:#7F1D1D;
+  --amber:#D97706;--amber-lt:#FEF3C7;--amber-dk:#78350F;
+  --purple:#7C3AED;--purple-lt:#EDE9FE;
+  --gray-50:#F8FAFC;--gray-100:#F1F5F9;--gray-200:#E2E8F0;
+  --gray-300:#CBD5E1;--gray-400:#94A3B8;--gray-500:#64748B;
+  --gray-700:#334155;--gray-800:#1E293B;--gray-900:#0F172A;
+  --text:#1E293B;--text-muted:#64748B;--surface:#fff;--bg:#F8FAFC;
+  --border:#E2E8F0;--radius:8px;--radius-lg:12px;
+  --font:'Inter',system-ui,sans-serif
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+.hdr{background:var(--navy);padding:0;display:flex;align-items:stretch;border-bottom:2px solid var(--blue)}
+.hdr-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 28px;gap:16px;flex-wrap:wrap}
+.hdr-brand{display:flex;align-items:center;gap:10px}
+.hdr-logo{width:32px;height:32px;background:var(--blue);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0}
+.hdr-title{font-size:16px;font-weight:700;color:#fff;letter-spacing:-0.02em}
+.hdr-sub{font-size:11px;color:#93C5FD;margin-top:1px}
+.hdr-date{font-size:13px;font-weight:600;color:#93C5FD;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:5px 14px}
+
+.upload-zone{background:var(--surface);border-bottom:1px solid var(--border);padding:20px 28px}
+.upload-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.upload-title span{background:var(--blue-lt);color:var(--blue-dk);font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+.upload-card{border:1.5px dashed var(--gray-300);border-radius:var(--radius-lg);padding:20px 22px;cursor:pointer;transition:all .15s;background:var(--gray-50);position:relative;max-width:520px}
+.upload-card:hover,.upload-card.drag{border-color:var(--blue);background:var(--blue-lt)}
+.upload-card.loaded{border-color:var(--green);border-style:solid;background:var(--green-lt)}
+.upload-card input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-card-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:4px}
+.upload-card-name{font-size:14px;font-weight:600;color:var(--text)}
+.upload-card-sub{font-size:12px;color:var(--text-muted);margin-top:2px}
+.upload-card-status{font-size:12px;font-weight:600;margin-top:6px}
+.upload-card-status.ok{color:var(--green)}
+.upload-card-status.err{color:var(--red)}
+
+.filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.filter-bar label{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em}
+.filter-bar input[type=date]{border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-size:13px;font-family:var(--font);color:var(--text);background:var(--surface);cursor:pointer}
+.filter-bar input[type=date]:focus{outline:none;border-color:var(--blue)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-dk)}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--gray-100)}
+.filter-hint{font-size:12px;color:var(--text-muted)}
+
+.main{padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px}
+.card-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.card-title-sub{font-size:11px;font-weight:400;color:var(--text-muted)}
+
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--gray-800);color:#fff;padding:8px 10px;text-align:center;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;cursor:pointer;user-select:none}
+thead th:first-child{text-align:left}
+thead th:hover{background:var(--gray-700)}
+thead th.sort-asc::after{content:' ▲';font-size:9px;opacity:.9}
+thead th.sort-desc::after{content:' ▼';font-size:9px;opacity:.9}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:hover{background:var(--gray-50)}
+tbody td{padding:7px 10px;text-align:center;color:var(--text-muted);white-space:nowrap}
+tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
+.enroll-num{font-weight:700;color:var(--green-dk)}
+.enroll-zero{color:var(--gray-300)}
+.agent-toggle{font-size:9px;color:var(--text-muted);margin-right:4px;display:inline-block}
+.tag-opener{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:10px;background:#FEF3C7;color:#92400E;margin-left:4px;vertical-align:middle}
+.tag-retention{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:10px;background:#EDE9FE;color:#5B21B6;margin-left:4px;vertical-align:middle}
+.af-btn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;transition:all .15s}
+.af-btn:hover{background:var(--gray-200)}
+.af-btn.af-active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.bar-mini{display:inline-flex;align-items:center;gap:5px}
+.bar-bg{background:var(--gray-200);border-radius:3px;height:6px;width:60px;overflow:hidden;display:inline-block;vertical-align:middle}
+.bar-fg{height:100%;border-radius:3px;background:var(--blue)}
+.bar-fg.bad{background:var(--red)}
+
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:240px;gap:10px;color:var(--text-muted);text-align:center;padding:40px}
+.empty-icon{font-size:40px;opacity:.25;margin-bottom:6px}
+.empty-title{font-size:16px;font-weight:600;color:var(--gray-400)}
+.empty-sub{font-size:13px;color:var(--gray-400);max-width:340px;line-height:1.5}
+
+.toast{position:fixed;bottom:20px;right:20px;background:var(--gray-800);color:#fff;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:500;z-index:999;opacity:0;transform:translateY(8px);transition:all .2s}
+.toast.show{opacity:1;transform:none}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;border-top:3px solid var(--c,#1377bd)}
+.kpi-label{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.kpi-val{font-size:24px;font-weight:700;color:var(--text);line-height:1;letter-spacing:-0.02em}
+.kpi-sub{font-size:11px;color:var(--text-muted);margin-top:3px}
+.kpi.blue{--c:var(--blue)}.kpi.green{--c:var(--green)}.kpi.amber{--c:var(--amber)}.kpi.red{--c:var(--red)}
+.kpi.green .kpi-val{color:var(--green-dk)}
+
+.date-range-sep{font-size:14px;color:var(--text-muted);font-weight:500}
+
+@media(max-width:700px){
+  .main,.upload-zone,.filter-bar{padding-left:14px;padding-right:14px}
+  .hdr-inner{padding:12px 14px}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-inner">
+    <div class="hdr-brand">
+      <div class="hdr-logo">AP</div>
+      <div>
+        <div class="hdr-title">Agent Performance — Date Range</div>
+        <div class="hdr-sub">Ytel Call Report</div>
+      </div>
+    </div>
+    <div id="hdrDate" class="hdr-date">No range selected</div>
+  </div>
+</div>
+
+<div class="upload-zone">
+  <div class="upload-title">Upload call report <span>Step 1</span></div>
+  <div class="upload-card" id="fileCard">
+    <input type="file" accept=".csv,.xlsx,.xls" id="fileInput" onchange="handleFile(this)">
+    <div class="upload-card-label">Ytel Call Report</div>
+    <div class="upload-card-name" id="fileName">Click or drag to upload</div>
+    <div class="upload-card-sub">XLSX or CSV · columns: call_date, full_name, length_in_sec, status, campaign_id, direction, user</div>
+    <div class="upload-card-status" id="fileStatus"></div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <label>From</label>
+  <input type="date" id="fromDate">
+  <span class="date-range-sep">→</span>
+  <label>To</label>
+  <input type="date" id="toDate">
+  <button class="btn btn-primary" onclick="runAnalysis()">&#9654; Run Analysis</button>
+  <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+  <span class="filter-hint" id="filterHint">Upload a file, pick a date range, then click Run Analysis.</span>
+</div>
+
+<div class="main">
+  <div id="emptyState" class="empty">
+    <div class="empty-icon">📋</div>
+    <div class="empty-title">Upload your call report to get started</div>
+    <div class="empty-sub">Upload the Ytel XLSX, pick a date range, and click Run Analysis.</div>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <!-- KPI summary -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- Agent Performance Table -->
+    <div class="card">
+      <div class="card-title">
+        <span>Agent Performance <span class="card-title-sub" id="agentCount"></span></span>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <button onclick="filterRole('all')"    id="role-all"    class="af-btn af-active">All</button>
+          <button onclick="filterRole('closer')" id="role-closer" class="af-btn">Closers</button>
+          <button onclick="filterRole('opener')" id="role-opener" class="af-btn">Openers</button>
+          <select id="campSel" onchange="applyFilters()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
+            <option value="">All Campaigns</option>
+          </select>
+          <select id="dirSel" onchange="applyFilters()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
+            <option value="">All Directions</option>
+            <option value="inbound">Inbound</option>
+            <option value="outbound">Outbound</option>
+          </select>
+          <input type="text" id="nameSearch" placeholder="Search agent…" oninput="applyFilters()" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-family:var(--font);outline:none;color:var(--text)">
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="agentTable">
+          <thead>
+            <tr>
+              <th style="text-align:left;min-width:160px" data-col="name">Agent</th>
+              <th data-col="calls">Calls</th>
+              <th data-col="uniqueCalls">Unique #s</th>
+              <th data-col="inboundUniq" title="Unique phones where first call was inbound">Inbound</th>
+              <th data-col="outboundUniq" title="Unique phones where first call was outbound">Outbound</th>
+              <th data-col="shortPct">Short% ≤30s</th>
+              <th data-col="lt2m">&lt;2 min</th>
+              <th data-col="r1to2m">1–2 min</th>
+              <th data-col="r5to10">5–10 min</th>
+              <th data-col="r10to15">10–15 min</th>
+              <th data-col="r15to20">15–20 min</th>
+              <th data-col="r20to30">20–30 min</th>
+              <th data-col="gt30m">30+ min</th>
+              <th data-col="avg">Avg Talk</th>
+              <th data-col="sec">Total Talk</th>
+            </tr>
+          </thead>
+          <tbody id="agentBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Agent role sets (lowercase) ───────────────────────────────────────────────
+const CLOSERS = new Set([
+  'alexander mora','jessica mora','mariana ponce','ruben macias','bryan ramos',
+  'marco rojas','jorge trujillo','edgar velasco','michael reyes','jose hernandez',
+  'luis garcia','carlos mendez'
+]);
+const RETENTION = new Set([
+  'maria lopez','ana martinez','rosa garcia'
+]);
+const OPENERS = new Set([
+  'riley johnson','jon stultz','jon stults','sarah kim','david chen',
+  'mike torres','lisa nguyen','james wilson','emily davis'
+]);
+
+let rawData = null;
+let _allRows = [];
+let _campDataMap = {};
+let _dirMap = {};
+let _roleFilter = 'all';
+let _sortCol = 'calls';
+let _sortDir = -1;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtDur(s){
+  s=Math.round(+s||0);
+  if(s<60) return s+'s';
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;
+  if(h) return h+'h '+String(m).padStart(2,'0')+'m';
+  return m+'m '+String(sc).padStart(2,'0')+'s';
+}
+function pct(n,d){ return d?((n/d)*100).toFixed(1)+'%':'0%'; }
+function funnelCell(val,denom,color){
+  if(!denom) return val;
+  const p=Math.round(val/denom*100);
+  return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
+}
+function showToast(msg,dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
+function parseTs(val){
+  if(!val) return 0;
+  if(val instanceof Date) return val.getTime();
+  const s=String(val).trim();
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+  if(m) return new Date(m[3],m[1]-1,m[2],m[4],m[5],m[6]).getTime();
+  const m2=s.match(/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/);
+  if(m2) return new Date(m2[1].replace(' ','T')).getTime();
+  return 0;
+}
+function getDateStr(val){
+  if(!val && val!==0) return '';
+  if(val instanceof Date){
+    const y=val.getFullYear(),mo=String(val.getMonth()+1).padStart(2,'0'),d=String(val.getDate()).padStart(2,'0');
+    return `${y}-${mo}-${d}`;
+  }
+  const s=String(val);
+  const m=s.match(/(\d{4}-\d{2}-\d{2})/);
+  if(m) return m[1];
+  const m2=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m2) return m2[3]+'-'+m2[1].padStart(2,'0')+'-'+m2[2].padStart(2,'0');
+  if(!isNaN(+s)&&+s>40000){
+    const d=new Date(Math.round((+s-25569)*86400*1000));
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  return '';
+}
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function handleFile(input){
+  const file=input.files[0]; if(!file) return;
+  document.getElementById('fileName').textContent=file.name;
+  document.getElementById('fileStatus').textContent='Reading…';
+  document.getElementById('fileStatus').className='upload-card-status';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      rawData=XLSX.utils.sheet_to_json(ws,{defval:''});
+      document.getElementById('fileCard').classList.add('loaded');
+      document.getElementById('fileStatus').textContent='✓ '+rawData.length.toLocaleString()+' rows loaded';
+      document.getElementById('fileStatus').className='upload-card-status ok';
+      // Auto-set date range from data
+      const dates=[...new Set(rawData.map(r=>getDateStr(r['call_date']||r['date']||'')).filter(Boolean))].sort();
+      if(dates.length){
+        document.getElementById('fromDate').value=dates[0];
+        document.getElementById('toDate').value=dates[dates.length-1];
+      }
+    } catch(err){
+      document.getElementById('fileStatus').textContent='Error: '+err.message;
+      document.getElementById('fileStatus').className='upload-card-status err';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Drag-and-drop
+const card=document.getElementById('fileCard');
+card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('drag');});
+card.addEventListener('dragleave',()=>card.classList.remove('drag'));
+card.addEventListener('drop',e=>{
+  e.preventDefault(); card.classList.remove('drag');
+  const f=e.dataTransfer.files[0]; if(!f) return;
+  const dt=new DataTransfer(); dt.items.add(f);
+  document.getElementById('fileInput').files=dt.files;
+  handleFile(document.getElementById('fileInput'));
+});
+
+// ── Clear ─────────────────────────────────────────────────────────────────────
+function clearAll(){
+  rawData=null; _allRows=[]; _campDataMap={}; _dirMap={};
+  document.getElementById('fileInput').value='';
+  document.getElementById('fileCard').classList.remove('loaded');
+  document.getElementById('fileName').textContent='Click or drag to upload';
+  document.getElementById('fileStatus').textContent='';
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('emptyState').style.display='flex';
+  document.getElementById('filterHint').textContent='Upload a file, pick a date range, then click Run Analysis.';
+  document.getElementById('hdrDate').textContent='No range selected';
+}
+
+// ── Run Analysis ──────────────────────────────────────────────────────────────
+function runAnalysis(){
+  if(!rawData){ showToast('Upload a file first'); return; }
+  const from=document.getElementById('fromDate').value;
+  const to=document.getElementById('toDate').value;
+  if(!from||!to){ showToast('Pick a date range'); return; }
+  if(from>to){ showToast('From date must be ≤ To date'); return; }
+
+  const calls=rawData.filter(r=>{
+    const d=getDateStr(r['call_date']||r['date']||'');
+    return d>=from && d<=to;
+  });
+
+  if(!calls.length){ showToast('No calls found in that date range'); return; }
+
+  // Normalize
+  calls.forEach(r=>{
+    r._sec=parseInt(r['length_in_sec']||r['duration']||r['talk_sec']||0,10)||0;
+    r._campaign=(r['campaign_id']||r['Campaign']||'').trim();
+    r._user=(r['user']||r['User']||'').trim();
+    r._name=(r['full_name']||r['Full Name']||r['agent']||r['Agent']||r._user||'Unknown').trim();
+    r._dir=(r['direction']||r['Direction']||'').toLowerCase();
+    r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
+  });
+
+  // Filter out VDCL/VDAD system rows
+  const agentCalls=calls.filter(r=>!['VDCL','VDAD'].includes(r._user));
+
+  // Phone first-direction per agent
+  const agentPhoneFirstDir={};
+  const tsMap={};
+  agentCalls.forEach(r=>{
+    if(!r._phone) return;
+    const key=r._name+'||'+r._phone;
+    const ts=parseTs(r['call_date']||r['date']||'');
+    if(!tsMap[key]||ts<tsMap[key].ts){
+      tsMap[key]={ts,dir:r._dir};
+      agentPhoneFirstDir[key]=tsMap[key];
+    }
+  });
+
+  // Build agentMap, agentDirMap, agentCampDataMap
+  const agentMap={};
+  _dirMap={inbound:{},outbound:{}};
+  _campDataMap={};
+
+  agentCalls.forEach(r=>{
+    const name=r._name;
+    if(!agentMap[name]) agentMap[name]=emptyStats();
+    accumulate(agentMap[name], r);
+
+    const dk=r._dir==='inbound'?'inbound':'outbound';
+    if(!_dirMap[dk][name]) _dirMap[dk][name]=emptyStats();
+    accumulate(_dirMap[dk][name], r);
+
+    if(r._campaign){
+      if(!_campDataMap[r._campaign]) _campDataMap[r._campaign]={};
+      if(!_campDataMap[r._campaign][name]) _campDataMap[r._campaign][name]=emptyStats();
+      accumulate(_campDataMap[r._campaign][name], r);
+    }
+  });
+
+  // Build rows
+  _allRows=Object.entries(agentMap).map(([name,d])=>{
+    const uniqueCalls=d.phones.size;
+    let inboundUniq=0,outboundUniq=0;
+    d.phones.forEach(phone=>{
+      const fd=agentPhoneFirstDir[name+'||'+phone];
+      if(fd&&fd.dir==='inbound') inboundUniq++; else outboundUniq++;
+    });
+    return {name,uniqueCalls,inboundUniq,outboundUniq,...d,
+      avg:d.calls?Math.round(d.sec/d.calls):0,
+      shortPct:d.calls?d.short/d.calls*100:0};
+  }).sort((a,b)=>b.calls-a.calls);
+
+  // Populate campaign dropdown
+  const allCamps=[...new Set(agentCalls.map(r=>r._campaign).filter(Boolean))].sort();
+  const campSel=document.getElementById('campSel');
+  campSel.innerHTML='<option value="">All Campaigns</option>'+allCamps.map(c=>`<option value="${c}">${c}</option>`).join('');
+
+  // KPI summary
+  const totalCalls=agentCalls.length;
+  const uniquePhones=new Set(agentCalls.map(r=>r._phone).filter(Boolean)).size;
+  const totalSec=agentCalls.reduce((s,r)=>s+r._sec,0);
+  const agents=Object.keys(agentMap).length;
+  const days=[...new Set(agentCalls.map(r=>getDateStr(r['call_date']||r['date']||'')).filter(Boolean))].length;
+  document.getElementById('kpiGrid').innerHTML=`
+    <div class="kpi blue"><div class="kpi-label">Total Calls</div><div class="kpi-val">${totalCalls.toLocaleString()}</div><div class="kpi-sub">${days} day${days!==1?'s':''}</div></div>
+    <div class="kpi blue"><div class="kpi-label">Unique Numbers</div><div class="kpi-val">${uniquePhones.toLocaleString()}</div></div>
+    <div class="kpi blue"><div class="kpi-label">Agents</div><div class="kpi-val">${agents}</div></div>
+    <div class="kpi green"><div class="kpi-label">Total Talk Time</div><div class="kpi-val">${fmtDur(totalSec)}</div></div>
+  `;
+
+  // Update header
+  document.getElementById('hdrDate').textContent=from+' → '+to;
+  document.getElementById('filterHint').textContent=totalCalls.toLocaleString()+' calls · '+agents+' agents · '+days+' days';
+
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('dashboard').style.display='';
+
+  _roleFilter='all';
+  document.querySelectorAll('.af-btn').forEach(b=>b.classList.remove('af-active'));
+  document.getElementById('role-all').classList.add('af-active');
+  document.getElementById('nameSearch').value='';
+  _sortCol='calls'; _sortDir=-1;
+  renderTable(_allRows);
+}
+
+function emptyStats(){
+  return {calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set()};
+}
+function accumulate(d,r){
+  d.calls++; d.sec+=r._sec;
+  if(r._sec<=30) d.short++;
+  if(r._sec<120) d.lt2m++;
+  if(r._sec>=60&&r._sec<120) d.r1to2m++;
+  if(r._sec>=120) d.gt2m++;
+  if(r._sec>=300&&r._sec<600) d.r5to10++;
+  else if(r._sec>=600&&r._sec<900) d.r10to15++;
+  else if(r._sec>=900&&r._sec<1200) d.r15to20++;
+  else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
+  else if(r._sec>=1800) d.gt30m++;
+  if(r._phone) d.phones.add(r._phone);
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+function filterRole(role){
+  _roleFilter=role;
+  document.querySelectorAll('.af-btn').forEach(b=>b.classList.remove('af-active'));
+  document.getElementById('role-'+role).classList.add('af-active');
+  applyFilters();
+}
+function applyFilters(){
+  const camp=document.getElementById('campSel').value;
+  const dir=document.getElementById('dirSel').value;
+  const name=(document.getElementById('nameSearch').value||'').toLowerCase().trim();
+
+  let sourceMap=null;
+  if(camp) sourceMap=_campDataMap[camp]||{};
+  else if(dir) sourceMap=_dirMap[dir]||{};
+
+  let rows;
+  if(sourceMap){
+    rows=Object.entries(sourceMap).map(([n,d])=>{
+      const uniqueCalls=d.phones.size;
+      return {name:n,uniqueCalls,inboundUniq:dir==='inbound'?uniqueCalls:0,outboundUniq:dir==='outbound'?uniqueCalls:0,...d,
+        avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
+    }).sort((a,b)=>b.calls-a.calls);
+  } else {
+    rows=[..._allRows];
+  }
+  if(_roleFilter==='closer') rows=rows.filter(a=>CLOSERS.has(a.name.toLowerCase()));
+  if(_roleFilter==='opener') rows=rows.filter(a=>OPENERS.has(a.name.toLowerCase()));
+  if(name) rows=rows.filter(a=>a.name.toLowerCase().includes(name));
+  renderTable(rows);
+}
+
+// ── Table render ──────────────────────────────────────────────────────────────
+function renderTable(rows){
+  // Apply sort
+  rows=[...rows].sort((a,b)=>{
+    const av=a[_sortCol]??0, bv=b[_sortCol]??0;
+    return typeof av==='string'?av.localeCompare(bv)*_sortDir:(bv-av)*(-_sortDir);
+  });
+  if(_sortDir===-1) rows.sort((a,b)=>b[_sortCol]-a[_sortCol]); // default desc
+  // Re-sort properly
+  rows=[...rows].sort((a,b)=>{
+    const av=a[_sortCol]??0, bv=b[_sortCol]??0;
+    if(typeof av==='string') return av.localeCompare(bv)*_sortDir;
+    return (av-bv)*_sortDir;
+  });
+
+  const maxC=rows[0]?rows[0].calls:1;
+  document.getElementById('agentCount').textContent=rows.length+' agents';
+  document.getElementById('agentBody').innerHTML=rows.map(a=>{
+    const nameLC=a.name.toLowerCase();
+    const tag=RETENTION.has(nameLC)?'<span class="tag-retention">Retention</span>':OPENERS.has(nameLC)?'<span class="tag-opener">Opener</span>':'';
+    const shortCls=a.shortPct>55?'bad':'';
+    return `<tr>
+      <td style="text-align:left">${a.name}${tag}</td>
+      <td><div class="bar-mini"><div class="bar-bg"><div class="bar-fg" style="width:${(a.calls/maxC*100).toFixed(0)}%"></div></div>${a.calls}</div></td>
+      <td>${a.uniqueCalls}</td>
+      <td style="color:var(--blue)">${a.inboundUniq}</td>
+      <td style="color:var(--text-muted)">${a.outboundUniq}</td>
+      <td><div class="bar-mini"><div class="bar-bg"><div class="bar-fg ${shortCls}" style="width:${a.shortPct.toFixed(0)}%"></div></div>${a.shortPct.toFixed(0)}%</div></td>
+      <td>${funnelCell(a.lt2m,a.calls,"var(--red)")}</td>
+      <td>${funnelCell(a.r1to2m,a.calls,"#f97316")}</td>
+      <td>${funnelCell(a.r5to10,a.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(a.r10to15,a.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(a.r15to20,a.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(a.r20to30,a.calls,"var(--green-dk)")}</td>
+      <td>${funnelCell(a.gt30m,a.calls,"var(--green-dk)")}</td>
+      <td>${fmtDur(a.avg)}</td>
+      <td>${fmtDur(a.sec)}</td>
+    </tr>`;
+  }).join('');
+
+  // Totals row
+  const tot=rows.reduce((t,a)=>({
+    calls:t.calls+a.calls, uniqueCalls:t.uniqueCalls+a.uniqueCalls,
+    short:t.short+a.short, lt2m:t.lt2m+a.lt2m, r1to2m:t.r1to2m+a.r1to2m,
+    r5to10:t.r5to10+a.r5to10, r10to15:t.r10to15+a.r10to15, r15to20:t.r15to20+a.r15to20,
+    r20to30:t.r20to30+a.r20to30, gt30m:t.gt30m+a.gt30m, sec:t.sec+a.sec
+  }),{calls:0,uniqueCalls:0,short:0,lt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0});
+  const totShortPct=tot.calls?Math.round(tot.short/tot.calls*100):0;
+  document.getElementById('agentBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+    <td style="text-align:left">TOTAL</td>
+    <td>${tot.calls}</td><td>${tot.uniqueCalls}</td><td>—</td><td>—</td>
+    <td>${totShortPct}%</td>
+    <td>${funnelCell(tot.lt2m,tot.calls,"var(--red)")}</td>
+    <td>${funnelCell(tot.r1to2m,tot.calls,"#f97316")}</td>
+    <td>${funnelCell(tot.r5to10,tot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(tot.r10to15,tot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(tot.r15to20,tot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(tot.r20to30,tot.calls,"var(--green-dk)")}</td>
+    <td>${funnelCell(tot.gt30m,tot.calls,"var(--green-dk)")}</td>
+    <td>—</td><td>${fmtDur(tot.sec)}</td>
+  </tr>`;
+
+  // Column sort listeners
+  document.querySelectorAll('#agentTable thead th').forEach(th=>{
+    th.classList.remove('sort-asc','sort-desc');
+    if(th.dataset.col===_sortCol) th.classList.add(_sortDir===1?'sort-asc':'sort-desc');
+    th.onclick=()=>{
+      if(_sortCol===th.dataset.col) _sortDir*=-1;
+      else{ _sortCol=th.dataset.col; _sortDir=-1; }
+      applyFilters();
+    };
+  });
+}
+
+// Default dates
+const today=new Date().toISOString().slice(0,10);
+document.getElementById('fromDate').value=today;
+document.getElementById('toDate').value=today;
+</script>
+</body>
+</html>
