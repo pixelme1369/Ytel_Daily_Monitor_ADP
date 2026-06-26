@@ -1833,8 +1833,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         th.classList.add(sortDir===1?'sort-asc':'sort-desc');
         const rows=[...tbody.querySelectorAll('tr')];
         function funnelCellVal(td){
-          const m=td.textContent.match(/\((\d+)\)/);
-          return m?parseInt(m[1]):parseFloat(td.textContent)||0;
+          const m=td.textContent.match(/([\d.]+)%/);
+          return m?parseFloat(m[1]):parseFloat(td.textContent)||0;
         }
         rows.sort((a,b)=>{
           const av=funnelCellVal(a.cells[col]);
