@@ -623,6 +623,14 @@ function funnelCell(val,denom,color){
   return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
+function exportDncPhones(){
+  const phones=window._dncPhones||[];
+  if(!phones.length){ alert('No DNC phones to export.'); return; }
+  const csv='Phone Number\n'+phones.map(p=>'"'+p+'"').join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='dnc_phones.csv'; a.click();
+}
 function toggleMs(id){
   const panel=document.getElementById(id+'-panel');
   if(!panel) return;
@@ -1300,7 +1308,9 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const drops=calls.filter(r=>['DROP','TIMEOT'].includes(r._status)).length;
   const dncRows=calls.filter(r=>r._status==='DNC');
   const dncCount=dncRows.length;
-  const dncUnique=new Set(dncRows.map(r=>r._phone)).size;
+  const dncPhoneSet=new Set(dncRows.map(r=>r._phone));
+  window._dncPhones=[...dncPhoneSet].filter(Boolean);
+  const dncUnique=dncPhoneSet.size;
 
   // ── KPIs ──
   const kpiData=[
@@ -1426,7 +1436,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const dropPct=drops/total*100;
 
   if(vdclAfterHours>10) issues.push({sev:'crit',title:'Dialer running after hours — '+vdclAfterHours+' VDCL drops after 6pm',detail:'Agents are off but the dialer keeps firing inbound leads. Callers hit dead air, leads are burned. Fix: set campaign end-time in Ytel and add an after-hours IVR.'});
-  if(dncCount>20) issues.push({sev:'crit',title:dncCount+' DNC calls · '+dncUnique+' unique numbers ('+pct(dncUnique,uniquePhones)+' of unique calls)',detail:'Compliance risk. These numbers have been flagged Do Not Call but are still in active rotation. Fix: run a DNC scrub now and enable auto-suppression in Ytel.'});
+  if(dncCount>20) issues.push({sev:'crit',exportDnc:true,title:dncCount+' DNC calls · '+dncUnique+' unique numbers ('+pct(dncUnique,uniquePhones)+' of unique calls)',detail:'Compliance risk. These numbers have been flagged Do Not Call but are still in active rotation. Fix: run a DNC scrub now and enable auto-suppression in Ytel.'});
 
   const plrDrops=vdclCalls.filter(r=>r._campaign==='PLR').length;
   if(plrDrops>30) issues.push({sev:'crit',title:'PLR campaign producing '+plrDrops+' VDCL drops — campaign likely broken',detail:'Agent availability config on PLR is wrong. The campaign is generating more drops than conversations. Fix: pause PLR, audit agent assignment and queue overflow rules, then re-enable.'});
@@ -1483,10 +1493,11 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   document.getElementById('issuesGrid').innerHTML=issues.map(iss=>`
     <div class="issue">
       <div class="issue-bar ${iss.sev}"></div>
-      <div>
+      <div style="flex:1">
         <div class="issue-title">${iss.title}</div>
         <div class="issue-detail">${iss.detail.replace(/\n/g,'<br>')}</div>
       </div>
+      ${iss.exportDnc?`<button onclick="exportDncPhones()" style="margin-left:8px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
       <div class="issue-badge ${iss.sev}">${iss.sev==='crit'?'Critical':iss.sev==='high'?'High':'Good'}</div>
     </div>`).join('');
 
