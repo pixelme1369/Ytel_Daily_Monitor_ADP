@@ -161,6 +161,7 @@ All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
 - `dpcFlagged[phone].secs` = array of `length_in_sec` for each unfollowed DPC event; `dpcData[].sec` = max sec across those events
 - **Duration filter** (4 buttons in card header): All | <1 min (sec<60) | 1–2 min (60≤sec<120) | >2 min (sec≥120)
   - `window._dpcSecFilter` holds current selection; `setDpcSec(val)` updates highlight + calls `renderDpcDrops()`
+- **High alert badge**: every row in this list already means zero follow-up of any kind happened after the drop (per the flagging rule above), which implies no outbound call was ever made either. Each row shows a ⚠️ badge before the phone number (tooltip: "High alert — no outbound call was ever made to this phone after the drop"). Implemented in the `rowHtml` template inside `renderDpcDrops()` (both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`).
 
 ## Agent Performance Table
 
