@@ -1783,6 +1783,12 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
   });
 
+  // phoneAttribCamp[phone] = campaign credited with the enrollment (first call of the enrollment day) —
+  // same rule the Campaign/Queue Breakdown card uses. Used to keep the Agent Performance hourly
+  // per-campaign bucketing consistent with that card, instead of using the agent's own last-call campaign.
+  const phoneAttribCamp={};
+  calls.forEach(r=>{ if(r._enrolled&&r._phone) phoneAttribCamp[r._phone]=r._campaign; });
+
   const agentMap={};
   const agentDirMap={inbound:{},outbound:{}};
   const agentHourMap={};
@@ -1887,7 +1893,16 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       if(!last) return;
       const lastDir=last.dir==='inbound'?'inbound':'outbound';
       const maps=[[agentHourMap,agentName],[agentHourDirMap[lastDir],agentName]];
-      if(last.camp&&agentHourCampMap[last.camp]) maps.push([agentHourCampMap[last.camp],agentName]);
+      const attribCamp=phoneAttribCamp[phone];
+      if(attribCamp){
+        // Ensure the (campaign, agent, hour) bucket exists even if this agent has
+        // no personal calls tagged with attribCamp — e.g. the credited closer's own
+        // last touch to this phone happened on a different campaign (like 1000).
+        if(!agentHourCampMap[attribCamp]) agentHourCampMap[attribCamp]={};
+        if(!agentHourCampMap[attribCamp][agentName]) agentHourCampMap[attribCamp][agentName]={};
+        if(!agentHourCampMap[attribCamp][agentName][last.hk]) agentHourCampMap[attribCamp][agentName][last.hk]={calls:0,short:0,lt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0};
+        maps.push([agentHourCampMap[attribCamp],agentName]);
+      }
       maps.forEach(([m,n])=>{
         if(!m[n]||!m[n][last.hk]) return;
         m[n][last.hk].enrHour=(m[n][last.hk].enrHour||0)+1;
