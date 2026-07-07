@@ -356,11 +356,14 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <div class="card" id="longNoDealCard" style="display:none">
         <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <span style="color:var(--red)">⚠ Long Calls, No Deal <span class="card-title-sub">Calls over the selected length that never converted to an enrollment · click the count to see phone numbers</span></span>
-          <select id="longDealThreshold" onchange="setLongDealThreshold()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
-            <option value="1200" selected>Over 20 min</option>
-            <option value="1500">Over 25 min</option>
-            <option value="1800">Over 30 min</option>
-          </select>
+          <div style="display:flex;align-items:center;gap:6px">
+            <select id="longDealThreshold" onchange="setLongDealThreshold()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
+              <option value="1200" selected>Over 20 min</option>
+              <option value="1500">Over 25 min</option>
+              <option value="1800">Over 30 min</option>
+            </select>
+            <button class="af-btn" onclick="exportLongNoDeal()">⬇ CSV</button>
+          </div>
         </div>
         <div class="tbl-wrap">
           <table id="longNoDealTable">
@@ -1354,6 +1357,7 @@ function renderLongNoDeal(rows){
     return {name:a.name,total:longPhones.length,longNoConvert};
   }).filter(a=>a.longNoConvert.length>0)
     .sort((a,b)=>b.longNoConvert.length-a.longNoConvert.length);
+  window._longNoDealFlagged=flagged;
   if(!flagged.length){ card.style.display='none'; return; }
   card.style.display='';
   body.innerHTML=flagged.map(a=>{
@@ -1369,6 +1373,16 @@ function renderLongNoDeal(rows){
 function setLongDealThreshold(){
   window._longDealThresholdSec=parseInt(document.getElementById('longDealThreshold').value)||1200;
   renderLongNoDeal();
+}
+function exportLongNoDeal(){
+  const flagged=window._longNoDealFlagged||[];
+  const rows=[];
+  flagged.forEach(a=>a.longNoConvert.forEach(p=>rows.push([a.name,p])));
+  if(!rows.length){ alert('No flagged phones to export.'); return; }
+  const csv='Agent,Phone Number\n'+rows.map(r=>'"'+r[0].replace(/"/g,'""')+'","'+r[1]+'"').join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='long_calls_no_deal.csv'; a.click();
 }
 
 // ══ FILE I/O ════════════════════════════════════════════════════════════════
