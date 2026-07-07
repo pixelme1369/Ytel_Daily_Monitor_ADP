@@ -324,6 +324,24 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- LONG CALLS, NO DEAL FLAG -->
+  <div class="card" id="longNoDealCard" style="display:none">
+    <div class="card-title" style="color:var(--red)">⚠ Long Calls, No Deal <span class="card-title-sub">Calls ≥20 min that never converted to an enrollment · click the count to see phone numbers</span></div>
+    <div class="tbl-wrap">
+      <table id="longNoDealTable">
+        <thead>
+          <tr>
+            <th style="text-align:left">Agent</th>
+            <th>Calls ≥20 min</th>
+            <th>Converted</th>
+            <th>Not Converted</th>
+          </tr>
+        </thead>
+        <tbody id="longNoDealBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- AGENT FUNNEL RATIO TABLE -->
   <div class="card">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -1292,6 +1310,11 @@ function showEnrolledPhones(phones, label){
 function closeEnrolledPhones(){
   document.getElementById('enrollModal').classList.remove('open');
 }
+function showFlaggedPhones(phones, label){
+  document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' — Long Calls, No Deal ('+phones.length+')';
+  document.getElementById('enrollModalList').innerHTML=phones.map(p=>`<span>${p}</span>`).join('');
+  document.getElementById('enrollModal').classList.add('open');
+}
 function showToast(msg,dur=2500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -1791,7 +1814,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentCampsMap={};
   const agentCampDataMap={}; // {camp: {agentName: stats}}
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)).forEach(r=>{
-    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set()};
+    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set(),longPhones:new Set()};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
     if(r._sec<120) d.lt2m++;
@@ -1803,6 +1826,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
     else if(r._sec>=1800) d.gt30m++;
     if(r._phone) d.phones.add(r._phone);
+    if(r._sec>=1200&&r._phone) d.longPhones.add(r._phone);
     // direction breakdown
     const dkey=r._dir==='inbound'?'inbound':'outbound';
     if(!agentDirMap[dkey][r._name]) agentDirMap[dkey][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enr:0,debt:0};
@@ -1907,7 +1931,9 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         if(fd&&fd.dir==='inbound') inboundUniq++;
         else outboundUniq++;
       });
-      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
+      const enrolledPhoneSet=new Set(agentEnrollPhones[name.toLowerCase()]||[]);
+      const longNoConvert=[...(d.longPhones||[])].filter(p=>!enrolledPhoneSet.has(p));
+      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,longNoConvert,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
     }).sort((a,b)=>b.calls-a.calls);
 
   // Store globally for re-render on campaign/direction filter
@@ -2012,7 +2038,27 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <td>—</td>
     </tr>`;
   }
+  function renderLongNoDeal(rows){
+    const card=document.getElementById('longNoDealCard');
+    const body=document.getElementById('longNoDealBody');
+    if(!card||!body) return;
+    const flagged=(rows||[]).filter(a=>(a.longNoConvert||[]).length>0)
+      .sort((a,b)=>b.longNoConvert.length-a.longNoConvert.length);
+    if(!flagged.length){ card.style.display='none'; return; }
+    card.style.display='';
+    body.innerHTML=flagged.map(a=>{
+      const total=a.longPhones?a.longPhones.size:0;
+      const converted=total-a.longNoConvert.length;
+      return `<tr>
+        <td style="text-align:left">${a.name}</td>
+        <td>${total}</td>
+        <td style="color:var(--green-dk)">${converted}</td>
+        <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.longNoConvert)},${JSON.stringify(a.name)})'>${a.longNoConvert.length}</span></td>
+      </tr>`;
+    }).join('');
+  }
   renderAgentBody(agentRows);
+  renderLongNoDeal(agentRows);
   renderFunnelChart(agentRows);
 
   // ── Agent funnel ratio table ──
