@@ -173,7 +173,7 @@ Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10
 
 ### Long Calls, No Deal Flag
 
-Card shown directly below the Agent Performance table (hidden when no agent has flagged phones). Flags, per agent, phone numbers with a call ≥20 min (1200s) that never converted to an enrollment.
+Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`. Card shown directly below the Agent Performance table (hidden when no agent has flagged phones). Flags, per agent, phone numbers with a call ≥20 min (1200s) that never converted to an enrollment.
 
 - `agentMap[name].longPhones` — Set of phone numbers with at least one call ≥1200 sec for that agent (tracked in the same loop that builds `r20to30`/`gt30m`, line ~1794–1806 of `Ytel_Daily_Monitor_ADP.html`)
 - `longNoConvert` — computed per agent row in the `agentRows` map (~line 1898): `longPhones` minus the agent's enrolled phones (`agentEnrollPhones[name.toLowerCase()]`)
