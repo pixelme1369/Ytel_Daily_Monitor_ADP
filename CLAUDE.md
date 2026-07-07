@@ -181,6 +181,7 @@ Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.htm
 - Called with no args, it defaults to `window._agentAllRows` — only reflects the full unfiltered agent set; campaign/direction-filtered views of the Agent Performance table do not recompute this card
 - Card table (`longNoDealCard`/`longNoDealBody`): Agent | Long Calls | Converted | Not Converted — sorted by Not Converted descending, only agents with `longNoConvert.length>0` shown
 - Clicking the Not Converted count opens the shared phone modal via `showFlaggedPhones(phones, agentName)` (mirrors `showEnrolledPhones`, same modal DOM, different title text)
+- **Export CSV** button (`⬇ CSV` next to the threshold dropdown) calls `exportLongNoDeal()`, which flattens `window._longNoDealFlagged` (set at the end of every `renderLongNoDeal()` run) into `Agent,Phone Number` rows and downloads `long_calls_no_deal.csv` — reflects whatever threshold is currently selected
 
 ## Agent Call Funnel Table
 
