@@ -327,7 +327,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
   <!-- LONG CALLS, NO DEAL FLAG -->
   <div class="card" id="longNoDealCard" style="display:none">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span style="color:var(--red)">⚠ Long Calls, No Deal <span class="card-title-sub">Calls over the selected length that never converted to an enrollment · click the count to see phone numbers</span></span>
+      <span style="color:var(--red)">⚠ Long Calls, No Deal <span class="card-title-sub">Calls over the selected length that never converted to an enrollment · Pitch Ready split out separately · click a count to see phone numbers</span></span>
       <div style="display:flex;align-items:center;gap:6px">
         <select id="longDealThreshold" onchange="setLongDealThreshold()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
           <option value="1200" selected>Over 20 min</option>
@@ -344,6 +344,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <th style="text-align:left">Agent</th>
             <th>Long Calls</th>
             <th>Converted</th>
+            <th title="CRM Status = Pitch Ready - Scheduled Meeting">Pitch Ready</th>
             <th>Not Converted</th>
           </tr>
         </thead>
@@ -1322,7 +1323,7 @@ function closeEnrolledPhones(){
 }
 function showFlaggedPhones(records, label){
   const uniquePhones=new Set(records.map(r=>r.phone)).size;
-  document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' — Long Calls, No Deal ('+uniquePhones+')';
+  document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' ('+uniquePhones+')';
   document.getElementById('enrollModalList').innerHTML=records.map(r=>{
     const hasRec=!!r.recording;
     return `<div style="padding:8px;border-radius:6px;background:var(--gray-100);display:flex;flex-direction:column;gap:6px">
@@ -1338,6 +1339,7 @@ function showFlaggedPhones(records, label){
   }).join('');
   document.getElementById('enrollModal').classList.add('open');
 }
+const PITCH_READY_STATUS='pitch ready - scheduled meeting';
 function renderLongNoDeal(rows){
   const list=rows||window._agentAllRows||[];
   const card=document.getElementById('longNoDealCard');
@@ -1351,10 +1353,15 @@ function renderLongNoDeal(rows){
     const enrolledSet=new Set(enrollPhones[a.name.toLowerCase()]||[]);
     const longPhones=Object.keys(phoneMaxSec).filter(p=>phoneMaxSec[p]>=thresholdSec);
     const longNoConvert=longPhones.filter(p=>!enrolledSet.has(p));
-    const longNoConvertRecords=longNoConvert.flatMap(p=>
-      (phoneRecordings[p]||[]).filter(rec=>rec.sec>=thresholdSec).map(rec=>({phone:p,sec:rec.sec,recording:rec.recording}))
+    const isPitchReady=p=>(phoneRecordings[p]||[]).some(rec=>rec.sec>=thresholdSec&&(rec.crmStatus||'').trim().toLowerCase()===PITCH_READY_STATUS);
+    const pitchReadyPhones=longNoConvert.filter(isPitchReady);
+    const otherPhones=longNoConvert.filter(p=>!isPitchReady(p));
+    const recordsFor=phones=>phones.flatMap(p=>
+      (phoneRecordings[p]||[]).filter(rec=>rec.sec>=thresholdSec).map(rec=>({phone:p,sec:rec.sec,recording:rec.recording,crmStatus:rec.crmStatus||''}))
     );
-    return {name:a.name,total:longPhones.length,longNoConvert,longNoConvertRecords};
+    return {name:a.name,total:longPhones.length,longNoConvert,
+      pitchReadyPhones,pitchReadyRecords:recordsFor(pitchReadyPhones),
+      otherPhones,otherRecords:recordsFor(otherPhones)};
   }).filter(a=>a.longNoConvert.length>0)
     .sort((a,b)=>b.longNoConvert.length-a.longNoConvert.length);
   window._longNoDealFlagged=flagged;
@@ -1366,16 +1373,31 @@ function renderLongNoDeal(rows){
       <td style="text-align:left">${a.name}</td>
       <td>${a.total}</td>
       <td style="color:var(--green-dk)">${converted}</td>
-      <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.longNoConvertRecords)},${JSON.stringify(a.name)})'>${a.longNoConvert.length}</span></td>
+      <td class="enroll-num">${a.pitchReadyPhones.length>0?`<span class="enroll-click" style="color:var(--amber);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.pitchReadyRecords)},${JSON.stringify(a.name+" — Pitch Ready (Scheduled Meeting)")})'>${a.pitchReadyPhones.length}</span>`:'—'}</td>
+      <td class="enroll-num">${a.otherPhones.length>0?`<span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.otherRecords)},${JSON.stringify(a.name+" — Long Calls, No Deal")})'>${a.otherPhones.length}</span>`:'—'}</td>
     </tr>`;
   }).join('');
+  const totalPitchReady=flagged.reduce((n,a)=>n+a.pitchReadyPhones.length,0);
+  const totalOther=flagged.reduce((n,a)=>n+a.otherPhones.length,0);
+  const totalCalls=flagged.reduce((n,a)=>n+a.total,0);
+  const totalConverted=flagged.reduce((n,a)=>n+(a.total-a.longNoConvert.length),0);
+  body.innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+    <td style="text-align:left">TOTAL</td>
+    <td>${totalCalls}</td>
+    <td style="color:var(--green-dk)">${totalConverted}</td>
+    <td style="color:var(--amber)">${totalPitchReady}</td>
+    <td style="color:var(--red)">${totalOther}</td>
+  </tr>`;
 }
 function exportLongNoDeal(){
   const flagged=window._longNoDealFlagged||[];
   const rows=[];
-  flagged.forEach(a=>a.longNoConvert.forEach(p=>rows.push([a.name,p])));
+  flagged.forEach(a=>{
+    a.pitchReadyPhones.forEach(p=>rows.push([a.name,p,'Pitch Ready - Scheduled Meeting']));
+    a.otherPhones.forEach(p=>rows.push([a.name,p,'']));
+  });
   if(!rows.length){ alert('No flagged phones to export.'); return; }
-  const csv='Agent,Phone Number\n'+rows.map(r=>'"'+r[0].replace(/"/g,'""')+'","'+r[1]+'"').join('\n');
+  const csv='Agent,Phone Number,CRM Status\n'+rows.map(r=>'"'+r[0].replace(/"/g,'""')+'","'+r[1]+'","'+r[2]+'"').join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='long_calls_no_deal.csv'; a.click();
@@ -1899,7 +1921,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(r._sec>=1200&&r._phone){
       d.phoneMaxSec[r._phone]=Math.max(d.phoneMaxSec[r._phone]||0,r._sec);
       if(!d.phoneRecordings[r._phone]) d.phoneRecordings[r._phone]=[];
-      d.phoneRecordings[r._phone].push({sec:r._sec,recording:r._recording||''});
+      d.phoneRecordings[r._phone].push({sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
     // direction breakdown
     const dkey=r._dir==='inbound'?'inbound':'outbound';
