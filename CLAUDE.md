@@ -176,11 +176,13 @@ Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10
 Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`. Card shown directly below the Agent Performance table (hidden when no agent has flagged phones). Flags, per agent, phone numbers with a call over a selectable length (20/25/30 min) that never converted to an enrollment.
 
 - `agentMap[name].phoneMaxSec` — `{phone: maxSecSeenForThatPhone}`, only populated for calls ≥1200 sec (the lowest selectable threshold) — tracked in the same loop that builds `r20to30`/`gt30m`
+- `agentMap[name].phoneRecordings` — `{phone: [{sec, recording}, ...]}`, one entry per qualifying call (≥1200 sec), populated alongside `phoneMaxSec`; `recording` comes from `r._recording` (parsed from `recording_location` column, see Key Columns table)
 - Threshold dropdown (`#longDealThreshold`, options 1200/1500/1800 sec) calls `setLongDealThreshold()`, which sets `window._longDealThresholdSec` and re-renders
-- `renderLongNoDeal(rows)` is a top-level function (not nested in `buildDashboard`, since the dropdown must call it after initial render): for each agent it filters `phoneMaxSec` keys ≥ the current threshold, then subtracts the agent's enrolled phones (`agentEnrollPhones[name.toLowerCase()]`) to get `longNoConvert`
+- `renderLongNoDeal(rows)` is a top-level function (not nested in `buildDashboard`, since the dropdown must call it after initial render): for each agent it filters `phoneMaxSec` keys ≥ the current threshold, then subtracts the agent's enrolled phones (`agentEnrollPhones[name.toLowerCase()]`) to get `longNoConvert`; it also builds `longNoConvertRecords` (one entry per qualifying recording, from `phoneRecordings` filtered by the same threshold) for the modal
 - Called with no args, it defaults to `window._agentAllRows` — only reflects the full unfiltered agent set; campaign/direction-filtered views of the Agent Performance table do not recompute this card
 - Card table (`longNoDealCard`/`longNoDealBody`): Agent | Long Calls | Converted | Not Converted — sorted by Not Converted descending, only agents with `longNoConvert.length>0` shown
-- Clicking the Not Converted count opens the shared phone modal via `showFlaggedPhones(phones, agentName)` (mirrors `showEnrolledPhones`, same modal DOM, different title text)
+- Clicking the Not Converted count opens the shared phone modal via `showFlaggedPhones(records, agentName)` (mirrors `showEnrolledPhones`, same modal DOM). Each row shows the phone, call duration, an inline `<audio controls>` player sourced from `recording.recording`, and a "⬇ Download recording" link (`download` attribute on an `<a href="...">`). Phones with no recording show "No recording available" instead of a player.
+- `#enrollModalBox` max-width bumped from 420px to 480px to fit the audio player comfortably (shared modal, so this also affects the Enrolled Phones / Transfers popups, harmlessly)
 - **Export CSV** button (`⬇ CSV` next to the threshold dropdown) calls `exportLongNoDeal()`, which flattens `window._longNoDealFlagged` (set at the end of every `renderLongNoDeal()` run) into `Agent,Phone Number` rows and downloads `long_calls_no_deal.csv` — reflects whatever threshold is currently selected
 
 ## Agent Call Funnel Table
@@ -250,6 +252,7 @@ Ranking table below the summary. Shows every opener agent sorted by transfer rat
 | `Enrolled Debt` | dollar amount, may include `$` and commas |
 | `Assigned To` | enrollment credit override |
 | `CRM Status` | lead status |
+| `recording_location` | URL/path to the call recording — used by the Long Calls, No Deal popup for inline playback + download |
 
 ## Date Parsing (`getDateStr`)
 
