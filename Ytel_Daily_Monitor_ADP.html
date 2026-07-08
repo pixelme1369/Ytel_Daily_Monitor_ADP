@@ -270,6 +270,12 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- DNC CALLS BY HOUR -->
+  <div class="card" id="dncHourCard" style="display:none">
+    <div class="card-title">DNC calls by hour <span class="card-title-sub">still-dialed numbers flagged Do Not Call</span></div>
+    <div class="chart-wrap" style="height:160px"><canvas id="dncHourChart"></canvas></div>
+  </div>
+
   <!-- DISPOSITION BREAKDOWN FOR <2 MIN CALLS -->
   <div class="card">
     <div class="card-title">Disposition breakdown — calls under 2 minutes <span class="card-title-sub">all dispositions · sorted by count</span></div>
@@ -674,7 +680,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-let mergedRaw = null, hourChart = null, vdclChart = null, dropHourChart = null;
+let mergedRaw = null, hourChart = null, vdclChart = null, dropHourChart = null, dncHourChart = null;
 
 const CMAP = {'LenderPr':'LenderProcessing','USAbrigh':'USAbright','PLIinbou':'PLIinbound','AGENTDIR':'AGENTDIRECT'};
 const MKT = new Set(['LenderProcessing','USAbright','PLIinbound','BlueSuccess']);
@@ -1503,6 +1509,7 @@ function clearAll(){
   if(hourChart){ hourChart.destroy(); hourChart=null; }
   if(vdclChart){ vdclChart.destroy(); vdclChart=null; }
   if(dropHourChart){ dropHourChart.destroy(); dropHourChart=null; }
+  if(dncHourChart){ dncHourChart.destroy(); dncHourChart=null; }
   document.getElementById('dropHourDetail').style.display='none';
 }
 
@@ -1819,6 +1826,26 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:10}}},
       scales:{x:{ticks:{font:{size:9},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}}}}
   });
+
+  // ── DNC calls by hour ──
+  const dncHourCard=document.getElementById('dncHourCard');
+  if(dncHourChart){ dncHourChart.destroy(); dncHourChart=null; }
+  if(dncRows.length){
+    dncHourCard.style.display='';
+    const dncHourCounts={};
+    for(let i=0;i<24;i++) dncHourCounts[String(i).padStart(2,'0')]=0;
+    dncRows.forEach(r=>{ const h=r._hour||'00'; if(dncHourCounts[h]!==undefined) dncHourCounts[h]++; });
+    const dncCtx=document.getElementById('dncHourChart').getContext('2d');
+    dncHourChart=new Chart(dncCtx,{
+      type:'bar',
+      data:{labels:hrs.map(h=>h+':00'),
+        datasets:[{label:'DNC calls',data:hrs.map(h=>dncHourCounts[h]),backgroundColor:'rgba(220,38,38,0.6)',borderColor:'#DC2626',borderWidth:1,borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:10}}},
+        scales:{x:{ticks:{font:{size:9},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:9},precision:0},grid:{color:'rgba(0,0,0,0.04)'}}}}
+    });
+  } else {
+    dncHourCard.style.display='none';
+  }
 
   // ── Dispo list ──
   const dispoCounts={};
