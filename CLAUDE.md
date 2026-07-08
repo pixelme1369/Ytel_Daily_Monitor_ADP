@@ -184,6 +184,15 @@ Flags calls dispositioned `CLtrns` (Call Center Transfer) where the transfer nev
 - `badTransferFlagged[phone].recs` collects `{phone,sec,recording}` for each unfollowed CLtrns event → surfaced as `badTransferData[].records`
 - **Click phone to play/download recording**: same shared `showFlaggedPhones(d.records, d.phone+' — Incomplete Transfer')` modal used by DPC and Long Calls, No Deal
 
+### Correct Transfers Received by Agent
+
+Card `#receivedTransferCard` in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`, placed directly after the Incomplete Transfers card. Shows, per receiving agent, how many `CLtrns` transfers actually landed with them.
+
+- For each `CLtrns` event that is NOT flagged as incomplete (i.e. it has a later inbound call), credit goes to the agent on the **first** inbound call after that event's timestamp — that's the agent who actually picked up the transferred lead
+- Implementation: `inboundCalls[phone]` = all inbound calls (any status) with `{ts, agent, camp, sec, recording}`, sorted by `ts`; for each `cltrnsEvents[phone]` entry, `followUps.find(f=>f.ts>ev.ts)` gives the receiving call
+- `receivedTransfers[agent]` = `{count, records:[{phone,sec,recording}]}` — one record per transfer received, using the **receiving agent's own call** (not the opener's CLtrns call) for sec/recording
+- Table: Agent | Transfers Received (count) — sorted by count descending; count is clickable via `showFlaggedPhones(r.records, r.agent+' — Transfers Received')`, same shared modal with audio playback
+
 ## Agent Performance Table
 
 Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10 min | 10–15 min | 15–20 min | 20–30 min | 30+ min | Avg Talk | Total Talk | Enrolled | Debt $ | Conv%
