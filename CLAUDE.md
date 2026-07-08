@@ -172,6 +172,18 @@ All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
 - Rendered as `dncHourChart` (Chart.js bar chart), destroyed/recreated each `buildDashboard()` run and on `resetDashboard()`/`clearAll()` alongside `hourChart`/`vdclChart`/`dropHourChart`
 - Bar color uses each dashboard's own danger color: `#DC2626` in the original, `#EF4444` in v2
 
+## Incomplete Transfers (CLtrns with no inbound follow-up)
+
+Flags calls dispositioned `CLtrns` (Call Center Transfer) where the transfer never actually landed with another agent — the opener marked it as transferred but no one on the receiving end ever picked it up. Card `#badTransferCard` in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`, styled like the DPC card (red title, campaign multi-select filter, Enrolled Clients vs Other Calls split), placed directly after the DPC card.
+
+- **Per-event logic**: for each `CLtrns` event on a phone, check if any call with `direction === 'inbound'` (any status, any campaign) occurred on that phone after the `CLtrns` timestamp
+- If no later inbound call exists → flagged. This mirrors a real transfer: a genuine hand-off produces a new inbound call into the closer's queue (e.g. `AGENTDIRECT`); if that never happens, the "transfer" never actually landed
+- Rule was confirmed against two real examples: (1) opener dispositions `CLtrns`, no other row for that lead at all → flagged; (2) opener dispositions `CLtrns` on `TransferK`, later an agent has an inbound call on `AGENTDIRECT` for the same phone → correctly not flagged
+- Scope: any agent's `CLtrns` dispo is checked, not just agents in the `OPENERS` set (a closer or untagged agent could also mis-use the status)
+- Implementation: `cltrnsEvents[phone]` = all CLtrns timestamps+sec+recording; `inboundTs[phone]` = timestamps of all inbound calls (any status) to that phone; flag if any CLtrns event has no later inbound call
+- `badTransferFlagged[phone].recs` collects `{phone,sec,recording}` for each unfollowed CLtrns event → surfaced as `badTransferData[].records`
+- **Click phone to play/download recording**: same shared `showFlaggedPhones(d.records, d.phone+' — Incomplete Transfer')` modal used by DPC and Long Calls, No Deal
+
 ## Agent Performance Table
 
 Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10 min | 10–15 min | 15–20 min | 20–30 min | 30+ min | Avg Talk | Total Talk | Enrolled | Debt $ | Conv%
