@@ -606,6 +606,27 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           </div>
         </div>
       </div>
+
+      <div class="card" id="badTransferCard" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+          <div class="card-title" style="color:var(--red);margin:0">⚠ Incomplete Transfers <span class="card-title-sub">dispositioned CLtrns but the call never reached another agent</span></div>
+          <span title="A call was dispositioned CLtrns (transfer) but no inbound call to this number followed — meaning the opener marked it as transferred without an agent ever actually receiving it." style="cursor:help;font-size:13px">ⓘ</span>
+          <div class="ms-wrap" id="badTransferCampFilter" style="margin-left:auto">
+            <button class="ms-btn" onclick="toggleMs('badTransferCampFilter')"><span class="ms-lbl">All Campaigns</span> ▾</button>
+            <div class="ms-panel" id="badTransferCampFilter-panel" style="display:none"></div>
+          </div>
+        </div>
+        <div class="two-col" style="gap:16px;align-items:start">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Enrolled Clients <span id="badTransferEnrolledCount" style="font-size:10px;font-weight:400;color:var(--text-muted)"></span></div>
+            <div id="badTransferEnrolledList" style="font-size:12px;color:var(--text);line-height:1.9"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Other Calls <span id="badTransferOtherCount" style="font-size:10px;font-weight:400;color:var(--text-muted)"></span></div>
+            <div id="badTransferOtherList" style="font-size:12px;color:var(--text);line-height:1.9"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1333,6 +1354,17 @@ function renderDpcDrops(){
   document.getElementById('dpcOtherCount').textContent='('+other.length+')';
   document.getElementById('dpcOtherList').innerHTML=rowHtml(other);
 }
+function renderBadTransfers(){
+  const camps=getMsValues('badTransferCampFilter');
+  const data=(window._badTransferData||[]).filter(d=>!camps.length||d.camps.some(c=>camps.includes(c)));
+  const enrolled=data.filter(d=>d.enrolled);
+  const other=data.filter(d=>!d.enrolled);
+  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — dispositioned as a transfer but no inbound call ever followed, meaning the call never actually landed with another agent" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${JSON.stringify(d.records)},${JSON.stringify(d.phone+" — Incomplete Transfer")})' title="Click to play/download the CLtrns call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— marked transfer by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  document.getElementById('badTransferEnrolledCount').textContent='('+enrolled.length+')';
+  document.getElementById('badTransferEnrolledList').innerHTML=rowHtml(enrolled);
+  document.getElementById('badTransferOtherCount').textContent='('+other.length+')';
+  document.getElementById('badTransferOtherList').innerHTML=rowHtml(other);
+}
 function showEnrolledPhones(phones, label){
   document.getElementById('enrollModalTitle').textContent=(label||'Campaign')+' — Enrolled Phones ('+phones.length+')';
   document.getElementById('enrollModalList').innerHTML=phones.map(p=>`<span>${p}</span>`).join('');
@@ -1692,6 +1724,54 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const dpcCard=document.getElementById('dpcCard');
   if(dpcPhones.length){ dpcCard.style.display=''; renderDpcDrops(); }
   else dpcCard.style.display='none';
+
+  // ── Incomplete transfers: CLtrns dispositioned but call never actually landed with another agent ──
+  // Per-event logic: for each CLtrns event on a phone, check if any INBOUND call to that phone occurred after it.
+  // If not, the opener marked "transfer" but no agent ever actually received the call.
+  const cltrnsEvents={};  // phone → [{ts, agent, camp, sec, recording}]
+  calls.forEach(r=>{
+    if(r._status==='CLtrns'&&r._phone){
+      if(!cltrnsEvents[r._phone]) cltrnsEvents[r._phone]=[];
+      cltrnsEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+    }
+  });
+  const inboundTs={};  // phone → [ts, ...] (any status, direction=inbound)
+  calls.forEach(r=>{
+    if(r._phone&&r._dir==='inbound'){
+      if(!inboundTs[r._phone]) inboundTs[r._phone]=[];
+      inboundTs[r._phone].push(parseTs(r['call_date']||r['date']||''));
+    }
+  });
+  const badTransferFlagged={};  // phone → {agents:Set, camps:Set, secs:[], recs:[]}
+  Object.entries(cltrnsEvents).forEach(([phone,events])=>{
+    const followUps=inboundTs[phone]||[];
+    events.forEach(ev=>{
+      const hasFollowup=followUps.some(t=>t>ev.ts);
+      if(!hasFollowup){
+        if(!badTransferFlagged[phone]) badTransferFlagged[phone]={agents:new Set(),camps:new Set(),secs:[],recs:[]};
+        if(ev.agent) badTransferFlagged[phone].agents.add(ev.agent);
+        if(ev.camp) badTransferFlagged[phone].camps.add(ev.camp);
+        badTransferFlagged[phone].secs.push(ev.sec);
+        badTransferFlagged[phone].recs.push({phone,sec:ev.sec,recording:ev.recording||''});
+      }
+    });
+  });
+  const badTransferPhones=Object.keys(badTransferFlagged);
+  const badTransferData=badTransferPhones.map(p=>({
+    phone:p,
+    agents:[...badTransferFlagged[p].agents].join(', ')||'—',
+    camps:[...badTransferFlagged[p].camps],
+    enrolled:anyEnrolledPhone.has(p),
+    debt:phoneDebt[p]||0,
+    records:badTransferFlagged[p].recs,
+    sec:Math.max(...badTransferFlagged[p].secs)
+  }));
+  const allBadTransferCamps=[...new Set(badTransferData.flatMap(d=>d.camps))].sort();
+  setMsOptions('badTransferCampFilter', allBadTransferCamps, 'renderBadTransfers');
+  window._badTransferData=badTransferData;
+  const badTransferCard=document.getElementById('badTransferCard');
+  if(badTransferPhones.length){ badTransferCard.style.display=''; renderBadTransfers(); }
+  else badTransferCard.style.display='none';
   const vdclAfterHours=vdclCalls.filter(r=>parseInt(r._hour)>=18).length;
   const shortPct=deadCalls/total*100;
   const dropPct=drops/total*100;
