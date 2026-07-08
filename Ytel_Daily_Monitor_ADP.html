@@ -601,6 +601,15 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
   </div>
 
+  <!-- CORRECT TRANSFERS RECEIVED BY AGENT -->
+  <div class="card" id="receivedTransferCard" style="display:none">
+    <div class="card-title" style="color:var(--green-dk);margin-bottom:12px">✅ Correct Transfers <span class="card-title-sub">calls each agent actually received from openers (excludes incomplete transfers above)</span></div>
+    <table>
+      <thead><tr><th>Agent</th><th>Transfers Received</th></tr></thead>
+      <tbody id="receivedTransferBody"></tbody>
+    </table>
+  </div>
+
   <!-- OPENERS TRANSFER BREAKDOWN -->
   <div class="card" id="openerTransferCard" style="display:none">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
@@ -1822,6 +1831,41 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const badTransferCard=document.getElementById('badTransferCard');
   if(badTransferPhones.length){ badTransferCard.style.display=''; renderBadTransfers(); }
   else badTransferCard.style.display='none';
+
+  // ── Correct transfers received by agent ──────────────────────────────────────
+  // For each CLtrns event that DID land (has a later inbound call), credit the agent
+  // on the first inbound call after it — that's the agent who actually received the transfer.
+  const inboundCalls={};  // phone → [{ts, agent, camp, sec, recording}] (direction=inbound)
+  calls.forEach(r=>{
+    if(r._phone&&r._dir==='inbound'){
+      if(!inboundCalls[r._phone]) inboundCalls[r._phone]=[];
+      inboundCalls[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+    }
+  });
+  const receivedTransfers={};  // agent → {count, records:[{phone,sec,recording}]}
+  Object.entries(cltrnsEvents).forEach(([phone,events])=>{
+    const followUps=(inboundCalls[phone]||[]).slice().sort((a,b)=>a.ts-b.ts);
+    events.forEach(ev=>{
+      const next=followUps.find(f=>f.ts>ev.ts);
+      if(next&&next.agent){
+        if(!receivedTransfers[next.agent]) receivedTransfers[next.agent]={count:0,records:[]};
+        receivedTransfers[next.agent].count++;
+        receivedTransfers[next.agent].records.push({phone,sec:next.sec,recording:next.recording});
+      }
+    });
+  });
+  const receivedTransferRows=Object.entries(receivedTransfers).map(([agent,d])=>({agent,count:d.count,records:d.records})).sort((a,b)=>b.count-a.count);
+  window._receivedTransferRows=receivedTransferRows;
+  const receivedTransferCard=document.getElementById('receivedTransferCard');
+  if(receivedTransferRows.length){
+    receivedTransferCard.style.display='';
+    document.getElementById('receivedTransferBody').innerHTML=receivedTransferRows.map(r=>`<tr>
+      <td>${r.agent}</td>
+      <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${JSON.stringify(r.records)},${JSON.stringify(r.agent+" — Transfers Received")})'>${r.count}</span></td>
+    </tr>`).join('');
+  } else {
+    receivedTransferCard.style.display='none';
+  }
 
   const vdclAfterHours=vdclCalls.filter(r=>parseInt(r._hour)>=18).length;
   const shortPct=deadCalls/total*100;
