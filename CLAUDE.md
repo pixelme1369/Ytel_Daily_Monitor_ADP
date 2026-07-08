@@ -165,10 +165,11 @@ All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
 
 ## DNC Calls by Hour Chart
 
-- Card `#dncHourCard` sits directly below the "Call volume by hour" chart (`Ytel_Daily_Monitor_ADP.html` only, so far) — shows when DNC-flagged numbers are still being dialed throughout the day
+- Card `#dncHourCard` sits directly below the "Call volume by hour" chart in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html` — shows when DNC-flagged numbers are still being dialed throughout the day
 - Hidden (`style="display:none"`) when `dncRows.length===0`
 - Reuses `dncRows` (calls where `r._status==='DNC'`, already computed in `buildDashboard` for the "DNC Still Dialed" KPI/issue) — bucketed by `r._hour` into `dncHourCounts`
-- Rendered as `dncHourChart` (Chart.js bar chart), destroyed/recreated each `buildDashboard()` run and on `resetDashboard()` alongside `hourChart`/`vdclChart`/`dropHourChart`
+- Rendered as `dncHourChart` (Chart.js bar chart), destroyed/recreated each `buildDashboard()` run and on `resetDashboard()`/`clearAll()` alongside `hourChart`/`vdclChart`/`dropHourChart`
+- Bar color uses each dashboard's own danger color: `#DC2626` in the original, `#EF4444` in v2
 
 ## Agent Performance Table
 
