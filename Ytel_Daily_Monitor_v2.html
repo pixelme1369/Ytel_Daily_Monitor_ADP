@@ -631,7 +631,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <div class="card" id="receivedTransferCard" style="display:none">
         <div class="card-title" style="color:var(--green-dk);margin-bottom:12px">✅ Correct Transfers <span class="card-title-sub">calls each agent actually received from openers (excludes incomplete transfers above)</span></div>
         <table>
-          <thead><tr><th>Agent</th><th>Transfers Received</th><th>Enrolled</th></tr></thead>
+          <thead><tr><th>Agent</th><th>Transfers Received</th><th>Enrolled</th><th>Conv%</th></tr></thead>
           <tbody id="receivedTransferBody"></tbody>
         </table>
       </div>
@@ -1813,6 +1813,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <td>${r.agent}</td>
       <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${JSON.stringify(r.records)},${JSON.stringify(r.agent+" — Transfers Received")})'>${r.count}</span></td>
       <td class="${r.enrolledPhones.size>0?'enroll-num':'enroll-zero'}">${r.enrolledPhones.size>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...r.enrolledPhones])},${JSON.stringify(r.agent+" — Enrolled from Transfers")})'>${r.enrolledPhones.size}</span>`:'—'}</td>
+      <td>${pct(r.enrolledPhones.size,r.count)}</td>
     </tr>`).join('');
   } else {
     receivedTransferCard.style.display='none';
