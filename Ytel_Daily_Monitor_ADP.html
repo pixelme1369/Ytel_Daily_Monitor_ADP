@@ -1305,7 +1305,7 @@ function renderDpcDrops(){
   });
   const enrolled=data.filter(d=>d.enrolled);
   const other=data.filter(d=>!d.enrolled);
-  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — no outbound call was ever made to this phone after the drop" style="margin-right:4px">⚠️</span><span style="font-family:monospace;font-weight:600">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— dropped by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — no outbound call was ever made to this phone after the drop" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${JSON.stringify(d.records)},${JSON.stringify(d.phone+" — Dropped Call")})' title="Click to play/download the dropped call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— dropped by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
   document.getElementById('dpcEnrolledCount').textContent='('+enrolled.length+')';
   document.getElementById('dpcEnrolledList').innerHTML=rowHtml(enrolled);
   document.getElementById('dpcOtherCount').textContent='('+other.length+')';
@@ -1699,7 +1699,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._status==='DPC'&&r._phone){
       if(!dpcEvents[r._phone]) dpcEvents[r._phone]=[];
-      dpcEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0});
+      dpcEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
     }
   });
   // All non-DPC call timestamps per phone
@@ -1711,16 +1711,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
   });
   // Flag phones that have at least one DPC with no non-DPC follow-up after it
-  const dpcFlagged={};  // phone → {agents:Set, camps:Set, secs:[]}
+  const dpcFlagged={};  // phone → {agents:Set, camps:Set, secs:[], recs:[]}
   Object.entries(dpcEvents).forEach(([phone,events])=>{
     const followUps=nonDpcTs[phone]||[];
     events.forEach(ev=>{
       const hasFollowup=followUps.some(t=>t>ev.ts);
       if(!hasFollowup){
-        if(!dpcFlagged[phone]) dpcFlagged[phone]={agents:new Set(),camps:new Set(),secs:[]};
+        if(!dpcFlagged[phone]) dpcFlagged[phone]={agents:new Set(),camps:new Set(),secs:[],recs:[]};
         if(ev.agent) dpcFlagged[phone].agents.add(ev.agent);
         if(ev.camp) dpcFlagged[phone].camps.add(ev.camp);
         dpcFlagged[phone].secs.push(ev.sec);
+        dpcFlagged[phone].recs.push({phone,sec:ev.sec,recording:ev.recording||''});
       }
     });
   });
@@ -1731,6 +1732,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     camps:[...dpcFlagged[p].camps],
     enrolled:anyEnrolledPhone.has(p),
     debt:phoneDebt[p]||0,
+    records:dpcFlagged[p].recs,
     sec:Math.max(...dpcFlagged[p].secs)
   }));
   const allDpcCamps=[...new Set(dpcData.flatMap(d=>d.camps))].sort();
