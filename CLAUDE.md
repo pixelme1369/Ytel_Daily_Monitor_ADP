@@ -163,6 +163,13 @@ All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
   - `window._dpcSecFilter` holds current selection; `setDpcSec(val)` updates highlight + calls `renderDpcDrops()`
 - **High alert badge**: every row in this list already means zero follow-up of any kind happened after the drop (per the flagging rule above), which implies no outbound call was ever made either. Each row shows a ⚠️ badge before the phone number (tooltip: "High alert — no outbound call was ever made to this phone after the drop"). Implemented in the `rowHtml` template inside `renderDpcDrops()` (both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`).
 
+## DNC Calls by Hour Chart
+
+- Card `#dncHourCard` sits directly below the "Call volume by hour" chart (`Ytel_Daily_Monitor_ADP.html` only, so far) — shows when DNC-flagged numbers are still being dialed throughout the day
+- Hidden (`style="display:none"`) when `dncRows.length===0`
+- Reuses `dncRows` (calls where `r._status==='DNC'`, already computed in `buildDashboard` for the "DNC Still Dialed" KPI/issue) — bucketed by `r._hour` into `dncHourCounts`
+- Rendered as `dncHourChart` (Chart.js bar chart), destroyed/recreated each `buildDashboard()` run and on `resetDashboard()` alongside `hourChart`/`vdclChart`/`dropHourChart`
+
 ## Agent Performance Table
 
 Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10 min | 10–15 min | 15–20 min | 20–30 min | 30+ min | Avg Talk | Total Talk | Enrolled | Debt $ | Conv%
