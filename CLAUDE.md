@@ -190,8 +190,8 @@ Card `#receivedTransferCard` in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Dai
 
 - For each `CLtrns` event that is NOT flagged as incomplete (i.e. it has a later inbound call), credit goes to the agent on the **first** inbound call after that event's timestamp — that's the agent who actually picked up the transferred lead
 - Implementation: `inboundCalls[phone]` = all inbound calls (any status) with `{ts, agent, camp, sec, recording}`, sorted by `ts`; for each `cltrnsEvents[phone]` entry, `followUps.find(f=>f.ts>ev.ts)` gives the receiving call
-- `receivedTransfers[agent]` = `{count, records:[{phone,sec,recording}]}` — one record per transfer received, using the **receiving agent's own call** (not the opener's CLtrns call) for sec/recording
-- Table: Agent | Transfers Received (count) — sorted by count descending; count is clickable via `showFlaggedPhones(r.records, r.agent+' — Transfers Received')`, same shared modal with audio playback
+- `receivedTransfers[agent]` = `{count, records:[{phone,sec,recording}], enrolledPhones:Set}` — one record per transfer received, using the **receiving agent's own call** (not the opener's CLtrns call) for sec/recording; `enrolledPhones` = subset of received phones present in `anyEnrolledPhone` (any row for that phone has a `Cordoba Enrolled Date`)
+- Table: Agent | Transfers Received (count) | Enrolled (count) — sorted by Transfers Received descending; both counts clickable — Transfers Received via `showFlaggedPhones(r.records, r.agent+' — Transfers Received')` (audio playback), Enrolled via `showEnrolledPhones([...r.enrolledPhones], r.agent+' — Enrolled from Transfers')` (plain phone list); Enrolled shows `—` when zero
 
 ## Agent Performance Table
 
