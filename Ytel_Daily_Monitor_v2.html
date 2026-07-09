@@ -858,7 +858,7 @@ function copySummary(){
     'Ytel Daily Monitor — '+m.dateStr,
     'Calls: '+m.total.toLocaleString()+' ('+m.uniquePhones.toLocaleString()+' unique) · Contact rate: '+m.contactRate,
     'Enrolled: '+m.enrolled+(m.debt>0?' ('+fmt$(m.debt)+' debt)':'')+' · Conv (enr / calls >5min): '+m.conv,
-    'Dead ≤30s: '+m.dead.toLocaleString()+' ('+m.deadPct+') · Drops/Timeouts: '+m.drops+' ('+m.dropPct+') · DNC still dialed: '+m.dnc,
+    'Dead ≤30s: '+m.dead.toLocaleString()+' ('+m.deadPct+') · Drops/Timeouts: '+m.drops+' ('+m.dropPct+') · DNC still dialed: '+m.dnc+' · Dialed after DNC: '+m.dialedAfterDnc,
     m.issues.length?'Issues:':'Issues: none',
     ...m.issues.map(t=>'- '+t)
   ];
@@ -1735,6 +1735,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const dncPhoneSet=new Set(dncRows.map(r=>r._phone));
   window._dncPhones=[...dncPhoneSet].filter(Boolean);
   const dncUnique=dncPhoneSet.size;
+  // True compliance violations: outbound calls placed AFTER the phone was dispositioned DNC
+  const firstDncTs={};
+  dncRows.forEach(r=>{ if(r._phone&&(!firstDncTs[r._phone]||r._ts<firstDncTs[r._phone])) firstDncTs[r._phone]=r._ts; });
+  const dialedAfterDncPhones=new Set();
+  let callsAfterDnc=0;
+  calls.forEach(r=>{
+    if(r._phone&&firstDncTs[r._phone]&&r._ts>firstDncTs[r._phone]&&r._dir!=='inbound'){
+      dialedAfterDncPhones.add(r._phone); callsAfterDnc++;
+    }
+  });
+  window._dialedAfterDncPhones=[...dialedAfterDncPhones];
 
   // ── KPIs ──
   const kpiData=[
@@ -1746,6 +1757,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'Total Debt Enrolled',val:totalDebt>0?fmt$(totalDebt):'—',sub:'sum of Enrolled Debt',cls:'green'},
     {label:'Dead ≤30s',val:deadCalls.toLocaleString(),sub:pct(deadCalls,total)+' wasted',cls:'red'},
     {label:'DNC Still Dialed',val:dncCount,sub:dncUnique+' unique · '+pct(dncUnique,uniquePhones)+' of unique calls',cls:'red'},
+    {label:'Dialed After DNC',val:dialedAfterDncPhones.size,sub:dialedAfterDncPhones.size?callsAfterDnc+' outbound call'+(callsAfterDnc>1?'s':'')+' after the DNC dispo':'no numbers redialed after DNC',cls:'red'},
     {label:'Drop / Timeout',val:drops,sub:pct(drops,total)+' drop rate',cls:'amber'},
     {label:'2 – 10 Min',val:b2to10m.toLocaleString(),sub:pct(b2to10m,total)+' of total',cls:'amber'},
     {label:'> 15 Min',val:gt15mUnique.toLocaleString(),sub:pct(gt15mUnique,uniquePhones)+' of unique calls',cls:'green'},
@@ -1764,7 +1776,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     enrolled:totalEnrolled,debt:totalDebt,
     conv:pct(totalEnrolled,calls.filter(r=>r._sec>=300).length),
     dead:deadCalls,deadPct:pct(deadCalls,total),
-    drops,dropPct:pct(drops,total),dnc:dncCount,issues:[]};
+    drops,dropPct:pct(drops,total),dnc:dncCount,dialedAfterDnc:dialedAfterDncPhones.size,issues:[]};
 
   // ── Issues ──
   const issues=[];
