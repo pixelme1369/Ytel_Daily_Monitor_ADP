@@ -203,6 +203,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <input type="date" id="toDate" value="">
     </div>
     <button class="sb-btn" onclick="runAnalysis()">&#9654; Run Analysis</button>
+    <button class="sb-btn ghost" onclick="copySummary()">&#128203; Copy Summary</button>
     <button class="sb-btn ghost" onclick="clearAll()">Clear</button>
     <div class="sb-hint" id="filterHint">Upload the merged file, pick a date, then click Run Analysis.</div>
     <div class="sb-hint" id="hdrDate" style="color:#34D399;font-weight:700">No date selected</div>
@@ -522,6 +523,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
                 <th data-col="11">Enrolled</th>
                 <th data-col="12">Conv% (enr/total >2m)</th>
                 <th data-col="13">Conv% (enr/unique >2m)</th>
+                <th data-col="14" title="Unique phones reached for more than 30s ÷ unique phones dialed on this campaign">Contact%</th>
               </tr>
             </thead>
             <tbody id="campBody"></tbody>
@@ -617,13 +619,30 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">Settings</span></div>
     <div class="sec-body">
       <div class="card">
-        <div class="card-title">Agent role editor <span class="card-title-sub">one name per line · lowercase · saved for this session</span></div>
+        <div class="card-title">Agent role editor <span class="card-title-sub">one name per line · lowercase · saved in this browser</span></div>
         <div class="role-grid">
           <div><label>Closers</label><textarea id="closersTA"></textarea></div>
           <div><label>Openers</label><textarea id="openersTA"></textarea></div>
           <div><label>Retention</label><textarea id="retentionTA"></textarea></div>
         </div>
         <button class="af-btn af-active" style="margin-top:12px" onclick="saveRoles()">Save Roles</button>
+        <button class="af-btn" style="margin-top:12px" onclick="resetRoles()">Reset to Defaults</button>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Alert thresholds <span class="card-title-sub">when the Issues section fires · saved in this browser · re-runs the analysis on save</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;font-size:12px">
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">After-hours VDCL drops (critical)<input type="number" id="th-vdclAfterHours" min="0" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">DNC calls still dialed (critical)<input type="number" id="th-dncCalls" min="0" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">PLR VDCL drops (critical)<input type="number" id="th-plrDrops" min="0" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">Dead-call % of total (high)<input type="number" id="th-deadPct" min="0" max="100" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">Drop/timeout % of total (high)<input type="number" id="th-dropPct" min="0" max="100" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">Agent short-call % flag<input type="number" id="th-agentShortPct" min="0" max="100" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">Agent min calls to flag<input type="number" id="th-agentMinCalls" min="1" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">Marketing conv % floor<input type="number" id="th-mktConvPct" min="0" max="100" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;color:var(--text-muted)">Outbound redials per number<input type="number" id="th-redials" min="1" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--font)"></label>
+        </div>
+        <button class="af-btn af-active" style="margin-top:12px" onclick="saveThresholds()">Save Thresholds</button>
+        <button class="af-btn" style="margin-top:12px" onclick="resetThresholds()">Reset to Defaults</button>
       </div>
     </div>
   </section>
@@ -664,6 +683,25 @@ const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta'
 const RETENTION=new Set(['eli riano','erika ceja']);
 const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','jaiden lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','mohamad dadou']);
 
+// Snapshot of the hardcoded defaults above, then overlay any roles saved from the Settings editor
+const DEFAULT_ROLES={closers:[...CLOSERS],openers:[...OPENERS],retention:[...RETENTION]};
+try{
+  const saved=JSON.parse(localStorage.getItem('roles')||'null');
+  if(saved&&Array.isArray(saved.closers)){
+    CLOSERS.clear(); saved.closers.forEach(v=>CLOSERS.add(v));
+    OPENERS.clear(); (saved.openers||[]).forEach(v=>OPENERS.add(v));
+    RETENTION.clear(); (saved.retention||[]).forEach(v=>RETENTION.add(v));
+  }
+}catch(e){}
+
+// Alert thresholds for the Issues engine — editable in Settings, persisted in localStorage
+const DEFAULT_THRESHOLDS={vdclAfterHours:10,dncCalls:20,plrDrops:30,deadPct:30,dropPct:5,agentShortPct:55,agentMinCalls:30,mktConvPct:5,redials:15};
+const TH={...DEFAULT_THRESHOLDS};
+try{
+  const saved=JSON.parse(localStorage.getItem('thresholds')||'null');
+  if(saved) Object.keys(DEFAULT_THRESHOLDS).forEach(k=>{ if(typeof saved[k]==='number'&&!isNaN(saved[k])) TH[k]=saved[k]; });
+}catch(e){}
+
 // ══ UTILS ═══════════════════════════════════════════════════════════════════
 function fmtDur(s){
   s=Math.round(+s||0);
@@ -679,6 +717,8 @@ function funnelCell(val,denom,color){
   return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
+// JSON for use inside single-quoted onclick attributes — apostrophes in agent/campaign names would otherwise truncate the attribute
+function attrJson(v){ return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
 function showToast(msg,dur=2500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -782,6 +822,50 @@ function exportTable(tableId, filename){
   a.href=URL.createObjectURL(blob);
   a.download=filename+'.csv';
   a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+function copySummary(){
+  const m=window._summary;
+  if(!m){ showToast('Run an analysis first'); return; }
+  const lines=[
+    'Ytel Daily Monitor — '+m.dateStr,
+    'Calls: '+m.total.toLocaleString()+' ('+m.uniquePhones.toLocaleString()+' unique) · Contact rate: '+m.contactRate,
+    'Enrolled: '+m.enrolled+(m.debt>0?' ('+fmt$(m.debt)+' debt)':'')+' · Conv (enr / calls >5min): '+m.conv,
+    'Dead ≤30s: '+m.dead.toLocaleString()+' ('+m.deadPct+') · Drops/Timeouts: '+m.drops+' ('+m.dropPct+') · DNC still dialed: '+m.dnc+' · Dialed after DNC: '+m.dialedAfterDnc,
+    m.issues.length?'Issues:':'Issues: none',
+    ...m.issues.map(t=>'- '+t)
+  ];
+  const text=lines.join('\n');
+  const done=()=>showToast('Summary copied — paste it into the huddle notes');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>{ fallbackCopy(text); done(); });
+  } else { fallbackCopy(text); done(); }
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta);
+}
+function showAfterDncPhones(){
+  const list=window._afterDncDetail||[];
+  if(!list.length){ showToast('No numbers were dialed after a DNC'); return; }
+  document.getElementById('enrollModalTitle').textContent='Dialed After DNC — '+list.length+' number'+(list.length>1?'s':'');
+  document.getElementById('enrollModalList').innerHTML=list.map(d=>
+    `<span>${d.phone} — ${d.calls} call${d.calls>1?'s':''} after DNC${d.agents.length?' · by: '+d.agents.join(', '):''}</span>`
+  ).join('');
+  document.getElementById('enrollModal').classList.add('open');
+}
+function exportAfterDncPhones(){
+  const list=window._afterDncDetail||[];
+  if(!list.length){ alert('No numbers were dialed after a DNC.'); return; }
+  const csv='Phone Number,Outbound Calls After DNC,Dialed By\n'
+    +list.map(d=>['"'+d.phone+'"','"'+d.calls+'"','"'+d.agents.join('; ').replace(/"/g,'""')+'"'].join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='dialed_after_dnc.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 function exportDncPhones(){
   const phones=window._dncPhones||[];
@@ -790,6 +874,7 @@ function exportDncPhones(){
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='dnc_phones.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 
 // ══ ROLE EDITOR ═════════════════════════════════════════════════════════════
@@ -803,8 +888,41 @@ function saveRoles(){
   CLOSERS.clear(); parse('closersTA').forEach(v=>CLOSERS.add(v));
   OPENERS.clear(); parse('openersTA').forEach(v=>OPENERS.add(v));
   RETENTION.clear(); parse('retentionTA').forEach(v=>RETENTION.add(v));
+  try{ localStorage.setItem('roles',JSON.stringify({closers:[...CLOSERS],openers:[...OPENERS],retention:[...RETENTION]})); }catch(e){}
   if(window._agentAllRows) filterAgents();
-  showToast('Roles saved for this session');
+  showToast('Roles saved — they will persist in this browser');
+}
+function resetRoles(){
+  try{ localStorage.removeItem('roles'); }catch(e){}
+  CLOSERS.clear(); DEFAULT_ROLES.closers.forEach(v=>CLOSERS.add(v));
+  OPENERS.clear(); DEFAULT_ROLES.openers.forEach(v=>OPENERS.add(v));
+  RETENTION.clear(); DEFAULT_ROLES.retention.forEach(v=>RETENTION.add(v));
+  renderRoleEditor();
+  if(window._agentAllRows) filterAgents();
+  showToast('Roles reset to defaults');
+}
+function renderThresholdEditor(){
+  Object.keys(DEFAULT_THRESHOLDS).forEach(k=>{
+    const el=document.getElementById('th-'+k);
+    if(el) el.value=TH[k];
+  });
+}
+function saveThresholds(){
+  Object.keys(DEFAULT_THRESHOLDS).forEach(k=>{
+    const el=document.getElementById('th-'+k);
+    const v=parseFloat(el&&el.value);
+    if(!isNaN(v)) TH[k]=v;
+  });
+  try{ localStorage.setItem('thresholds',JSON.stringify(TH)); }catch(e){}
+  if(mergedRaw&&document.getElementById('fromDate').value){ runAnalysis(); showToast('Thresholds saved — issues re-checked'); }
+  else showToast('Thresholds saved');
+}
+function resetThresholds(){
+  try{ localStorage.removeItem('thresholds'); }catch(e){}
+  Object.assign(TH,DEFAULT_THRESHOLDS);
+  renderThresholdEditor();
+  if(mergedRaw&&document.getElementById('fromDate').value) runAnalysis();
+  showToast('Thresholds reset to defaults');
 }
 
 // ══ FILTERS ═════════════════════════════════════════════════════════════════
@@ -1064,8 +1182,9 @@ function filterCampTable(role){
   const agMap={};
   filtered.forEach(r=>{
     const c=r._campaign;
-    if(!map[c]) map[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
+    if(!map[c]) map[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
     const d=map[c]; d.calls++; d.sec+=r._sec;
+    if(r._phone){d.phones.add(r._phone); if(r._sec>30) d.phonesContacted.add(r._phone);}
     if(r._sec<=30) d.short++;
     if(r._sec<120) d.lt2m++;
     if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
@@ -1150,7 +1269,7 @@ function renderOpenerTable(){
   const rangeCell=(cl,enr,total,recs,label)=>{
     if(total===0) return '—';
     const clPart=cl>0
-      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showFlaggedPhones(${JSON.stringify(recs||[])},${JSON.stringify((label||'')+' — Transfers')})'>${cl} Transfer</span>`
+      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showFlaggedPhones(${attrJson(recs||[])},${attrJson((label||'')+' — Transfers')})'>${cl} Transfer</span>`
       :`<span style="color:var(--text-muted);font-size:11px">0 Transfer</span>`;
     const enrPart=enr>0?`<div style="font-size:9px;color:var(--green-dk);font-weight:600">${enr} enrolled</div>`:'';
     const totPart=`<div style="font-size:9px;color:var(--text-muted);margin-top:1px">${total} calls</div>`;
@@ -1179,7 +1298,7 @@ function renderOpenerTable(){
     enrolledPhones:new Set()});
   const renderRow=(s,ag,camp,style,agId)=>{
     const enrollCell=s.enroll>0
-      ?`<span class="enroll-click" onclick='event.stopPropagation();showEnrolledPhones(${JSON.stringify([...s.enrolledPhones])},${JSON.stringify(ag+(camp?' · '+camp:''))})'>${s.enroll}</span>`:'—';
+      ?`<span class="enroll-click" onclick='event.stopPropagation();showEnrolledPhones(${attrJson([...s.enrolledPhones])},${attrJson(ag+(camp?' · '+camp:''))})'>${s.enroll}</span>`:'—';
     const isTot=style==='total'; const isAgent=style==='agent';
     let firstCols,trAttrs;
     if(isAgent){
@@ -1325,7 +1444,7 @@ function renderDpcDrops(){
   });
   const enrolled=data.filter(d=>d.enrolled);
   const other=data.filter(d=>!d.enrolled);
-  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — no outbound call was ever made to this phone after the drop" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${JSON.stringify(d.records)},${JSON.stringify(d.phone+" — Dropped Call")})' title="Click to play/download the dropped call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— dropped by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — no outbound call was ever made to this phone after the drop" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${attrJson(d.records)},${attrJson(d.phone+" — Dropped Call")})' title="Click to play/download the dropped call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— dropped by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
   document.getElementById('dpcEnrolledCount').textContent='('+enrolled.length+')';
   document.getElementById('dpcEnrolledList').innerHTML=rowHtml(enrolled);
   document.getElementById('dpcOtherCount').textContent='('+other.length+')';
@@ -1336,7 +1455,7 @@ function renderBadTransfers(){
   const data=(window._badTransferData||[]).filter(d=>!camps.length||d.camps.some(c=>camps.includes(c)));
   const enrolled=data.filter(d=>d.enrolled);
   const other=data.filter(d=>!d.enrolled);
-  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — dispositioned as a transfer but no inbound call ever followed, meaning the call never actually landed with another agent" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${JSON.stringify(d.records)},${JSON.stringify(d.phone+" — Incomplete Transfer")})' title="Click to play/download the CLtrns call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— marked transfer by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — dispositioned as a transfer but no inbound call ever followed, meaning the call never actually landed with another agent" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${attrJson(d.records)},${attrJson(d.phone+" — Incomplete Transfer")})' title="Click to play/download the CLtrns call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— marked transfer by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
   document.getElementById('badTransferEnrolledCount').textContent='('+enrolled.length+')';
   document.getElementById('badTransferEnrolledList').innerHTML=rowHtml(enrolled);
   document.getElementById('badTransferOtherCount').textContent='('+other.length+')';
@@ -1402,7 +1521,7 @@ function renderLongNoDeal(rows){
       <td>${a.total}</td>
       <td style="color:var(--green-dk)">${converted}</td>
       <td>${pct(converted,a.total)}</td>
-      <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.longNoConvertRecords)},${JSON.stringify(a.name+' — Long Calls, No Deal')})'>${a.longNoConvert.length}</span></td>
+      <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${attrJson(a.longNoConvertRecords)},${attrJson(a.name+' — Long Calls, No Deal')})'>${a.longNoConvert.length}</span></td>
     </tr>`;
   }).join('');
 }
@@ -1419,6 +1538,7 @@ function exportLongNoDeal(){
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='long_calls_no_deal.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 
 // ══ FILE I/O ════════════════════════════════════════════════════════════════
@@ -1465,7 +1585,7 @@ function handleMerged(input){
 }
 function autoSetDate(data){
   const dates=new Set();
-  data.slice(0,200).forEach(r=>{
+  data.forEach(r=>{
     const v=r['call_date']||r['Call Date']||r['date']||'';
     const s=typeof v==='string'?v:String(v);
     const m=s.match(/(\d{4}-\d{2}-\d{2})/);
@@ -1474,7 +1594,9 @@ function autoSetDate(data){
   });
   const sorted=[...dates].sort();
   if(sorted.length){
-    document.getElementById('targetDate').value=sorted[sorted.length-1];
+    // Default the range to the newest day in the file (daily-monitor default; widen manually for multi-day)
+    document.getElementById('fromDate').value=sorted[sorted.length-1];
+    document.getElementById('toDate').value=sorted[sorted.length-1];
   }
 }
 function clearAll(){
@@ -1500,8 +1622,10 @@ function runAnalysis(){
   if(!fromStr||!toStr){ showToast('Pick a date range'); return; }
   if(fromStr>toStr){ showToast('From date must be ≤ To date'); return; }
 
+  let badDateRows=0;
   const calls=mergedRaw.filter(r=>{
     const d=getDateStr(r['call_date']||r['Call Date']||r['date']||r['Date']||'');
+    if(!d){ badDateRows++; return false; }
     return d>=fromStr && d<=toStr;
   });
   if(calls.length===0){ showToast('No calls found in that date range'); return; }
@@ -1541,20 +1665,15 @@ function runAnalysis(){
 
   document.getElementById('hdrDate').textContent=dateStr;
   document.getElementById('filterHint').textContent=
-    calls.length.toLocaleString()+' calls · '+totalEnrolledCount+' enrollments'+(days>1?' · '+days+' days':'');
+    calls.length.toLocaleString()+' calls · '+totalEnrolledCount+' enrollments'+(days>1?' · '+days+' days':'')
+    +(badDateRows?' · ⚠ '+badDateRows.toLocaleString()+' row'+(badDateRows>1?'s':'')+' skipped (unreadable call_date)':'');
+  if(badDateRows) showToast('⚠ '+badDateRows.toLocaleString()+' row'+(badDateRows>1?'s':'')+' with an unreadable call_date skipped');
 
   buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent);
 }
 
 function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent){
-  const enrolledFirstCallTs={};
-  calls.forEach(r=>{
-    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    if(!enrolledPhones.has(phone)) return;
-    const ts=parseTs(r['call_date']||r['date']||'');
-    if(!enrolledFirstCallTs[phone]||ts<enrolledFirstCallTs[phone]) enrolledFirstCallTs[phone]=ts;
-  });
-
+  // Normalize call fields — r._ts is parsed once here and reused by every loop below
   calls.forEach(r=>{
     r._sec=parseInt(r['length_in_sec']||r['duration']||r['Duration']||r['talk_sec']||0,10)||0;
     r._campaign=normCamp((r['campaign_id']||r['Campaign']||'').trim());
@@ -1564,14 +1683,24 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._dir=(r['direction']||r['Direction']||'').toLowerCase();
     r._status=(r['status']||r['Status']||'').trim();
     r._statusName=(r['status_name']||r['Status Name']||r['dispo']||r._status).trim();
-    r._hour=(String(r['call_date']||r['date']||'')).slice(11,13)||'00';
+    r._ts=parseTs(r['call_date']||r['date']||'');
+    // Hour from the parsed timestamp — string slicing breaks on Date objects (cellDates:true) and M/D/YYYY strings
+    r._hour=r._ts?String(new Date(r._ts).getHours()).padStart(2,'0'):((String(r['call_date']||r['date']||'')).slice(11,13)||'00');
     r._ug=(r['user_group']||'').trim();
     r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    r._enrolled=!!(enrolledPhoneAgent&&enrolledPhoneAgent[r._phone] && parseTs(r['call_date']||r['date']||'')===enrolledFirstCallTs[r._phone]);
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
     r._recording=(r['recording_location']||r['Recording Location']||r['recording_url']||'').trim();
   });
+
+  // First call row per enrolled phone — enrollment is credited to that call's campaign.
+  // Flag the row itself (not its timestamp) so tied timestamps can't mark two rows enrolled.
+  const enrolledFirstCallRow={};
+  calls.forEach(r=>{
+    if(!r._phone||!enrolledPhones.has(r._phone)) return;
+    if(!enrolledFirstCallRow[r._phone]||r._ts<enrolledFirstCallRow[r._phone]._ts) enrolledFirstCallRow[r._phone]=r;
+  });
+  calls.forEach(r=>{ r._enrolled=enrolledFirstCallRow[r._phone]===r; });
 
   const total=calls.length;
   const uniquePhones=new Set(calls.map(r=>r._phone).filter(Boolean)).size;
@@ -1582,6 +1711,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const b2to10m=calls.filter(r=>r._sec>=120&&r._sec<600).length;
   const phoneBest={};
   calls.forEach(r=>{if(r._phone&&r._sec>(phoneBest[r._phone]||0)) phoneBest[r._phone]=r._sec;});
+  const contactedUnique=Object.values(phoneBest).filter(s=>s>30).length;
   const gt15mUnique=Object.values(phoneBest).filter(s=>s>900).length;
   const gt30mUnique=Object.values(phoneBest).filter(s=>s>1800).length;
   const gt45mUnique=Object.values(phoneBest).filter(s=>s>2700).length;
@@ -1596,16 +1726,36 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const dncPhoneSet=new Set(dncRows.map(r=>r._phone));
   window._dncPhones=[...dncPhoneSet].filter(Boolean);
   const dncUnique=dncPhoneSet.size;
+  // True compliance violations: outbound calls placed AFTER the phone was dispositioned DNC
+  const firstDncTs={};
+  dncRows.forEach(r=>{ if(r._phone&&(!firstDncTs[r._phone]||r._ts<firstDncTs[r._phone])) firstDncTs[r._phone]=r._ts; });
+  const dialedAfterDncPhones=new Set();
+  let callsAfterDnc=0;
+  const afterDncDetail={};  // phone → {calls, agents:Set}
+  calls.forEach(r=>{
+    if(r._phone&&firstDncTs[r._phone]&&r._ts>firstDncTs[r._phone]&&r._dir!=='inbound'){
+      dialedAfterDncPhones.add(r._phone); callsAfterDnc++;
+      if(!afterDncDetail[r._phone]) afterDncDetail[r._phone]={calls:0,agents:new Set()};
+      afterDncDetail[r._phone].calls++;
+      if(r._name&&r._name!=='Unknown') afterDncDetail[r._phone].agents.add(r._name);
+    }
+  });
+  window._dialedAfterDncPhones=[...dialedAfterDncPhones];
+  window._afterDncDetail=Object.entries(afterDncDetail)
+    .map(([phone,d])=>({phone,calls:d.calls,agents:[...d.agents]}))
+    .sort((a,b)=>b.calls-a.calls);
 
   // ── KPIs ──
   const kpiData=[
     {label:'Total Calls',val:total.toLocaleString(),sub:'all dispositions',cls:'blue'},
     {label:'Unique Calls',val:uniquePhones.toLocaleString(),sub:'distinct phone numbers',cls:'blue'},
+    {label:'Contact Rate',val:pct(contactedUnique,uniquePhones),sub:contactedUnique.toLocaleString()+' unique #s reached >30s',cls:'blue'},
     {label:'Total Enrolled',val:totalEnrolled,sub:'with Cordoba Enrolled Date',cls:'green'},
     {label:'Conv Rate',val:pct(totalEnrolled,calls.filter(r=>r._sec>=300).length),sub:'enrolled / calls >5 min',cls:'green'},
     {label:'Total Debt Enrolled',val:totalDebt>0?fmt$(totalDebt):'—',sub:'sum of Enrolled Debt',cls:'green'},
     {label:'Dead ≤30s',val:deadCalls.toLocaleString(),sub:pct(deadCalls,total)+' wasted',cls:'red'},
     {label:'DNC Still Dialed',val:dncCount,sub:dncUnique+' unique · '+pct(dncUnique,uniquePhones)+' of unique calls',cls:'red'},
+    {label:'Dialed After DNC',val:dialedAfterDncPhones.size,sub:dialedAfterDncPhones.size?callsAfterDnc+' outbound call'+(callsAfterDnc>1?'s':'')+' after the DNC dispo':'no numbers redialed after DNC',cls:'red'},
     {label:'Drop / Timeout',val:drops,sub:pct(drops,total)+' drop rate',cls:'amber'},
     {label:'2 – 10 Min',val:b2to10m.toLocaleString(),sub:pct(b2to10m,total)+' of total',cls:'amber'},
     {label:'> 15 Min',val:gt15mUnique.toLocaleString(),sub:pct(gt15mUnique,uniquePhones)+' of unique calls',cls:'green'},
@@ -1619,6 +1769,13 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <div class="kpi-sub">${k.sub}</div>
     </div>`).join('');
 
+  window._summary={dateStr,total,uniquePhones,
+    contactRate:pct(contactedUnique,uniquePhones),
+    enrolled:totalEnrolled,debt:totalDebt,
+    conv:pct(totalEnrolled,calls.filter(r=>r._sec>=300).length),
+    dead:deadCalls,deadPct:pct(deadCalls,total),
+    drops,dropPct:pct(drops,total),dnc:dncCount,dialedAfterDnc:dialedAfterDncPhones.size,issues:[]};
+
   // ── Issues ──
   const issues=[];
 
@@ -1627,7 +1784,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const timeoutCamps={};
   calls.forEach(r=>{
     if(r._status==='TIMEOT'&&r._dir==='inbound'&&r._phone){
-      const ts=parseTs(r['call_date']||r['date']||'');
+      const ts=r._ts;
       if(!timeoutTs[r._phone]||ts>timeoutTs[r._phone]) timeoutTs[r._phone]=ts;
       if(!timeoutAgents[r._phone]) timeoutAgents[r._phone]=new Set();
       if(!timeoutCamps[r._phone]) timeoutCamps[r._phone]=new Set();
@@ -1638,7 +1795,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const calledBack=new Set();
   calls.forEach(r=>{
     if(r._phone&&timeoutTs[r._phone]&&r._status!=='TIMEOT'){
-      const ts=parseTs(r['call_date']||r['date']||'');
+      const ts=r._ts;
       if(ts>timeoutTs[r._phone]) calledBack.add(r._phone);
     }
   });
@@ -1667,14 +1824,14 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._status==='DPC'&&r._phone){
       if(!dpcEvents[r._phone]) dpcEvents[r._phone]=[];
-      dpcEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
+      dpcEvents[r._phone].push({ts:r._ts,agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
   });
   const nonDpcTs={};
   calls.forEach(r=>{
     if(r._phone&&r._status!=='DPC'){
       if(!nonDpcTs[r._phone]) nonDpcTs[r._phone]=[];
-      nonDpcTs[r._phone].push(parseTs(r['call_date']||r['date']||''));
+      nonDpcTs[r._phone].push(r._ts);
     }
   });
   const dpcFlagged={};
@@ -1715,14 +1872,14 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._status==='CLtrns'&&r._phone){
       if(!cltrnsEvents[r._phone]) cltrnsEvents[r._phone]=[];
-      cltrnsEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
+      cltrnsEvents[r._phone].push({ts:r._ts,agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
   });
   const inboundTs={};  // phone → [ts, ...] (any status, direction=inbound)
   calls.forEach(r=>{
     if(r._phone&&r._dir==='inbound'){
       if(!inboundTs[r._phone]) inboundTs[r._phone]=[];
-      inboundTs[r._phone].push(parseTs(r['call_date']||r['date']||''));
+      inboundTs[r._phone].push(r._ts);
     }
   });
   const badTransferFlagged={};  // phone → {agents:Set, camps:Set, secs:[], recs:[]}
@@ -1763,7 +1920,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._phone&&r._dir==='inbound'){
       if(!inboundCalls[r._phone]) inboundCalls[r._phone]=[];
-      inboundCalls[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
+      inboundCalls[r._phone].push({ts:r._ts,agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
   });
   const receivedTransfers={};  // agent → {count, records:[{phone,sec,recording}], enrolledPhones:Set}
@@ -1786,8 +1943,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     receivedTransferCard.style.display='';
     document.getElementById('receivedTransferBody').innerHTML=receivedTransferRows.map(r=>`<tr>
       <td>${r.agent}</td>
-      <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${JSON.stringify(r.records)},${JSON.stringify(r.agent+" — Transfers Received")})'>${r.count}</span></td>
-      <td class="${r.enrolledPhones.size>0?'enroll-num':'enroll-zero'}">${r.enrolledPhones.size>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...r.enrolledPhones])},${JSON.stringify(r.agent+" — Enrolled from Transfers")})'>${r.enrolledPhones.size}</span>`:'—'}</td>
+      <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${attrJson(r.records)},${attrJson(r.agent+" — Transfers Received")})'>${r.count}</span></td>
+      <td class="${r.enrolledPhones.size>0?'enroll-num':'enroll-zero'}">${r.enrolledPhones.size>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...r.enrolledPhones])},${attrJson(r.agent+" — Enrolled from Transfers")})'>${r.enrolledPhones.size}</span>`:'—'}</td>
       <td>${pct(r.enrolledPhones.size,r.count)}</td>
     </tr>`).join('');
   } else {
@@ -1798,14 +1955,15 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const shortPct=deadCalls/total*100;
   const dropPct=drops/total*100;
 
-  if(vdclAfterHours>10) issues.push({sev:'crit',title:'Dialer running after hours — '+vdclAfterHours+' VDCL drops after 6pm',detail:'Agents are off but the dialer keeps firing inbound leads. Callers hit dead air, leads are burned. Fix: set campaign end-time in Ytel and add an after-hours IVR.'});
-  if(dncCount>20) issues.push({sev:'crit',exportDnc:true,title:dncCount+' DNC calls · '+dncUnique+' unique numbers ('+pct(dncUnique,uniquePhones)+' of unique calls)',detail:'Compliance risk. These numbers have been flagged Do Not Call but are still in active rotation. Fix: run a DNC scrub now and enable auto-suppression in Ytel.'});
+  if(vdclAfterHours>TH.vdclAfterHours) issues.push({sev:'crit',title:'Dialer running after hours — '+vdclAfterHours+' VDCL drops after 6pm',detail:'Agents are off but the dialer keeps firing inbound leads. Callers hit dead air, leads are burned. Fix: set campaign end-time in Ytel and add an after-hours IVR.'});
+  if(dncCount>TH.dncCalls) issues.push({sev:'crit',exportDnc:true,title:dncCount+' DNC calls · '+dncUnique+' unique numbers ('+pct(dncUnique,uniquePhones)+' of unique calls)',detail:'Compliance risk. These numbers have been flagged Do Not Call but are still in active rotation. Fix: run a DNC scrub now and enable auto-suppression in Ytel.'});
+  if(dialedAfterDncPhones.size) issues.push({sev:'crit',afterDnc:true,title:dialedAfterDncPhones.size+' number'+(dialedAfterDncPhones.size>1?'s':'')+' dialed AFTER a DNC disposition ('+callsAfterDnc+' outbound call'+(callsAfterDnc>1?'s':'')+')',detail:'Direct compliance violation — these phones were dispositioned Do Not Call and still received outbound calls afterwards. Suppress them in Ytel today and review who dialed them (click View Numbers).'});
 
   const plrDrops=vdclCalls.filter(r=>r._campaign==='PLR').length;
-  if(plrDrops>30) issues.push({sev:'crit',title:'PLR campaign producing '+plrDrops+' VDCL drops — campaign likely broken',detail:'Agent availability config on PLR is wrong. The campaign is generating more drops than conversations. Fix: pause PLR, audit agent assignment and queue overflow rules, then re-enable.'});
+  if(plrDrops>TH.plrDrops) issues.push({sev:'crit',title:'PLR campaign producing '+plrDrops+' VDCL drops — campaign likely broken',detail:'Agent availability config on PLR is wrong. The campaign is generating more drops than conversations. Fix: pause PLR, audit agent assignment and queue overflow rules, then re-enable.'});
 
-  if(shortPct>30) issues.push({sev:'high',title:deadCalls.toLocaleString()+' calls ≤30s ('+shortPct.toFixed(1)+'% dead weight)',detail:'Over 30% of calls ended before any real conversation. This is list quality degradation and/or agents hanging up early. Pull recordings for top-volume agents with highest short rates.'});
-  if(dropPct>5){
+  if(shortPct>TH.deadPct) issues.push({sev:'high',title:deadCalls.toLocaleString()+' calls ≤30s ('+shortPct.toFixed(1)+'% dead weight)',detail:'Over '+TH.deadPct+'% of calls ended before any real conversation. This is list quality degradation and/or agents hanging up early. Pull recordings for top-volume agents with highest short rates.'});
+  if(dropPct>TH.dropPct){
     const agentDrops={},agentTimeouts={};
     calls.forEach(r=>{
       const n=r._name||'Unknown';
@@ -1814,7 +1972,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     });
     const topDrops=Object.entries(agentDrops).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>n+' ('+c+')').join(', ')||'—';
     const topTimeouts=Object.entries(agentTimeouts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>n+' ('+c+')').join(', ')||'—';
-    issues.push({sev:'high',title:'Drop/timeout rate at '+pct(drops,total)+' ('+drops+' calls)',detail:'Higher than the 5% acceptable threshold. Check queue depth, agent availability settings, and shift scheduling against call volume.\n\nMost Drops: '+topDrops+'\nMost Timeouts: '+topTimeouts});
+    issues.push({sev:'high',title:'Drop/timeout rate at '+pct(drops,total)+' ('+drops+' calls)',detail:'Higher than the '+TH.dropPct+'% acceptable threshold. Check queue depth, agent availability settings, and shift scheduling against call volume.\n\nMost Drops: '+topDrops+'\nMost Timeouts: '+topTimeouts});
   }
 
   const agentMapIssue={};
@@ -1823,7 +1981,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     agentMapIssue[r._name].calls++; if(r._sec<=30) agentMapIssue[r._name].short++;
   });
   const badAgents=Object.entries(agentMapIssue)
-    .filter(([n,d])=>d.calls>=30&&d.short/d.calls>0.55)
+    .filter(([n,d])=>d.calls>=TH.agentMinCalls&&d.short/d.calls>TH.agentShortPct/100)
     .sort((a,b)=>b[1].calls-a[1].calls).slice(0,3);
   if(badAgents.length){
     const names=badAgents.map(([n,d])=>`${n} (${(d.short/d.calls*100).toFixed(0)}% short, ${d.calls} calls)`).join('; ');
@@ -1831,7 +1989,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   }
 
   const mktConv=mktCalls.length?totalEnrolled/mktCalls.length*100:0;
-  if(mktConv<5 && mktCalls.length>50) issues.push({sev:'high',title:'Marketing conversion below 5% ('+mktConv.toFixed(1)+'%)',detail:'Only '+totalEnrolled+' enrollments from '+mktCalls.length+' marketing calls. Route marketing queues to proven closers only and audit PLIinbound routing.'});
+  if(mktConv<TH.mktConvPct && mktCalls.length>50) issues.push({sev:'high',title:'Marketing conversion below '+TH.mktConvPct+'% ('+mktConv.toFixed(1)+'%)',detail:'Only '+totalEnrolled+' enrollments from '+mktCalls.length+' marketing calls. Route marketing queues to proven closers only and audit PLIinbound routing.'});
 
   const agentPhoneOutCounts={};
   calls.forEach(r=>{
@@ -1841,15 +1999,16 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
   });
   const excessiveRedials=Object.entries(agentPhoneOutCounts)
-    .filter(([,n])=>n>15)
+    .filter(([,n])=>n>TH.redials)
     .map(([key,n])=>{ const [agent,phone]=key.split('||'); return {agent,phone,n}; })
     .sort((a,b)=>b.n-a.n);
   if(excessiveRedials.length){
     const detail=excessiveRedials.map(e=>`${e.agent} → ${e.phone} (${e.n}x)`).join('\n');
-    issues.push({sev:'high',title:`${excessiveRedials.length} agent/number pair${excessiveRedials.length>1?'s':''} dialed outbound >15 times`,detail:'Repeated dialing of the same number wastes time and risks DNC complaints.\n\n'+detail});
+    issues.push({sev:'high',title:`${excessiveRedials.length} agent/number pair${excessiveRedials.length>1?'s':''} dialed outbound >${TH.redials} times`,detail:'Repeated dialing of the same number wastes time and risks DNC complaints.\n\n'+detail});
   }
 
   if(issues.length===0) issues.push({sev:'ok',title:'No critical issues detected on '+dateStr,detail:'All key metrics within acceptable ranges. Keep monitoring daily.'});
+  window._summary.issues=issues.filter(i=>i.sev!=='ok').map(i=>(i.sev==='crit'?'[CRITICAL] ':'[HIGH] ')+i.title);
 
   document.getElementById('issuesGrid').innerHTML=issues.map(iss=>`
     <div class="issue">
@@ -1859,6 +2018,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <div class="issue-detail">${iss.detail.replace(/\n/g,'<br>')}</div>
       </div>
       ${iss.exportDnc?`<button onclick="exportDncPhones()" style="margin-left:8px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
+      ${iss.afterDnc?`<button onclick="showAfterDncPhones()" style="margin-left:8px;padding:4px 10px;font-size:11px;background:#c0392b;border:1px solid #c0392b;color:#fff;border-radius:4px;cursor:pointer;white-space:nowrap">View Numbers</button><button onclick="exportAfterDncPhones()" style="margin-left:6px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
       <div class="issue-badge ${iss.sev}">${iss.sev==='crit'?'Critical':iss.sev==='high'?'High':'Good'}</div>
     </div>`).join('');
 
@@ -1938,7 +2098,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentPhoneLastCall={};
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._phone).forEach(r=>{
     const key=r._name+'||'+r._phone;
-    const ts=parseTs(r['call_date']||r['date']||'');
+    const ts=r._ts;
     if(!agentPhoneFirstDir[key]||ts<agentPhoneFirstDir[key].ts)
       agentPhoneFirstDir[key]={dir:r._dir,ts};
     const hr=parseInt(r._hour);
@@ -2102,7 +2262,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const activeHourMap=hourMapSrc||(window._agentHourMap||agentHourMap);
     const maxC=rows[0]?rows[0].calls:1;
     const enrollPhones=window._agentEnrollPhones||agentEnrollPhones;
-    document.getElementById('agentBody').innerHTML=rows.map((a,i)=>{
+    const agentRowsHtml=rows.map((a,i)=>{
       const convPct=a.gt2m>0&&a.enr>0?pct(a.enr,a.gt2m):'—';
       const shortCls=a.shortPct>55?'bad':'';
       const isOpener=OPENERS.has(a.name.toLowerCase());
@@ -2165,7 +2325,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       sec:t.sec+a.sec, enr:t.enr+a.enr, debt:t.debt+a.debt
     }),{calls:0,uniqueCalls:0,short:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0,enr:0,debt:0});
     const agTotShortPct=agTot.calls?agTot.short/agTot.calls*100:0;
-    document.getElementById('agentBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+    document.getElementById('agentBody').innerHTML=agentRowsHtml+`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
       <td style="text-align:left">TOTAL</td>
       <td>${agTot.calls}</td><td>${agTot.uniqueCalls}</td><td>—</td><td>—</td>
       <td>${agTotShortPct.toFixed(0)}%</td>
@@ -2331,8 +2491,9 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const campAgentMap={};
   const campAgentDirMap={inbound:{},outbound:{}};
   calls.forEach(r=>{
-    const c=r._campaign; if(!campMap[c]) campMap[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
+    const c=r._campaign; if(!campMap[c]) campMap[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
     const d=campMap[c]; d.calls++; d.sec+=r._sec;
+    if(r._phone){d.phones.add(r._phone); if(r._sec>30) d.phonesContacted.add(r._phone);}
     if(r._sec<=30) d.short++;
     if(r._sec<120) d.lt2m++;
     if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
@@ -2344,8 +2505,9 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
     if(r._enrolled){ d.enroll++; if(r._phone) d.enrolledPhones.add(r._phone); }
     const dir=r._dir==='inbound'?'inbound':'outbound';
-    if(!campDirMap[dir][c]) campDirMap[dir][c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set()};
+    if(!campDirMap[dir][c]) campDirMap[dir][c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
     const dd=campDirMap[dir][c]; dd.calls++; dd.sec+=r._sec;
+    if(r._phone){dd.phones.add(r._phone); if(r._sec>30) dd.phonesContacted.add(r._phone);}
     if(r._sec<=30) dd.short++;
     if(r._sec<120) dd.lt2m++;
     if(r._sec>=120){ dd.gt2m++; if(r._phone) dd.phonesGt2m.add(r._phone); }
@@ -2395,7 +2557,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agMapSrc=agentMapSrc||campAgentMap;
   const campRows=Object.entries(sourceMap).sort((a,b)=>(typeOrder[a[1].type]||9)-(typeOrder[b[1].type]||9)||b[1].calls-a[1].calls);
   const typeTag={Marketing:'<span class="tag mkt">Marketing</span>',Manual:'<span class="tag man">Manual</span>',VDCL:'<span class="tag vdcl">VDCL</span>',Other:'<span class="tag oth">Other</span>'};
-  document.getElementById('campBody').innerHTML=campRows.map(([camp,d],i)=>{
+  const campRowsHtml=campRows.map(([camp,d],i)=>{
     const rowId='camp-ag-'+i;
     let agentRows=Object.entries(agMapSrc[camp]||{}).sort((a,b)=>b[1].calls-a[1].calls);
     if(_campRoleFilter==='closer') agentRows=agentRows.filter(([ag])=>CLOSERS.has(ag.toLowerCase()));
@@ -2413,7 +2575,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <td>${funnelCell(a.gt30m,a.calls,"var(--green-dk)")}</td>
         <td>${a.drops>0?'<span style="color:var(--red);font-weight:600">'+a.drops+'</span>':'—'}</td>
         <td>${fmtDur(a.calls?Math.round(a.sec/a.calls):0)}</td>
-        <td class="${a.enroll>0?'enroll-num':'enroll-zero'}">${a.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...a.enrolledPhones])},${JSON.stringify(ag)})'>${a.enroll}</span>`:'—'}</td>
+        <td class="${a.enroll>0?'enroll-num':'enroll-zero'}">${a.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...a.enrolledPhones])},${attrJson(ag)})'>${a.enroll}</span>`:'—'}</td>
+        <td>—</td><td>—</td><td>—</td>
       </tr>`).join('');
     return `<tr id="${rowId}" style="cursor:pointer" onclick="toggleCampAgents('${rowId}')">
       <td style="text-align:left"><span class="agent-toggle" id="tog-${rowId}">▶</span> ${camp} ${typeTag[d.type]||''}</td>
@@ -2427,9 +2590,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <td>${funnelCell(d.gt30m,d.calls,"var(--green-dk)")}</td>
       <td>${d.drops>0?'<span style="color:var(--red);font-weight:600">'+d.drops+'</span>':'—'}</td>
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
-      <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...d.enrolledPhones])},${JSON.stringify(camp)})'>${d.enroll}</span>`:'—'}</td>
+      <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...d.enrolledPhones])},${attrJson(camp)})'>${d.enroll}</span>`:'—'}</td>
       <td>${d.calls>0&&d.enroll>0?pct(d.enroll,d.calls):'—'}</td>
       <td>${d.phonesGt2m.size>0&&d.enroll>0?pct(d.enroll,d.phonesGt2m.size):'—'}</td>
+      <td>${d.phones&&d.phones.size?pct(d.phonesContacted.size,d.phones.size):'—'}</td>
     </tr>${agentSubRows}`;
   }).join('');
 
@@ -2439,7 +2603,9 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r15to20:t.r15to20+d.r15to20, r20to30:t.r20to30+d.r20to30, gt30m:t.gt30m+d.gt30m,
     drops:t.drops+d.drops, sec:t.sec+d.sec, enroll:t.enroll+d.enroll
   }),{calls:0,short:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,sec:0,enroll:0});
-  document.getElementById('campBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+  const cTotPhones=new Set(), cTotContacted=new Set();
+  campRows.forEach(([,d])=>{ if(d.phones){ d.phones.forEach(v=>cTotPhones.add(v)); d.phonesContacted.forEach(v=>cTotContacted.add(v)); } });
+  document.getElementById('campBody').innerHTML=campRowsHtml+`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
     <td style="text-align:left">TOTAL</td>
     <td>${cTot.calls}</td>
     <td>${cTot.short} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.short,cTot.calls)}</span></td>
@@ -2454,6 +2620,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     <td class="${cTot.enroll>0?'enroll-num':'enroll-zero'}">${cTot.enroll||'—'}</td>
     <td>${cTot.calls>0&&cTot.enroll>0?pct(cTot.enroll,cTot.calls):'—'}</td>
     <td>—</td>
+    <td>${cTotPhones.size?pct(cTotContacted.size,cTotPhones.size):'—'}</td>
   </tr>`;
   };
 
@@ -2666,6 +2833,7 @@ const _today=new Date().toISOString().slice(0,10);
 document.getElementById('fromDate').value=_today;
 document.getElementById('toDate').value=_today;
 renderRoleEditor();
+renderThresholdEditor();
 initCollapse();
 initNav();
 </script>

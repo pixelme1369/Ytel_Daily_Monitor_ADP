@@ -7,9 +7,10 @@ SheetJS 0.18.5 + Chart.js 4.4.0 via CDN.
 
 | File | Purpose |
 |------|---------|
-| `Ytel_Daily_Monitor_ADP.html` | Original single-date dashboard (production) |
-| `Ytel_Daily_Monitor_v2.html` | Redesigned dashboard with sidebar nav, date range, export CSV, role editor |
+| `Ytel_Daily_Monitor_v2.html` | The dashboard (production) — sidebar nav, date range, export CSV, role editor |
 | `Agent_Performance_Range.html` | Standalone agent performance report with date range picker |
+
+The original single-date dashboard (`Ytel_Daily_Monitor_ADP.html`) was removed in July 2026 — v2 is the only dashboard. Any older doc/commit references to "both dashboards" or "the original" refer to that deleted file.
 
 ---
 
@@ -22,19 +23,25 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 - Sidebar: `#0F172A` | Accent: `#6366F1` | Success: `#10B981` | Danger: `#EF4444` | Warning: `#F59E0B`
 - Background: `#F8FAFC` | Cards: `#FFFFFF` with `border-radius:12px`
 
-### New Features vs Original
+### Features
 | Feature | Details |
 |---------|---------|
 | Date range | `fromDate`/`toDate` pickers; `runAnalysis()` filters `d>=fromStr&&d<=toStr`; enrollment date must fall within range |
 | Export CSV | `exportTable(tableId, filename)` — reads DOM table, converts to CSV, downloads via Blob. Buttons on Agent, Funnel, Campaign cards |
-| Role editor | Settings section: textareas (one name/line) for Closers / Openers / Retention; `saveRoles()` updates Sets in memory (session-only); `renderRoleEditor()` populates textareas |
+| Role editor | Settings section: textareas (one name/line) for Closers / Openers / Retention; `saveRoles()` updates the Sets AND persists to `localStorage` key `roles` (restored on load; `resetRoles()` restores `DEFAULT_ROLES` and clears storage) |
+| Alert thresholds | Settings card with number inputs (`th-<key>`); `TH` object (defaults in `DEFAULT_THRESHOLDS`: vdclAfterHours 10, dncCalls 20, plrDrops 30, deadPct 30, dropPct 5, agentShortPct 55, agentMinCalls 30, mktConvPct 5, redials 15) drives every trigger in the Issues engine; persisted to `localStorage` key `thresholds`; `saveThresholds()` re-runs the analysis if data is loaded |
+| Dialed After DNC | KPI next to "DNC Still Dialed" = unique phones with an **outbound** call strictly after their first DNC disposition in the range (`firstDncTs` per phone; inbound callbacks excluded) — the true compliance-violation count; phones kept in `window._dialedAfterDncPhones`; included in the Copy Summary digest. Also fires a **critical Issues row** whenever the count > 0 (flag `afterDnc:true`) with a "View Numbers" button (`showAfterDncPhones()` — shared enroll modal, per-phone call count + dialing agents from `window._afterDncDetail`) and an "Export CSV" button (`exportAfterDncPhones()` → `dialed_after_dnc.csv`: Phone, Outbound Calls After DNC, Dialed By) |
+| Contact Rate | KPI tile = unique phones reached >30s ÷ unique phones dialed (`contactedUnique`/`phoneBest`); Campaign table has a matching `Contact%` column (per-campaign `phones`/`phonesContacted` Sets — tracked in `campMap`, `campDirMap`, AND the `filterCampTable` rebuild map; TOTAL row uses the union across campaigns; agent sub-rows show `—`) |
+| Copy Summary | Sidebar button → `copySummary()` builds a text digest from `window._summary` (captured in `buildDashboard`: calls, contact rate, enrollments+debt, conv, dead/drops/DNC, non-ok issue titles) and copies via `navigator.clipboard` with `execCommand` fallback for `file://` |
+| Data-quality warning | `runAnalysis()` counts rows whose `call_date` can't be parsed (`badDateRows`) — shown in the sidebar hint + toast so a malformed export can't silently shrink the numbers |
+| Auto date range | After upload, `autoSetDate()` sets `fromDate`/`toDate` to the **newest** day in the file (it previously wrote to `targetDate`, an element that only existed in the deleted original dashboard, and threw) |
 | Collapsible sections | Each card has ▼/▶ toggle; state persisted in `localStorage` keyed `collapse:<sectionId>` |
 | Multi-file upload | Merged into `mergedRaw[]` — analyze data from multiple XLSX files at once |
 
 ### Script Regions (in order)
 `CONFIG` → `UTILS` → `STATS` → `FILE I/O` → `NORMALIZATION` → `ENROLLMENT` → `ACCUMULATION` → `ANALYSIS` → `RENDER AGENTS` → `RENDER CAMPAIGNS` → `RENDER OPENERS` → `RENDER ALERTS` → `RENDER KPI` → `CHARTS` → `FILTERS` → `EXPORT` → `ROLE EDITOR` → `UI EVENTS` → `INIT`
 
-Key refactors: `newCallStats()` factory replaces 9 inline duplicates; `accumulate(d,r)` replaces 18 repeated bucketing blocks.
+Note: the `emptyStats()`/`accumulate(d,r)` factory pattern only exists in `Agent_Performance_Range.html` — v2 still uses inline per-map bucketing blocks (earlier versions of this doc claimed v2 had this refactor; it does not).
 
 ### Sections Preserved
 KPIs · Issues Detected · Hour Chart · Dispo list · Agent Performance (incl. 1–2min bracket, hourly sub-rows) · Agent Funnel · Agent Rankings · Campaign Breakdown · Top 5 Numbers · VDCL Analysis · Drops by Hour · Missed Callbacks · DPC Drops (incl. sec filter) · Openers Transfer Breakdown
@@ -78,7 +85,7 @@ All 4 campaign `<select>` filters have been replaced with a custom `.ms-wrap` mu
 - Do not remove features unless asked.
 - Keep explanations under 5 sentences.
 - Ask before changing business logic.
-- Run JS syntax check after edits: `node -e "const fs=require('fs');const h=fs.readFileSync('Ytel_Daily_Monitor_ADP.html','utf8');const s=h.match(/<script>([\s\S]*?)<\/script>/g);s.forEach((b,i)=>{try{new Function(b.replace(/<\/?script>/g,''));console.log('OK',i);}catch(e){console.log('ERR',i,e.message);}});"`
+- Run JS syntax check after edits: `node -e "const fs=require('fs');const h=fs.readFileSync('Ytel_Daily_Monitor_v2.html','utf8');const s=h.match(/<script>([\s\S]*?)<\/script>/g);s.forEach((b,i)=>{try{new Function(b.replace(/<\/?script>/g,''));console.log('OK',i);}catch(e){console.log('ERR',i,e.message);}});"`
 - Always push to branch `claude/blissful-curie-pvg620` on `pixelme1369/Ytel_Daily_Monitor_ADP`, then merge to `main` when asked.
 - **Always update CLAUDE.md after every code change** to keep it current.
 
@@ -91,7 +98,7 @@ const OPENERS = new Set([...]);    // openers — show Opener tag, show >2min % 
 ```
 
 Agents not in any set show no role tag.
-All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
+All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (editable at runtime via the Settings role editor; edits are session-only).
 
 ### Agent Name Matching
 
@@ -112,7 +119,7 @@ All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
 - Enrollment is credited to the **campaign of the first call to that phone on that day**
 - Rationale: if a lead first came in on TransferK, was transferred to an agent on AGENTDIRECT, and closed on campaign 1000 (agent outbound), it counts as a **TransferK enrollment**
 - Campaign `1000` = agent outbound dialer — not a source campaign
-- Implementation: `enrolledFirstCallTs[phone]` = min timestamp across all calls for that phone; `r._enrolled = true` only on that first-call row
+- Implementation: `enrolledFirstCallRow[phone]` = the row with the min `r._ts` for that phone; `r._enrolled = true` only when the row IS that first-call row (row identity, not timestamp equality — two rows with tied timestamps can't both be flagged)
 - **Agent credit and campaign attribution are independent** — agent credit uses `agentEnrollCredit` (from `enrolledPhoneAgent`), campaign attribution uses `_enrolled` flag on the first-call row
 
 ### Enrolled column in Campaign / Queue Breakdown
@@ -161,20 +168,20 @@ All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
 - `dpcFlagged[phone].secs` = array of `length_in_sec` for each unfollowed DPC event; `dpcData[].sec` = max sec across those events
 - **Duration filter** (4 buttons in card header): All | <1 min (sec<60) | 1–2 min (60≤sec<120) | >2 min (sec≥120)
   - `window._dpcSecFilter` holds current selection; `setDpcSec(val)` updates highlight + calls `renderDpcDrops()`
-- **High alert badge**: every row in this list already means zero follow-up of any kind happened after the drop (per the flagging rule above), which implies no outbound call was ever made either. Each row shows a ⚠️ badge before the phone number (tooltip: "High alert — no outbound call was ever made to this phone after the drop"). Implemented in the `rowHtml` template inside `renderDpcDrops()` (both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`).
+- **High alert badge**: every row in this list already means zero follow-up of any kind happened after the drop (per the flagging rule above), which implies no outbound call was ever made either. Each row shows a ⚠️ badge before the phone number (tooltip: "High alert — no outbound call was ever made to this phone after the drop"). Implemented in the `rowHtml` template inside `renderDpcDrops()`.
 - **Click phone to play/download recording**: the phone number is an `.enroll-click` span; `dpcEvents[phone]` entries now also carry `recording:r._recording` (parsed from `recording_location`) and `crmStatus:r._crmStatus`, and `dpcFlagged[phone].recs` collects `{phone,sec,recording,crmStatus}` for each unfollowed DPC event → surfaced as `dpcData[].records`. Clicking calls the shared `showFlaggedPhones(d.records, d.phone+' — Dropped Call')` modal (same one used by Long Calls, No Deal) — shows an inline `<audio controls>` player and a "⬇ Download recording" link per event; phones with no recording show "No recording available".
 
 ## DNC Calls by Hour Chart
 
-- Card `#dncHourCard` sits directly below the "Call volume by hour" chart in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html` — shows when DNC-flagged numbers are still being dialed throughout the day
+- Card `#dncHourCard` sits directly below the "Call volume by hour" chart — shows when DNC-flagged numbers are still being dialed throughout the day
 - Hidden (`style="display:none"`) when `dncRows.length===0`
 - Reuses `dncRows` (calls where `r._status==='DNC'`, already computed in `buildDashboard` for the "DNC Still Dialed" KPI/issue) — bucketed by `r._hour` into `dncHourCounts`
 - Rendered as `dncHourChart` (Chart.js bar chart), destroyed/recreated each `buildDashboard()` run and on `resetDashboard()`/`clearAll()` alongside `hourChart`/`vdclChart`/`dropHourChart`
-- Bar color uses each dashboard's own danger color: `#DC2626` in the original, `#EF4444` in v2
+- Bar color: `#EF4444` (v2 danger color)
 
 ## Incomplete Transfers (CLtrns with no inbound follow-up)
 
-Flags calls dispositioned `CLtrns` (Call Center Transfer) where the transfer never actually landed with another agent — the opener marked it as transferred but no one on the receiving end ever picked it up. Card `#badTransferCard` in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`, styled like the DPC card (red title, campaign multi-select filter, Enrolled Clients vs Other Calls split), placed directly after the DPC card.
+Flags calls dispositioned `CLtrns` (Call Center Transfer) where the transfer never actually landed with another agent — the opener marked it as transferred but no one on the receiving end ever picked it up. Card `#badTransferCard`, styled like the DPC card (red title, campaign multi-select filter, Enrolled Clients vs Other Calls split), placed directly after the DPC card.
 
 - **Per-event logic**: for each `CLtrns` event on a phone, check if any call with `direction === 'inbound'` (any status, any campaign) occurred on that phone after the `CLtrns` timestamp
 - If no later inbound call exists → flagged. This mirrors a real transfer: a genuine hand-off produces a new inbound call into the closer's queue (e.g. `AGENTDIRECT`); if that never happens, the "transfer" never actually landed
@@ -186,7 +193,7 @@ Flags calls dispositioned `CLtrns` (Call Center Transfer) where the transfer nev
 
 ### Correct Transfers Received by Agent
 
-Card `#receivedTransferCard` in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`, placed directly after the Incomplete Transfers card. Shows, per receiving agent, how many `CLtrns` transfers actually landed with them.
+Card `#receivedTransferCard`, placed directly after the Incomplete Transfers card. Shows, per receiving agent, how many `CLtrns` transfers actually landed with them.
 
 - For each `CLtrns` event that is NOT flagged as incomplete (i.e. it has a later inbound call), credit goes to the agent on the **first** inbound call after that event's timestamp — that's the agent who actually picked up the transferred lead
 - Implementation: `inboundCalls[phone]` = all inbound calls (any status) with `{ts, agent, camp, sec, recording}`, sorted by `ts`; for each `cltrnsEvents[phone]` entry, `followUps.find(f=>f.ts>ev.ts)` gives the receiving call
@@ -203,7 +210,7 @@ Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10
 
 ### Long Calls, No Deal Flag
 
-Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`. Card shown directly below the Agent Performance table (hidden when no agent has flagged phones). Flags, per agent, phone numbers with a call over a selectable length (20/25/30 min) that never converted to an enrollment.
+Implemented. Card shown directly below the Agent Performance table (hidden when no agent has flagged phones). Flags, per agent, phone numbers with a call over a selectable length (20/25/30 min) that never converted to an enrollment.
 
 - `agentMap[name].phoneMaxSec` — `{phone: maxSecSeenForThatPhone}`, only populated for calls ≥1200 sec (the lowest selectable threshold) — tracked in the same loop that builds `r20to30`/`gt30m`
 - `agentMap[name].phoneRecordings` — `{phone: [{sec, recording, crmStatus}, ...]}`, one entry per qualifying call (≥1200 sec), populated alongside `phoneMaxSec`; `recording` comes from `r._recording` (parsed from `recording_location` column, see Key Columns table); `crmStatus` comes from `r._crmStatus` (the `CRM Status` column) on that call's row
@@ -225,10 +232,10 @@ Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.htm
 
 ## Agent Outcomes (scatter chart, replaces the old "Agent Funnel Visual")
 
-Card `#funnelChartCard`, directly below the Agent Call Funnel table in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`. Previously a stacked-bar-per-agent + canned per-agent "coaching" text card; replaced because the bars duplicated the table above with no new information, every bar rendered at 100% width so nothing stood out, the coaching thresholds were hardcoded and judged openers by closer standards, and it ignored enrollment outcomes entirely (a long-talking agent with zero deals looked good).
+Card `#funnelChartCard`, directly below the Agent Call Funnel table in `Ytel_Daily_Monitor_v2.html`. Previously a stacked-bar-per-agent + canned per-agent "coaching" text card; replaced because the bars duplicated the table above with no new information, every bar rendered at 100% width so nothing stood out, the coaching thresholds were hardcoded and judged openers by closer standards, and it ignored enrollment outcomes entirely (a long-talking agent with zero deals looked good).
 
 - Chart.js `type:'bubble'`. One dot per agent: **X = % of that agent's calls over 5 min** (`over5 = r5to10+r10to15+r15to20+r20to30+gt30m`, i.e. `sec>=300`), **Y = conversion % on those calls** (`enr/over5`, clamped to 100 — `enr` is the agent's total enrolled-phone credit, not restricted to the over-5-min calls, so this is an approximation consistent with the `Conv% (enr/>2m)` convention used elsewhere in the app), **dot radius = call volume** (sqrt-scaled between 6px and 26px across the currently-filtered agent set)
-- Dot color = role, from the same `CLOSERS`/`RETENTION`/`OPENERS` sets used everywhere else: closer `#1377bd`, opener `#D97706`, retention `#7C3AED`, unassigned `#94A3B8` — same 4-color mapping hardcoded in both files (not read from CSS custom properties, so it stays identical regardless of which file's `--blue`/`--accent` token means something else)
+- Dot color = role, from the same `CLOSERS`/`RETENTION`/`OPENERS` sets used everywhere else: closer `#1377bd`, opener `#D97706`, retention `#7C3AED`, unassigned `#94A3B8` — hardcoded (not read from CSS custom properties, since v2's `--blue`/`--accent` token means something else — the indigo UI accent, not a data-series color)
 - **Quadrant divider lines** are drawn by an inline Chart.js plugin (`beforeDatasetsDraw`) at the **median** X and median Y of the currently-plotted agents (not a hardcoded threshold) — solid hairline `#E2E8F0`, never dashed. Four corner labels are fixed chart chrome (not generated per-agent text): top-right "Top performers", top-left "Efficient closers", bottom-right "Long calls, no deals — pull recordings", bottom-left "Can't engage"
 - Reuses the existing filter row (`fc-all`/`fc-closer`/`fc-opener` role toggle, `fc-camp`, `fc-dir`, `fc-name` search, `fc-min` min-calls threshold) via the existing `filterFunnelChart()` → `renderFunnelChart(rows)` pipeline; the `fc-sort` dropdown was removed (sorting has no meaning for a scatter — there's no row order)
 - `renderFunnelChart(rows)` destroys and recreates `window._funnelScatterChart` on every call (role/campaign/direction/name/min-calls filter changes all re-render); card hides when no agent clears the min-calls threshold
@@ -303,6 +310,13 @@ Ranking table below the summary. Shows every opener agent sorted by transfer rat
 - Date objects at UTC midnight → use `getUTCFullYear/Month/Date` (date-only cells like `Cordoba Enrolled Date`)
 - Date objects with time → use local `getFullYear/Month/Date` (datetime cells like `call_date`)
 - Strings: match `YYYY-MM-DD` or `M/D/YYYY`
+
+## Normalization Conventions
+
+- `r._ts` = `parseTs(call_date)` — parsed **once** in the normalization pass at the top of `buildDashboard()`; every later loop (missed callbacks, DPC, CLtrns, received transfers, agent first/last-call maps) must reuse `r._ts`, never re-call `parseTs`
+- `r._hour` is derived from `r._ts` (`new Date(r._ts).getHours()`, zero-padded) so it works for Date objects (`cellDates:true`) and `M/D/YYYY` strings alike; falls back to the old `String(...).slice(11,13)` only when the timestamp is unparseable
+- `attrJson(v)` (defined next to `fmt$`) must be used instead of `JSON.stringify` whenever JSON is embedded in a single-quoted inline `onclick='...'` attribute — it entity-escapes `&`, `'`, `<` so agent/campaign names containing apostrophes don't truncate the attribute
+- Table bodies with a TOTAL row are built as one string (`agentRowsHtml`/`campRowsHtml`) and assigned to `innerHTML` once — no `innerHTML +=` (it re-parses the whole table)
 
 ## Branch & Deploy
 
