@@ -875,6 +875,25 @@ function fallbackCopy(text){
   try{ document.execCommand('copy'); }catch(e){}
   document.body.removeChild(ta);
 }
+function showAfterDncPhones(){
+  const list=window._afterDncDetail||[];
+  if(!list.length){ showToast('No numbers were dialed after a DNC'); return; }
+  document.getElementById('enrollModalTitle').textContent='Dialed After DNC — '+list.length+' number'+(list.length>1?'s':'');
+  document.getElementById('enrollModalList').innerHTML=list.map(d=>
+    `<span>${d.phone} — ${d.calls} call${d.calls>1?'s':''} after DNC${d.agents.length?' · by: '+d.agents.join(', '):''}</span>`
+  ).join('');
+  document.getElementById('enrollModal').classList.add('open');
+}
+function exportAfterDncPhones(){
+  const list=window._afterDncDetail||[];
+  if(!list.length){ alert('No numbers were dialed after a DNC.'); return; }
+  const csv='Phone Number,Outbound Calls After DNC,Dialed By\n'
+    +list.map(d=>['"'+d.phone+'"','"'+d.calls+'"','"'+d.agents.join('; ').replace(/"/g,'""')+'"'].join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='dialed_after_dnc.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
 function exportDncPhones(){
   const phones=window._dncPhones||[];
   if(!phones.length){ alert('No DNC phones to export.'); return; }
@@ -1740,12 +1759,19 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   dncRows.forEach(r=>{ if(r._phone&&(!firstDncTs[r._phone]||r._ts<firstDncTs[r._phone])) firstDncTs[r._phone]=r._ts; });
   const dialedAfterDncPhones=new Set();
   let callsAfterDnc=0;
+  const afterDncDetail={};  // phone → {calls, agents:Set}
   calls.forEach(r=>{
     if(r._phone&&firstDncTs[r._phone]&&r._ts>firstDncTs[r._phone]&&r._dir!=='inbound'){
       dialedAfterDncPhones.add(r._phone); callsAfterDnc++;
+      if(!afterDncDetail[r._phone]) afterDncDetail[r._phone]={calls:0,agents:new Set()};
+      afterDncDetail[r._phone].calls++;
+      if(r._name&&r._name!=='Unknown') afterDncDetail[r._phone].agents.add(r._name);
     }
   });
   window._dialedAfterDncPhones=[...dialedAfterDncPhones];
+  window._afterDncDetail=Object.entries(afterDncDetail)
+    .map(([phone,d])=>({phone,calls:d.calls,agents:[...d.agents]}))
+    .sort((a,b)=>b.calls-a.calls);
 
   // ── KPIs ──
   const kpiData=[
@@ -1959,6 +1985,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
 
   if(vdclAfterHours>TH.vdclAfterHours) issues.push({sev:'crit',title:'Dialer running after hours — '+vdclAfterHours+' VDCL drops after 6pm',detail:'Agents are off but the dialer keeps firing inbound leads. Callers hit dead air, leads are burned. Fix: set campaign end-time in Ytel and add an after-hours IVR.'});
   if(dncCount>TH.dncCalls) issues.push({sev:'crit',exportDnc:true,title:dncCount+' DNC calls · '+dncUnique+' unique numbers ('+pct(dncUnique,uniquePhones)+' of unique calls)',detail:'Compliance risk. These numbers have been flagged Do Not Call but are still in active rotation. Fix: run a DNC scrub now and enable auto-suppression in Ytel.'});
+  if(dialedAfterDncPhones.size) issues.push({sev:'crit',afterDnc:true,title:dialedAfterDncPhones.size+' number'+(dialedAfterDncPhones.size>1?'s':'')+' dialed AFTER a DNC disposition ('+callsAfterDnc+' outbound call'+(callsAfterDnc>1?'s':'')+')',detail:'Direct compliance violation — these phones were dispositioned Do Not Call and still received outbound calls afterwards. Suppress them in Ytel today and review who dialed them (click View Numbers).'});
 
   const plrDrops=vdclCalls.filter(r=>r._campaign==='PLR').length;
   if(plrDrops>TH.plrDrops) issues.push({sev:'crit',title:'PLR campaign producing '+plrDrops+' VDCL drops — campaign likely broken',detail:'Agent availability config on PLR is wrong. The campaign is generating more drops than conversations. Fix: pause PLR, audit agent assignment and queue overflow rules, then re-enable.'});
@@ -2019,6 +2046,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <div class="issue-detail">${iss.detail.replace(/\n/g,'<br>')}</div>
       </div>
       ${iss.exportDnc?`<button onclick="exportDncPhones()" style="margin-left:8px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
+      ${iss.afterDnc?`<button onclick="showAfterDncPhones()" style="margin-left:8px;padding:4px 10px;font-size:11px;background:#c0392b;border:1px solid #c0392b;color:#fff;border-radius:4px;cursor:pointer;white-space:nowrap">View Numbers</button><button onclick="exportAfterDncPhones()" style="margin-left:6px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
       <div class="issue-badge ${iss.sev}">${iss.sev==='crit'?'Critical':iss.sev==='high'?'High':'Good'}</div>
     </div>`).join('');
 
