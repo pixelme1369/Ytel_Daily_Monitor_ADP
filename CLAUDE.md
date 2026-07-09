@@ -169,7 +169,7 @@ All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (
 - **Duration filter** (4 buttons in card header): All | <1 min (sec<60) | 1–2 min (60≤sec<120) | >2 min (sec≥120)
   - `window._dpcSecFilter` holds current selection; `setDpcSec(val)` updates highlight + calls `renderDpcDrops()`
 - **High alert badge**: every row in this list already means zero follow-up of any kind happened after the drop (per the flagging rule above), which implies no outbound call was ever made either. Each row shows a ⚠️ badge before the phone number (tooltip: "High alert — no outbound call was ever made to this phone after the drop"). Implemented in the `rowHtml` template inside `renderDpcDrops()`.
-- **Click phone to play/download recording**: the phone number is an `.enroll-click` span; `dpcEvents[phone]` entries now also carry `recording:r._recording` (parsed from `recording_location`), and `dpcFlagged[phone].recs` collects `{phone,sec,recording}` for each unfollowed DPC event → surfaced as `dpcData[].records`. Clicking calls the shared `showFlaggedPhones(d.records, d.phone+' — Dropped Call')` modal (same one used by Long Calls, No Deal) — shows an inline `<audio controls>` player and a "⬇ Download recording" link per event; phones with no recording show "No recording available".
+- **Click phone to play/download recording**: the phone number is an `.enroll-click` span; `dpcEvents[phone]` entries now also carry `recording:r._recording` (parsed from `recording_location`) and `crmStatus:r._crmStatus`, and `dpcFlagged[phone].recs` collects `{phone,sec,recording,crmStatus}` for each unfollowed DPC event → surfaced as `dpcData[].records`. Clicking calls the shared `showFlaggedPhones(d.records, d.phone+' — Dropped Call')` modal (same one used by Long Calls, No Deal) — shows an inline `<audio controls>` player and a "⬇ Download recording" link per event; phones with no recording show "No recording available".
 
 ## DNC Calls by Hour Chart
 
@@ -188,7 +188,7 @@ Flags calls dispositioned `CLtrns` (Call Center Transfer) where the transfer nev
 - Rule was confirmed against two real examples: (1) opener dispositions `CLtrns`, no other row for that lead at all → flagged; (2) opener dispositions `CLtrns` on `TransferK`, later an agent has an inbound call on `AGENTDIRECT` for the same phone → correctly not flagged
 - Scope: any agent's `CLtrns` dispo is checked, not just agents in the `OPENERS` set (a closer or untagged agent could also mis-use the status)
 - Implementation: `cltrnsEvents[phone]` = all CLtrns timestamps+sec+recording; `inboundTs[phone]` = timestamps of all inbound calls (any status) to that phone; flag if any CLtrns event has no later inbound call
-- `badTransferFlagged[phone].recs` collects `{phone,sec,recording}` for each unfollowed CLtrns event → surfaced as `badTransferData[].records`
+- `badTransferFlagged[phone].recs` collects `{phone,sec,recording,crmStatus}` for each unfollowed CLtrns event → surfaced as `badTransferData[].records`
 - **Click phone to play/download recording**: same shared `showFlaggedPhones(d.records, d.phone+' — Incomplete Transfer')` modal used by DPC and Long Calls, No Deal
 
 ### Correct Transfers Received by Agent
@@ -197,7 +197,7 @@ Card `#receivedTransferCard`, placed directly after the Incomplete Transfers car
 
 - For each `CLtrns` event that is NOT flagged as incomplete (i.e. it has a later inbound call), credit goes to the agent on the **first** inbound call after that event's timestamp — that's the agent who actually picked up the transferred lead
 - Implementation: `inboundCalls[phone]` = all inbound calls (any status) with `{ts, agent, camp, sec, recording}`, sorted by `ts`; for each `cltrnsEvents[phone]` entry, `followUps.find(f=>f.ts>ev.ts)` gives the receiving call
-- `receivedTransfers[agent]` = `{count, records:[{phone,sec,recording}], enrolledPhones:Set}` — one record per transfer received, using the **receiving agent's own call** (not the opener's CLtrns call) for sec/recording; `enrolledPhones` = subset of received phones present in `anyEnrolledPhone` (any row for that phone has a `Cordoba Enrolled Date`)
+- `receivedTransfers[agent]` = `{count, records:[{phone,sec,recording,crmStatus}], enrolledPhones:Set}` — one record per transfer received, using the **receiving agent's own call** (not the opener's CLtrns call) for sec/recording/crmStatus; `enrolledPhones` = subset of received phones present in `anyEnrolledPhone` (any row for that phone has a `Cordoba Enrolled Date`)
 - Table: Agent | Transfers Received (count) | Enrolled (count) | Conv% — sorted by Transfers Received descending; both counts clickable — Transfers Received via `showFlaggedPhones(r.records, r.agent+' — Transfers Received')` (audio playback), Enrolled via `showEnrolledPhones([...r.enrolledPhones], r.agent+' — Enrolled from Transfers')` (plain phone list); Enrolled shows `—` when zero; Conv% = `pct(r.enrolledPhones.size, r.count)` (e.g. 1 enrolled of 2 received = 50.0%)
 
 ## Agent Performance Table
@@ -221,6 +221,7 @@ Implemented. Card shown directly below the Agent Performance table (hidden when 
 - Columns are click-to-sort (each `th` has `data-col`, mirrors the Agent/Campaign table sort pattern): click toggles asc/desc on that column, re-appending `tr`s in the new order; `sort-asc`/`sort-desc` CSS classes show the ▲/▼ arrow
 - Clicking the Not Converted count opens the shared phone modal via `showFlaggedPhones(records, agentName+' — Long Calls, No Deal')` (mirrors `showEnrolledPhones`, same modal DOM; the modal title is just `label + ' (' + uniquePhones + ')'` — callers must include their own descriptive suffix). Each row shows the phone, call duration, an inline `<audio controls>` player sourced from `recording.recording`, and a "⬇ Download recording" link (`download` attribute on an `<a href="...">`). Phones with no recording show "No recording available" instead of a player.
 - `#enrollModalBox` max-width bumped to 560px (`width:90vw` for narrower viewports) and the `<audio>` element height bumped to 44px so the seek bar is easier to click/drag precisely (shared modal, so this also affects the Enrolled Phones / Transfers popups, harmlessly)
+- **CRM Status badge next to phone number**: every record type shown in the shared `showFlaggedPhones` modal (Long Calls No Deal, DPC, Incomplete Transfers, Transfers Received, Opener Transfer Breakdown) now carries a `crmStatus` field alongside `phone`/`sec`/`recording`, sourced from `r._crmStatus` (or `ev.crmStatus`/`next.crmStatus` when threaded through an intermediate event object). Rendered as a small pill next to the phone number in the modal row; hidden when empty
 - **Export CSV** button (`⬇ CSV` next to the threshold dropdown) calls `exportLongNoDeal()`, which flattens `window._longNoDealFlagged[].longNoConvertRecords` (set at the end of every `renderLongNoDeal()` run) into `Agent,Phone Number,CRM Status,Call Duration,Recording Location` rows and downloads `long_calls_no_deal.csv` — one row per qualifying call (a phone can appear more than once if it has multiple calls over the threshold); `Call Duration` is `fmtDur(sec)`; reflects whatever threshold is currently selected
 
 ## Agent Call Funnel Table
@@ -228,6 +229,18 @@ Implemented. Card shown directly below the Agent Performance table (hidden when 
 - Columns show % of agent's total calls in each time bracket
 - **Sorting sorts by raw count (the number in parentheses), not percentage**
 - Filterable by role (All / Closers / Openers) and campaign/direction dropdowns
+
+## Agent Outcomes (scatter chart, replaces the old "Agent Funnel Visual")
+
+Card `#funnelChartCard`, directly below the Agent Call Funnel table in `Ytel_Daily_Monitor_v2.html`. Previously a stacked-bar-per-agent + canned per-agent "coaching" text card; replaced because the bars duplicated the table above with no new information, every bar rendered at 100% width so nothing stood out, the coaching thresholds were hardcoded and judged openers by closer standards, and it ignored enrollment outcomes entirely (a long-talking agent with zero deals looked good).
+
+- Chart.js `type:'bubble'`. One dot per agent: **X = % of that agent's calls over 5 min** (`over5 = r5to10+r10to15+r15to20+r20to30+gt30m`, i.e. `sec>=300`), **Y = conversion % on those calls** (`enr/over5`, clamped to 100 — `enr` is the agent's total enrolled-phone credit, not restricted to the over-5-min calls, so this is an approximation consistent with the `Conv% (enr/>2m)` convention used elsewhere in the app), **dot radius = call volume** (sqrt-scaled between 6px and 26px across the currently-filtered agent set)
+- Dot color = role, from the same `CLOSERS`/`RETENTION`/`OPENERS` sets used everywhere else: closer `#1377bd`, opener `#D97706`, retention `#7C3AED`, unassigned `#94A3B8` — hardcoded (not read from CSS custom properties, since v2's `--blue`/`--accent` token means something else — the indigo UI accent, not a data-series color)
+- **Quadrant divider lines** are drawn by an inline Chart.js plugin (`beforeDatasetsDraw`) at the **median** X and median Y of the currently-plotted agents (not a hardcoded threshold) — solid hairline `#E2E8F0`, never dashed. Four corner labels are fixed chart chrome (not generated per-agent text): top-right "Top performers", top-left "Efficient closers", bottom-right "Long calls, no deals — pull recordings", bottom-left "Can't engage"
+- Reuses the existing filter row (`fc-all`/`fc-closer`/`fc-opener` role toggle, `fc-camp`, `fc-dir`, `fc-name` search, `fc-min` min-calls threshold) via the existing `filterFunnelChart()` → `renderFunnelChart(rows)` pipeline; the `fc-sort` dropdown was removed (sorting has no meaning for a scatter — there's no row order)
+- `renderFunnelChart(rows)` destroys and recreates `window._funnelScatterChart` on every call (role/campaign/direction/name/min-calls filter changes all re-render); card hides when no agent clears the min-calls threshold
+- Tooltip shows agent name, "% of calls over 5 min (over5/calls)", "% conversion on those (N enrolled)", total calls
+- No separate table view was added for this card — the Agent Call Funnel table immediately above already serves as the tabular twin of the same underlying per-agent data
 
 ## Openers — Transfer Breakdown by Campaign
 
@@ -257,7 +270,7 @@ Card is only visible when opener calls exist. Features:
 - `cltrns_XtoY` — CLtrns calls in bracket
 - `enroll_XtoY` — enrolled AND CLtrns calls in bracket (used in breakdown cell)
 - `enroll_all_XtoY` — enrolled calls in bracket regardless of transfer status (used in summary)
-- `recs_XtoY` — array of `{phone,sec,recording}` for each CLtrns call in the bracket (one entry per call, not deduped by phone), passed to `showFlaggedPhones` on click
+- `recs_XtoY` — array of `{phone,sec,recording,crmStatus}` for each CLtrns call in the bracket (one entry per call, not deduped by phone), passed to `showFlaggedPhones` on click
 - `enroll_short` — enrolled calls with sec ≤ 30 (for summary Dead row)
 
 ### Openers Summary Table
