@@ -345,13 +345,13 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
     <div class="tbl-wrap">
       <table id="longNoDealTable">
-        <thead>
+        <thead id="longNoDealHead">
           <tr>
-            <th style="text-align:left">Agent</th>
-            <th>Long Calls</th>
-            <th>Converted</th>
-            <th>Conv%</th>
-            <th>Not Converted</th>
+            <th style="text-align:left" data-col="0">Agent</th>
+            <th data-col="1">Long Calls</th>
+            <th data-col="2">Converted</th>
+            <th data-col="3">Conv%</th>
+            <th data-col="4">Not Converted</th>
           </tr>
         </thead>
         <tbody id="longNoDealBody"></tbody>
@@ -1401,7 +1401,7 @@ function renderLongNoDeal(rows){
     const longPhones=Object.keys(phoneMaxSec).filter(p=>phoneMaxSec[p]>=thresholdSec);
     const longNoConvert=longPhones.filter(p=>!enrolledSet.has(p));
     const longNoConvertRecords=longNoConvert.flatMap(p=>
-      (phoneRecordings[p]||[]).filter(rec=>rec.sec>=thresholdSec).map(rec=>({phone:p,sec:rec.sec,recording:rec.recording}))
+      (phoneRecordings[p]||[]).filter(rec=>rec.sec>=thresholdSec).map(rec=>({phone:p,sec:rec.sec,recording:rec.recording,crmStatus:rec.crmStatus||''}))
     );
     return {name:a.name,total:longPhones.length,longNoConvert,longNoConvertRecords};
   }).filter(a=>a.longNoConvert.length>0)
@@ -1423,9 +1423,9 @@ function renderLongNoDeal(rows){
 function exportLongNoDeal(){
   const flagged=window._longNoDealFlagged||[];
   const rows=[];
-  flagged.forEach(a=>a.longNoConvert.forEach(p=>rows.push([a.name,p])));
+  flagged.forEach(a=>a.longNoConvertRecords.forEach(r=>rows.push([a.name,r.phone,r.crmStatus||'',fmtDur(r.sec),r.recording||''])));
   if(!rows.length){ alert('No flagged phones to export.'); return; }
-  const csv='Agent,Phone Number\n'+rows.map(r=>'"'+r[0].replace(/"/g,'""')+'","'+r[1]+'"').join('\n');
+  const csv='Agent,Phone Number,CRM Status,Call Duration,Recording Location\n'+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='long_calls_no_deal.csv'; a.click();
@@ -2059,7 +2059,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(r._sec>=1200&&r._phone){
       d.phoneMaxSec[r._phone]=Math.max(d.phoneMaxSec[r._phone]||0,r._sec);
       if(!d.phoneRecordings[r._phone]) d.phoneRecordings[r._phone]=[];
-      d.phoneRecordings[r._phone].push({sec:r._sec,recording:r._recording||''});
+      d.phoneRecordings[r._phone].push({sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
     // direction breakdown
     const dkey=r._dir==='inbound'?'inbound':'outbound';
@@ -2273,6 +2273,33 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   renderAgentBody(agentRows);
   renderLongNoDeal(agentRows);
   renderFunnelChart(agentRows);
+
+  // ── Long Calls, No Deal table column sorting ──
+  (function(){
+    const thead=document.getElementById('longNoDealHead');
+    const tbody=document.getElementById('longNoDealBody');
+    let sortCol=-1, sortDir=1;
+    function cellVal(td){
+      const txt=td.textContent.trim();
+      if(txt==='—'||txt==='') return -Infinity;
+      const n=parseFloat(txt.replace(/[^0-9.\-]/g,''));
+      return isNaN(n)?txt.toLowerCase():n;
+    }
+    thead.querySelectorAll('th[data-col]').forEach(th=>{
+      th.addEventListener('click',()=>{
+        const col=parseInt(th.dataset.col);
+        if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=-1;}
+        thead.querySelectorAll('th').forEach(h=>h.classList.remove('sort-asc','sort-desc'));
+        th.classList.add(sortDir===1?'sort-asc':'sort-desc');
+        const rows=[...tbody.querySelectorAll('tr')];
+        rows.sort((a,b)=>{
+          const av=cellVal(a.cells[col]), bv=cellVal(b.cells[col]);
+          return av<bv?-sortDir:av>bv?sortDir:0;
+        });
+        rows.forEach(r=>tbody.appendChild(r));
+      });
+    });
+  })();
 
   // ── Agent funnel ratio table ──
   const fcell=(n,d,color)=>{
