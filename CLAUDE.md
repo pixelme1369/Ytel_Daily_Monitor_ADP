@@ -34,7 +34,7 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 ### Script Regions (in order)
 `CONFIG` → `UTILS` → `STATS` → `FILE I/O` → `NORMALIZATION` → `ENROLLMENT` → `ACCUMULATION` → `ANALYSIS` → `RENDER AGENTS` → `RENDER CAMPAIGNS` → `RENDER OPENERS` → `RENDER ALERTS` → `RENDER KPI` → `CHARTS` → `FILTERS` → `EXPORT` → `ROLE EDITOR` → `UI EVENTS` → `INIT`
 
-Key refactors: `newCallStats()` factory replaces 9 inline duplicates; `accumulate(d,r)` replaces 18 repeated bucketing blocks.
+Note: the `emptyStats()`/`accumulate(d,r)` factory pattern only exists in `Agent_Performance_Range.html` — both dashboards still use inline per-map bucketing blocks (earlier versions of this doc claimed v2 had this refactor; it does not).
 
 ### Sections Preserved
 KPIs · Issues Detected · Hour Chart · Dispo list · Agent Performance (incl. 1–2min bracket, hourly sub-rows) · Agent Funnel · Agent Rankings · Campaign Breakdown · Top 5 Numbers · VDCL Analysis · Drops by Hour · Missed Callbacks · DPC Drops (incl. sec filter) · Openers Transfer Breakdown
@@ -112,7 +112,7 @@ All three sets are defined at lines ~588–590 of `Ytel_Daily_Monitor_ADP.html`.
 - Enrollment is credited to the **campaign of the first call to that phone on that day**
 - Rationale: if a lead first came in on TransferK, was transferred to an agent on AGENTDIRECT, and closed on campaign 1000 (agent outbound), it counts as a **TransferK enrollment**
 - Campaign `1000` = agent outbound dialer — not a source campaign
-- Implementation: `enrolledFirstCallTs[phone]` = min timestamp across all calls for that phone; `r._enrolled = true` only on that first-call row
+- Implementation: `enrolledFirstCallRow[phone]` = the row with the min `r._ts` for that phone; `r._enrolled = true` only when the row IS that first-call row (row identity, not timestamp equality — two rows with tied timestamps can't both be flagged)
 - **Agent credit and campaign attribution are independent** — agent credit uses `agentEnrollCredit` (from `enrolledPhoneAgent`), campaign attribution uses `_enrolled` flag on the first-call row
 
 ### Enrolled column in Campaign / Queue Breakdown
@@ -290,6 +290,13 @@ Ranking table below the summary. Shows every opener agent sorted by transfer rat
 - Date objects at UTC midnight → use `getUTCFullYear/Month/Date` (date-only cells like `Cordoba Enrolled Date`)
 - Date objects with time → use local `getFullYear/Month/Date` (datetime cells like `call_date`)
 - Strings: match `YYYY-MM-DD` or `M/D/YYYY`
+
+## Normalization Conventions (both dashboards)
+
+- `r._ts` = `parseTs(call_date)` — parsed **once** in the normalization pass at the top of `buildDashboard()`; every later loop (missed callbacks, DPC, CLtrns, received transfers, agent first/last-call maps) must reuse `r._ts`, never re-call `parseTs`
+- `r._hour` is derived from `r._ts` (`new Date(r._ts).getHours()`, zero-padded) so it works for Date objects (`cellDates:true`) and `M/D/YYYY` strings alike; falls back to the old `String(...).slice(11,13)` only when the timestamp is unparseable
+- `attrJson(v)` (defined next to `fmt$`) must be used instead of `JSON.stringify` whenever JSON is embedded in a single-quoted inline `onclick='...'` attribute — it entity-escapes `&`, `'`, `<` so agent/campaign names containing apostrophes don't truncate the attribute
+- Table bodies with a TOTAL row are built as one string (`agentRowsHtml`/`campRowsHtml`) and assigned to `innerHTML` once — no `innerHTML +=` (it re-parses the whole table)
 
 ## Branch & Deploy
 
