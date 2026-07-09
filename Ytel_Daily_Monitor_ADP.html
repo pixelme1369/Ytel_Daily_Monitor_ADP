@@ -1149,19 +1149,19 @@ function renderOpenerTable(){
     if(sec<=30){
       if(isEnr) s.enroll_short++;
     } else if(sec<120){
-      s.r30to2m++; if(isEnr) s.enroll_all_30to2m++; if(isCL){ s.cltrns_30to2m++; if(r._phone) s.recs_30to2m.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_30to2m++; }
+      s.r30to2m++; if(isEnr) s.enroll_all_30to2m++; if(isCL){ s.cltrns_30to2m++; if(r._phone) s.recs_30to2m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''}); if(isEnr) s.enroll_30to2m++; }
     } else if(sec<300){
-      s.r2to5m++;  if(isEnr) s.enroll_all_2to5m++;  if(isCL){ s.cltrns_2to5m++;  if(r._phone) s.recs_2to5m.push({phone:r._phone,sec:r._sec,recording:r._recording||''});  if(isEnr) s.enroll_2to5m++; }
+      s.r2to5m++;  if(isEnr) s.enroll_all_2to5m++;  if(isCL){ s.cltrns_2to5m++;  if(r._phone) s.recs_2to5m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''});  if(isEnr) s.enroll_2to5m++; }
     } else if(sec<600){
-      s.r5to10++;  if(isEnr) s.enroll_all_5to10++;  if(isCL){ s.cltrns_5to10++;  if(r._phone) s.recs_5to10.push({phone:r._phone,sec:r._sec,recording:r._recording||''});  if(isEnr) s.enroll_5to10++; }
+      s.r5to10++;  if(isEnr) s.enroll_all_5to10++;  if(isCL){ s.cltrns_5to10++;  if(r._phone) s.recs_5to10.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''});  if(isEnr) s.enroll_5to10++; }
     } else if(sec<900){
-      s.r10to15++; if(isEnr) s.enroll_all_10to15++; if(isCL){ s.cltrns_10to15++; if(r._phone) s.recs_10to15.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_10to15++; }
+      s.r10to15++; if(isEnr) s.enroll_all_10to15++; if(isCL){ s.cltrns_10to15++; if(r._phone) s.recs_10to15.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''}); if(isEnr) s.enroll_10to15++; }
     } else if(sec<1200){
-      s.r15to20++; if(isEnr) s.enroll_all_15to20++; if(isCL){ s.cltrns_15to20++; if(r._phone) s.recs_15to20.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_15to20++; }
+      s.r15to20++; if(isEnr) s.enroll_all_15to20++; if(isCL){ s.cltrns_15to20++; if(r._phone) s.recs_15to20.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''}); if(isEnr) s.enroll_15to20++; }
     } else if(sec<1800){
-      s.r20to30++; if(isEnr) s.enroll_all_20to30++; if(isCL){ s.cltrns_20to30++; if(r._phone) s.recs_20to30.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_20to30++; }
+      s.r20to30++; if(isEnr) s.enroll_all_20to30++; if(isCL){ s.cltrns_20to30++; if(r._phone) s.recs_20to30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''}); if(isEnr) s.enroll_20to30++; }
     } else {
-      s.gt30m++;   if(isEnr) s.enroll_all_gt30++;   if(isCL){ s.cltrns_gt30++;   if(r._phone) s.recs_gt30.push({phone:r._phone,sec:r._sec,recording:r._recording||''});   if(isEnr) s.enroll_gt30++; }
+      s.gt30m++;   if(isEnr) s.enroll_all_gt30++;   if(isCL){ s.cltrns_gt30++;   if(r._phone) s.recs_gt30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''});   if(isEnr) s.enroll_gt30++; }
     }
   });
   const rangeCell=(cl,enr,total,recs,label)=>{
@@ -1375,7 +1375,10 @@ function showFlaggedPhones(records, label){
     const hasRec=!!r.recording;
     return `<div style="padding:8px;border-radius:6px;background:var(--gray-100);display:flex;flex-direction:column;gap:6px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <b style="font-size:13px;font-family:monospace">${r.phone}</b>
+        <span style="display:flex;align-items:center;gap:8px">
+          <b style="font-size:13px;font-family:monospace">${r.phone}</b>
+          ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${r.crmStatus}</span>`:''}
+        </span>
         <span style="font-size:11px;color:var(--text-muted)">${fmtDur(r.sec)}</span>
       </div>
       ${hasRec
@@ -1744,7 +1747,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._status==='DPC'&&r._phone){
       if(!dpcEvents[r._phone]) dpcEvents[r._phone]=[];
-      dpcEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+      dpcEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
   });
   // All non-DPC call timestamps per phone
@@ -1766,7 +1769,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         if(ev.agent) dpcFlagged[phone].agents.add(ev.agent);
         if(ev.camp) dpcFlagged[phone].camps.add(ev.camp);
         dpcFlagged[phone].secs.push(ev.sec);
-        dpcFlagged[phone].recs.push({phone,sec:ev.sec,recording:ev.recording||''});
+        dpcFlagged[phone].recs.push({phone,sec:ev.sec,recording:ev.recording||'',crmStatus:ev.crmStatus||''});
       }
     });
   });
@@ -1794,7 +1797,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._status==='CLtrns'&&r._phone){
       if(!cltrnsEvents[r._phone]) cltrnsEvents[r._phone]=[];
-      cltrnsEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+      cltrnsEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
   });
   const inboundTs={};  // phone → [ts, ...] (any status, direction=inbound)
@@ -1814,7 +1817,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         if(ev.agent) badTransferFlagged[phone].agents.add(ev.agent);
         if(ev.camp) badTransferFlagged[phone].camps.add(ev.camp);
         badTransferFlagged[phone].secs.push(ev.sec);
-        badTransferFlagged[phone].recs.push({phone,sec:ev.sec,recording:ev.recording||''});
+        badTransferFlagged[phone].recs.push({phone,sec:ev.sec,recording:ev.recording||'',crmStatus:ev.crmStatus||''});
       }
     });
   });
@@ -1842,7 +1845,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._phone&&r._dir==='inbound'){
       if(!inboundCalls[r._phone]) inboundCalls[r._phone]=[];
-      inboundCalls[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+      inboundCalls[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
   });
   const receivedTransfers={};  // agent → {count, records:[{phone,sec,recording}], enrolledPhones:Set}
@@ -1853,7 +1856,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       if(next&&next.agent){
         if(!receivedTransfers[next.agent]) receivedTransfers[next.agent]={count:0,records:[],enrolledPhones:new Set()};
         receivedTransfers[next.agent].count++;
-        receivedTransfers[next.agent].records.push({phone,sec:next.sec,recording:next.recording});
+        receivedTransfers[next.agent].records.push({phone,sec:next.sec,recording:next.recording,crmStatus:next.crmStatus||''});
         if(anyEnrolledPhone.has(phone)) receivedTransfers[next.agent].enrolledPhones.add(phone);
       }
     });
