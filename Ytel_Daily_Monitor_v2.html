@@ -376,6 +376,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
                 <th style="text-align:left">Agent</th>
                 <th>Long Calls</th>
                 <th>Converted</th>
+                <th>Conv%</th>
                 <th>Not Converted</th>
               </tr>
             </thead>
@@ -1427,6 +1428,7 @@ function renderLongNoDeal(rows){
       <td style="text-align:left">${a.name}</td>
       <td>${a.total}</td>
       <td style="color:var(--green-dk)">${converted}</td>
+      <td>${pct(converted,a.total)}</td>
       <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.longNoConvertRecords)},${JSON.stringify(a.name)})'>${a.longNoConvert.length}</span></td>
     </tr>`;
   }).join('');
