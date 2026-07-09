@@ -867,6 +867,13 @@ function exportAfterDncPhones(){
   a.download='dialed_after_dnc.csv'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
+function showSaleDiscrepancyPhones(){
+  const phones=window._saleDiscrepancyPhones||[];
+  if(!phones.length){ showToast('No SALE discrepancies found'); return; }
+  document.getElementById('enrollModalTitle').textContent='Ytel Discrepancy — SALE, no Cordoba Enrolled Date ('+phones.length+')';
+  document.getElementById('enrollModalList').innerHTML=phones.map(p=>`<span>${p}</span>`).join('');
+  document.getElementById('enrollModal').classList.add('open');
+}
 function exportDncPhones(){
   const phones=window._dncPhones||[];
   if(!phones.length){ alert('No DNC phones to export.'); return; }
@@ -1744,6 +1751,11 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   window._afterDncDetail=Object.entries(afterDncDetail)
     .map(([phone,d])=>({phone,calls:d.calls,agents:[...d.agents]}))
     .sort((a,b)=>b.calls-a.calls);
+  const anyEnrolledPhone=new Set();
+  calls.forEach(r=>{ if(r['Cordoba Enrolled Date']||r['Enrolled Date']) anyEnrolledPhone.add(r._phone); });
+  const saleDiscrepancyPhones=new Set();
+  calls.forEach(r=>{ if(r._status==='SALE'&&r._phone&&!anyEnrolledPhone.has(r._phone)) saleDiscrepancyPhones.add(r._phone); });
+  window._saleDiscrepancyPhones=[...saleDiscrepancyPhones].sort();
 
   // ── KPIs ──
   const kpiData=[
@@ -1761,9 +1773,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'> 15 Min',val:gt15mUnique.toLocaleString(),sub:pct(gt15mUnique,uniquePhones)+' of unique calls',cls:'green'},
     {label:'> 30 Min',val:gt30mUnique.toLocaleString(),sub:pct(gt30mUnique,uniquePhones)+' of unique calls',cls:'purple'},
     {label:'> 45 Min',val:gt45mUnique.toLocaleString(),sub:pct(gt45mUnique,uniquePhones)+' of unique calls',cls:'purple'},
+    {label:'Ytel Discrepancy',val:saleDiscrepancyPhones.size,sub:saleDiscrepancyPhones.size?'SALE status, no Cordoba Enrolled Date':'no mismatches found',cls:'red',onclick:'showSaleDiscrepancyPhones()'},
   ];
   document.getElementById('kpiGrid').innerHTML=kpiData.map(k=>`
-    <div class="kpi ${k.cls}">
+    <div class="kpi ${k.cls}"${k.onclick?` onclick="${k.onclick}" style="cursor:pointer"`:''}>
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-val">${k.val}</div>
       <div class="kpi-sub">${k.sub}</div>
@@ -1800,8 +1813,6 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
   });
   const missedPhones=Object.keys(timeoutTs).filter(p=>!calledBack.has(p));
-  const anyEnrolledPhone=new Set();
-  calls.forEach(r=>{ if(r['Cordoba Enrolled Date']||r['Enrolled Date']) anyEnrolledPhone.add(r._phone); });
   const phoneDebt={};
   calls.forEach(r=>{
     if(r._phone&&r._debt>0) phoneDebt[r._phone]=Math.max(phoneDebt[r._phone]||0,r._debt);
