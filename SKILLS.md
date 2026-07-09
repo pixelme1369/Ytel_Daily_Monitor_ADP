@@ -1,6 +1,6 @@
 # SKILLS.md — Ytel Daily Monitor ADP
 
-Quick reference for every feature and calculation in `Ytel_Daily_Monitor_ADP.html`.
+Quick reference for every feature and calculation in `Ytel_Daily_Monitor_v2.html`.
 
 ---
 
@@ -156,4 +156,4 @@ Quick reference for every feature and calculation in `Ytel_Daily_Monitor_ADP.htm
 
 - **Dev branch:** `claude/practical-ramanujan-for1xy`
 - **Production:** `main`
-- No build step — open `Ytel_Daily_Monitor_ADP.html` directly in Chrome
+- No build step — open `Ytel_Daily_Monitor_v2.html` directly in Chrome
