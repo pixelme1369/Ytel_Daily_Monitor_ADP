@@ -345,13 +345,13 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     </div>
     <div class="tbl-wrap">
       <table id="longNoDealTable">
-        <thead>
+        <thead id="longNoDealHead">
           <tr>
-            <th style="text-align:left">Agent</th>
-            <th>Long Calls</th>
-            <th>Converted</th>
-            <th>Conv%</th>
-            <th>Not Converted</th>
+            <th style="text-align:left" data-col="0">Agent</th>
+            <th data-col="1">Long Calls</th>
+            <th data-col="2">Converted</th>
+            <th data-col="3">Conv%</th>
+            <th data-col="4">Not Converted</th>
           </tr>
         </thead>
         <tbody id="longNoDealBody"></tbody>
@@ -2273,6 +2273,33 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   renderAgentBody(agentRows);
   renderLongNoDeal(agentRows);
   renderFunnelChart(agentRows);
+
+  // ── Long Calls, No Deal table column sorting ──
+  (function(){
+    const thead=document.getElementById('longNoDealHead');
+    const tbody=document.getElementById('longNoDealBody');
+    let sortCol=-1, sortDir=1;
+    function cellVal(td){
+      const txt=td.textContent.trim();
+      if(txt==='—'||txt==='') return -Infinity;
+      const n=parseFloat(txt.replace(/[^0-9.\-]/g,''));
+      return isNaN(n)?txt.toLowerCase():n;
+    }
+    thead.querySelectorAll('th[data-col]').forEach(th=>{
+      th.addEventListener('click',()=>{
+        const col=parseInt(th.dataset.col);
+        if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=-1;}
+        thead.querySelectorAll('th').forEach(h=>h.classList.remove('sort-asc','sort-desc'));
+        th.classList.add(sortDir===1?'sort-asc':'sort-desc');
+        const rows=[...tbody.querySelectorAll('tr')];
+        rows.sort((a,b)=>{
+          const av=cellVal(a.cells[col]), bv=cellVal(b.cells[col]);
+          return av<bv?-sortDir:av>bv?sortDir:0;
+        });
+        rows.forEach(r=>tbody.appendChild(r));
+      });
+    });
+  })();
 
   // ── Agent funnel ratio table ──
   const fcell=(n,d,color)=>{
