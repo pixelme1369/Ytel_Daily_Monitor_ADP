@@ -1139,13 +1139,13 @@ function renderOpenerTable(){
   });
   const emptyS=()=>({calls:0,short:0,sec:0,drops:0,enroll:0,enrolledPhones:new Set(),
     enroll_short:0,
-    r30to2m:0, cltrns_30to2m:0, enroll_30to2m:0, enroll_all_30to2m:0, phones_30to2m:new Set(),
-    r2to5m:0,  cltrns_2to5m:0,  enroll_2to5m:0,  enroll_all_2to5m:0,  phones_2to5m:new Set(),
-    r5to10:0,  cltrns_5to10:0,  enroll_5to10:0,  enroll_all_5to10:0,  phones_5to10:new Set(),
-    r10to15:0, cltrns_10to15:0, enroll_10to15:0, enroll_all_10to15:0, phones_10to15:new Set(),
-    r15to20:0, cltrns_15to20:0, enroll_15to20:0, enroll_all_15to20:0, phones_15to20:new Set(),
-    r20to30:0, cltrns_20to30:0, enroll_20to30:0, enroll_all_20to30:0, phones_20to30:new Set(),
-    gt30m:0,   cltrns_gt30:0,   enroll_gt30:0,   enroll_all_gt30:0,   phones_gt30:new Set()
+    r30to2m:0, cltrns_30to2m:0, enroll_30to2m:0, enroll_all_30to2m:0, recs_30to2m:[],
+    r2to5m:0,  cltrns_2to5m:0,  enroll_2to5m:0,  enroll_all_2to5m:0,  recs_2to5m:[],
+    r5to10:0,  cltrns_5to10:0,  enroll_5to10:0,  enroll_all_5to10:0,  recs_5to10:[],
+    r10to15:0, cltrns_10to15:0, enroll_10to15:0, enroll_all_10to15:0, recs_10to15:[],
+    r15to20:0, cltrns_15to20:0, enroll_15to20:0, enroll_all_15to20:0, recs_15to20:[],
+    r20to30:0, cltrns_20to30:0, enroll_20to30:0, enroll_all_20to30:0, recs_20to30:[],
+    gt30m:0,   cltrns_gt30:0,   enroll_gt30:0,   enroll_all_gt30:0,   recs_gt30:[]
   });
   const agCampMap={};
   filtered.forEach(r=>{
@@ -1163,26 +1163,25 @@ function renderOpenerTable(){
     if(sec<=30){
       if(isEnr) s.enroll_short++;
     } else if(sec<120){
-      s.r30to2m++; if(isEnr) s.enroll_all_30to2m++; if(isCL){ s.cltrns_30to2m++; if(r._phone) s.phones_30to2m.add(r._phone); if(isEnr) s.enroll_30to2m++; }
+      s.r30to2m++; if(isEnr) s.enroll_all_30to2m++; if(isCL){ s.cltrns_30to2m++; if(r._phone) s.recs_30to2m.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_30to2m++; }
     } else if(sec<300){
-      s.r2to5m++;  if(isEnr) s.enroll_all_2to5m++;  if(isCL){ s.cltrns_2to5m++;  if(r._phone) s.phones_2to5m.add(r._phone);  if(isEnr) s.enroll_2to5m++; }
+      s.r2to5m++;  if(isEnr) s.enroll_all_2to5m++;  if(isCL){ s.cltrns_2to5m++;  if(r._phone) s.recs_2to5m.push({phone:r._phone,sec:r._sec,recording:r._recording||''});  if(isEnr) s.enroll_2to5m++; }
     } else if(sec<600){
-      s.r5to10++;  if(isEnr) s.enroll_all_5to10++;  if(isCL){ s.cltrns_5to10++;  if(r._phone) s.phones_5to10.add(r._phone);  if(isEnr) s.enroll_5to10++; }
+      s.r5to10++;  if(isEnr) s.enroll_all_5to10++;  if(isCL){ s.cltrns_5to10++;  if(r._phone) s.recs_5to10.push({phone:r._phone,sec:r._sec,recording:r._recording||''});  if(isEnr) s.enroll_5to10++; }
     } else if(sec<900){
-      s.r10to15++; if(isEnr) s.enroll_all_10to15++; if(isCL){ s.cltrns_10to15++; if(r._phone) s.phones_10to15.add(r._phone); if(isEnr) s.enroll_10to15++; }
+      s.r10to15++; if(isEnr) s.enroll_all_10to15++; if(isCL){ s.cltrns_10to15++; if(r._phone) s.recs_10to15.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_10to15++; }
     } else if(sec<1200){
-      s.r15to20++; if(isEnr) s.enroll_all_15to20++; if(isCL){ s.cltrns_15to20++; if(r._phone) s.phones_15to20.add(r._phone); if(isEnr) s.enroll_15to20++; }
+      s.r15to20++; if(isEnr) s.enroll_all_15to20++; if(isCL){ s.cltrns_15to20++; if(r._phone) s.recs_15to20.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_15to20++; }
     } else if(sec<1800){
-      s.r20to30++; if(isEnr) s.enroll_all_20to30++; if(isCL){ s.cltrns_20to30++; if(r._phone) s.phones_20to30.add(r._phone); if(isEnr) s.enroll_20to30++; }
+      s.r20to30++; if(isEnr) s.enroll_all_20to30++; if(isCL){ s.cltrns_20to30++; if(r._phone) s.recs_20to30.push({phone:r._phone,sec:r._sec,recording:r._recording||''}); if(isEnr) s.enroll_20to30++; }
     } else {
-      s.gt30m++;   if(isEnr) s.enroll_all_gt30++;   if(isCL){ s.cltrns_gt30++;   if(r._phone) s.phones_gt30.add(r._phone);   if(isEnr) s.enroll_gt30++; }
+      s.gt30m++;   if(isEnr) s.enroll_all_gt30++;   if(isCL){ s.cltrns_gt30++;   if(r._phone) s.recs_gt30.push({phone:r._phone,sec:r._sec,recording:r._recording||''});   if(isEnr) s.enroll_gt30++; }
     }
   });
-  const rangeCell=(cl,enr,total,phones,label)=>{
+  const rangeCell=(cl,enr,total,recs,label)=>{
     if(total===0) return '—';
-    const phoneArr=[...(phones||[])];
     const clPart=cl>0
-      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showEnrolledPhones(${JSON.stringify(phoneArr)},${JSON.stringify((label||'')+' — Transfers')})'>${cl} Transfer</span>`
+      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showFlaggedPhones(${JSON.stringify(recs||[])},${JSON.stringify((label||'')+' — Transfers')})'>${cl} Transfer</span>`
       :`<span style="color:var(--text-muted);font-size:11px">0 Transfer</span>`;
     const enrPart=enr>0?`<div style="font-size:9px;color:var(--green-dk);font-weight:600">${enr} enrolled</div>`:'';
     const totPart=`<div style="font-size:9px;color:var(--text-muted);margin-top:1px">${total} calls</div>`;
@@ -1191,23 +1190,23 @@ function renderOpenerTable(){
   const addS=(t,s)=>({
     calls:t.calls+s.calls,short:t.short+s.short,sec:t.sec+s.sec,drops:t.drops+s.drops,enroll:t.enroll+s.enroll,
     enroll_short:t.enroll_short+s.enroll_short,
-    r30to2m:t.r30to2m+s.r30to2m,  cltrns_30to2m:t.cltrns_30to2m+s.cltrns_30to2m, enroll_30to2m:t.enroll_30to2m+s.enroll_30to2m, enroll_all_30to2m:t.enroll_all_30to2m+s.enroll_all_30to2m, phones_30to2m:new Set([...t.phones_30to2m,...s.phones_30to2m]),
-    r2to5m:t.r2to5m+s.r2to5m,     cltrns_2to5m:t.cltrns_2to5m+s.cltrns_2to5m,     enroll_2to5m:t.enroll_2to5m+s.enroll_2to5m,   enroll_all_2to5m:t.enroll_all_2to5m+s.enroll_all_2to5m,   phones_2to5m:new Set([...t.phones_2to5m,...s.phones_2to5m]),
-    r5to10:t.r5to10+s.r5to10,     cltrns_5to10:t.cltrns_5to10+s.cltrns_5to10,     enroll_5to10:t.enroll_5to10+s.enroll_5to10,   enroll_all_5to10:t.enroll_all_5to10+s.enroll_all_5to10,   phones_5to10:new Set([...t.phones_5to10,...s.phones_5to10]),
-    r10to15:t.r10to15+s.r10to15,  cltrns_10to15:t.cltrns_10to15+s.cltrns_10to15,  enroll_10to15:t.enroll_10to15+s.enroll_10to15, enroll_all_10to15:t.enroll_all_10to15+s.enroll_all_10to15, phones_10to15:new Set([...t.phones_10to15,...s.phones_10to15]),
-    r15to20:t.r15to20+s.r15to20,  cltrns_15to20:t.cltrns_15to20+s.cltrns_15to20,  enroll_15to20:t.enroll_15to20+s.enroll_15to20, enroll_all_15to20:t.enroll_all_15to20+s.enroll_all_15to20, phones_15to20:new Set([...t.phones_15to20,...s.phones_15to20]),
-    r20to30:t.r20to30+s.r20to30,  cltrns_20to30:t.cltrns_20to30+s.cltrns_20to30,  enroll_20to30:t.enroll_20to30+s.enroll_20to30, enroll_all_20to30:t.enroll_all_20to30+s.enroll_all_20to30, phones_20to30:new Set([...t.phones_20to30,...s.phones_20to30]),
-    gt30m:t.gt30m+s.gt30m,        cltrns_gt30:t.cltrns_gt30+s.cltrns_gt30,         enroll_gt30:t.enroll_gt30+s.enroll_gt30,       enroll_all_gt30:t.enroll_all_gt30+s.enroll_all_gt30,       phones_gt30:new Set([...t.phones_gt30,...s.phones_gt30]),
+    r30to2m:t.r30to2m+s.r30to2m,  cltrns_30to2m:t.cltrns_30to2m+s.cltrns_30to2m, enroll_30to2m:t.enroll_30to2m+s.enroll_30to2m, enroll_all_30to2m:t.enroll_all_30to2m+s.enroll_all_30to2m, recs_30to2m:[...t.recs_30to2m,...s.recs_30to2m],
+    r2to5m:t.r2to5m+s.r2to5m,     cltrns_2to5m:t.cltrns_2to5m+s.cltrns_2to5m,     enroll_2to5m:t.enroll_2to5m+s.enroll_2to5m,   enroll_all_2to5m:t.enroll_all_2to5m+s.enroll_all_2to5m,   recs_2to5m:[...t.recs_2to5m,...s.recs_2to5m],
+    r5to10:t.r5to10+s.r5to10,     cltrns_5to10:t.cltrns_5to10+s.cltrns_5to10,     enroll_5to10:t.enroll_5to10+s.enroll_5to10,   enroll_all_5to10:t.enroll_all_5to10+s.enroll_all_5to10,   recs_5to10:[...t.recs_5to10,...s.recs_5to10],
+    r10to15:t.r10to15+s.r10to15,  cltrns_10to15:t.cltrns_10to15+s.cltrns_10to15,  enroll_10to15:t.enroll_10to15+s.enroll_10to15, enroll_all_10to15:t.enroll_all_10to15+s.enroll_all_10to15, recs_10to15:[...t.recs_10to15,...s.recs_10to15],
+    r15to20:t.r15to20+s.r15to20,  cltrns_15to20:t.cltrns_15to20+s.cltrns_15to20,  enroll_15to20:t.enroll_15to20+s.enroll_15to20, enroll_all_15to20:t.enroll_all_15to20+s.enroll_all_15to20, recs_15to20:[...t.recs_15to20,...s.recs_15to20],
+    r20to30:t.r20to30+s.r20to30,  cltrns_20to30:t.cltrns_20to30+s.cltrns_20to30,  enroll_20to30:t.enroll_20to30+s.enroll_20to30, enroll_all_20to30:t.enroll_all_20to30+s.enroll_all_20to30, recs_20to30:[...t.recs_20to30,...s.recs_20to30],
+    gt30m:t.gt30m+s.gt30m,        cltrns_gt30:t.cltrns_gt30+s.cltrns_gt30,         enroll_gt30:t.enroll_gt30+s.enroll_gt30,       enroll_all_gt30:t.enroll_all_gt30+s.enroll_all_gt30,       recs_gt30:[...t.recs_gt30,...s.recs_gt30],
     enrolledPhones:new Set([...t.enrolledPhones,...s.enrolledPhones])
   });
   const zeroTot=()=>({calls:0,short:0,sec:0,drops:0,enroll:0,enroll_short:0,
-    r30to2m:0,cltrns_30to2m:0,enroll_30to2m:0,enroll_all_30to2m:0,phones_30to2m:new Set(),
-    r2to5m:0,cltrns_2to5m:0,enroll_2to5m:0,enroll_all_2to5m:0,phones_2to5m:new Set(),
-    r5to10:0,cltrns_5to10:0,enroll_5to10:0,enroll_all_5to10:0,phones_5to10:new Set(),
-    r10to15:0,cltrns_10to15:0,enroll_10to15:0,enroll_all_10to15:0,phones_10to15:new Set(),
-    r15to20:0,cltrns_15to20:0,enroll_15to20:0,enroll_all_15to20:0,phones_15to20:new Set(),
-    r20to30:0,cltrns_20to30:0,enroll_20to30:0,enroll_all_20to30:0,phones_20to30:new Set(),
-    gt30m:0,cltrns_gt30:0,enroll_gt30:0,enroll_all_gt30:0,phones_gt30:new Set(),
+    r30to2m:0,cltrns_30to2m:0,enroll_30to2m:0,enroll_all_30to2m:0,recs_30to2m:[],
+    r2to5m:0,cltrns_2to5m:0,enroll_2to5m:0,enroll_all_2to5m:0,recs_2to5m:[],
+    r5to10:0,cltrns_5to10:0,enroll_5to10:0,enroll_all_5to10:0,recs_5to10:[],
+    r10to15:0,cltrns_10to15:0,enroll_10to15:0,enroll_all_10to15:0,recs_10to15:[],
+    r15to20:0,cltrns_15to20:0,enroll_15to20:0,enroll_all_15to20:0,recs_15to20:[],
+    r20to30:0,cltrns_20to30:0,enroll_20to30:0,enroll_all_20to30:0,recs_20to30:[],
+    gt30m:0,cltrns_gt30:0,enroll_gt30:0,enroll_all_gt30:0,recs_gt30:[],
     enrolledPhones:new Set()});
   const renderRow=(s,ag,camp,style,agId)=>{
     const enrollCell=s.enroll>0
@@ -1228,13 +1227,13 @@ function renderOpenerTable(){
       ${firstCols}
       <td>${s.calls}</td>
       <td>${s.short} <span style="color:var(--text-muted);font-size:11px">${pct(s.short,s.calls)}</span></td>
-      <td>${rangeCell(s.cltrns_30to2m,s.enroll_30to2m,s.r30to2m,s.phones_30to2m,ag+(camp?' · '+camp:'')+'  30s–2min')}</td>
-      <td>${rangeCell(s.cltrns_2to5m, s.enroll_2to5m, s.r2to5m, s.phones_2to5m, ag+(camp?' · '+camp:'')+'  2–5min')}</td>
-      <td>${rangeCell(s.cltrns_5to10, s.enroll_5to10, s.r5to10, s.phones_5to10, ag+(camp?' · '+camp:'')+'  5–10min')}</td>
-      <td>${rangeCell(s.cltrns_10to15,s.enroll_10to15,s.r10to15,s.phones_10to15,ag+(camp?' · '+camp:'')+'  10–15min')}</td>
-      <td>${rangeCell(s.cltrns_15to20,s.enroll_15to20,s.r15to20,s.phones_15to20,ag+(camp?' · '+camp:'')+'  15–20min')}</td>
-      <td>${rangeCell(s.cltrns_20to30,s.enroll_20to30,s.r20to30,s.phones_20to30,ag+(camp?' · '+camp:'')+'  20–30min')}</td>
-      <td>${rangeCell(s.cltrns_gt30,  s.enroll_gt30,  s.gt30m,  s.phones_gt30,  ag+(camp?' · '+camp:'')+'  30+min')}</td>
+      <td>${rangeCell(s.cltrns_30to2m,s.enroll_30to2m,s.r30to2m,s.recs_30to2m,ag+(camp?' · '+camp:'')+'  30s–2min')}</td>
+      <td>${rangeCell(s.cltrns_2to5m, s.enroll_2to5m, s.r2to5m, s.recs_2to5m, ag+(camp?' · '+camp:'')+'  2–5min')}</td>
+      <td>${rangeCell(s.cltrns_5to10, s.enroll_5to10, s.r5to10, s.recs_5to10, ag+(camp?' · '+camp:'')+'  5–10min')}</td>
+      <td>${rangeCell(s.cltrns_10to15,s.enroll_10to15,s.r10to15,s.recs_10to15,ag+(camp?' · '+camp:'')+'  10–15min')}</td>
+      <td>${rangeCell(s.cltrns_15to20,s.enroll_15to20,s.r15to20,s.recs_15to20,ag+(camp?' · '+camp:'')+'  15–20min')}</td>
+      <td>${rangeCell(s.cltrns_20to30,s.enroll_20to30,s.r20to30,s.recs_20to30,ag+(camp?' · '+camp:'')+'  20–30min')}</td>
+      <td>${rangeCell(s.cltrns_gt30,  s.enroll_gt30,  s.gt30m,  s.recs_gt30,  ag+(camp?' · '+camp:'')+'  30+min')}</td>
       <td>${s.drops>0?'<span style="color:var(--red);font-weight:600">'+s.drops+'</span>':'—'}</td>
       <td>${fmtDur(s.calls?Math.round(s.sec/s.calls):0)}</td>
       <td class="${s.enroll>0?'enroll-num':'enroll-zero'}">${enrollCell}</td>
@@ -1384,7 +1383,7 @@ function closeEnrolledPhones(){
 }
 function showFlaggedPhones(records, label){
   const uniquePhones=new Set(records.map(r=>r.phone)).size;
-  document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' — Long Calls, No Deal ('+uniquePhones+')';
+  document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' ('+uniquePhones+')';
   document.getElementById('enrollModalList').innerHTML=records.map(r=>{
     const hasRec=!!r.recording;
     return `<div style="padding:8px;border-radius:6px;background:var(--gray-100);display:flex;flex-direction:column;gap:6px">
@@ -1431,7 +1430,7 @@ function renderLongNoDeal(rows){
       <td>${a.total}</td>
       <td style="color:var(--green-dk)">${converted}</td>
       <td>${pct(converted,a.total)}</td>
-      <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.longNoConvertRecords)},${JSON.stringify(a.name)})'>${a.longNoConvert.length}</span></td>
+      <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.longNoConvertRecords)},${JSON.stringify(a.name+' — Long Calls, No Deal')})'>${a.longNoConvert.length}</span></td>
     </tr>`;
   }).join('');
 }
