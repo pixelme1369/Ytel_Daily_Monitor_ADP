@@ -212,7 +212,7 @@ Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.htm
 - Called with no args, it defaults to `window._agentAllRows` — only reflects the full unfiltered agent set; campaign/direction-filtered views of the Agent Performance table do not recompute this card
 - Card table (`longNoDealCard`/`longNoDealBody`, header `longNoDealHead`): Agent | Long Calls | Converted | Conv% | Not Converted — sorted by Not Converted descending by default, only agents with `longNoConvert.length>0` shown. Conv% = `pct(converted, a.total)` (converted long calls ÷ total long calls, e.g. 1 converted of 8 long calls = 12.5%). Agent name cell shows the same `tag-opener`/`tag-retention` role tag used elsewhere (Agent Performance, Funnel tables)
 - Columns are click-to-sort (each `th` has `data-col`, mirrors the Agent/Campaign table sort pattern): click toggles asc/desc on that column, re-appending `tr`s in the new order; `sort-asc`/`sort-desc` CSS classes show the ▲/▼ arrow
-- Clicking the Not Converted count opens the shared phone modal via `showFlaggedPhones(records, agentName)` (mirrors `showEnrolledPhones`, same modal DOM). Each row shows the phone, call duration, an inline `<audio controls>` player sourced from `recording.recording`, and a "⬇ Download recording" link (`download` attribute on an `<a href="...">`). Phones with no recording show "No recording available" instead of a player.
+- Clicking the Not Converted count opens the shared phone modal via `showFlaggedPhones(records, agentName+' — Long Calls, No Deal')` (mirrors `showEnrolledPhones`, same modal DOM; the modal title is just `label + ' (' + uniquePhones + ')'` — callers must include their own descriptive suffix). Each row shows the phone, call duration, an inline `<audio controls>` player sourced from `recording.recording`, and a "⬇ Download recording" link (`download` attribute on an `<a href="...">`). Phones with no recording show "No recording available" instead of a player.
 - `#enrollModalBox` max-width bumped from 420px to 480px to fit the audio player comfortably (shared modal, so this also affects the Enrolled Phones / Transfers popups, harmlessly)
 - **Export CSV** button (`⬇ CSV` next to the threshold dropdown) calls `exportLongNoDeal()`, which flattens `window._longNoDealFlagged[].longNoConvertRecords` (set at the end of every `renderLongNoDeal()` run) into `Agent,Phone Number,CRM Status,Call Duration,Recording Location` rows and downloads `long_calls_no_deal.csv` — one row per qualifying call (a phone can appear more than once if it has multiple calls over the threshold); `Call Duration` is `fmtDur(sec)`; reflects whatever threshold is currently selected
 
@@ -226,8 +226,8 @@ Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.htm
 
 Card is only visible when opener calls exist. Features:
 - Time brackets: Dead ≤30s, 30s–2min, 2–5min, 5–10min, 10–15min, 15–20min, 20–30min, 30+min
-- Each bracket cell shows: transfer count (clickable → phone number modal), enrolled count, total calls
-- **Clicking a transfer count opens the enrolled phones modal with that bracket's transferred phone numbers**
+- Each bracket cell shows: transfer count (clickable → phone/recording modal), enrolled count, total calls
+- **Clicking a transfer count opens the shared `showFlaggedPhones` modal (same one used by DPC, Incomplete Transfers, Long Calls No Deal) with that bracket's transferred phone numbers** — each row has an inline `<audio controls>` player + "⬇ Download recording" link sourced from `r._recording` on the CLtrns call; phones with no recording show "No recording available"
 - Filterable by campaign and direction dropdowns
 - Click agent row to expand per-campaign sub-rows
 
@@ -250,7 +250,7 @@ Card is only visible when opener calls exist. Features:
 - `cltrns_XtoY` — CLtrns calls in bracket
 - `enroll_XtoY` — enrolled AND CLtrns calls in bracket (used in breakdown cell)
 - `enroll_all_XtoY` — enrolled calls in bracket regardless of transfer status (used in summary)
-- `phones_XtoY` — Set of phone numbers for CLtrns calls (clickable modal)
+- `recs_XtoY` — array of `{phone,sec,recording}` for each CLtrns call in the bracket (one entry per call, not deduped by phone), passed to `showFlaggedPhones` on click
 - `enroll_short` — enrolled calls with sec ≤ 30 (for summary Dead row)
 
 ### Openers Summary Table
