@@ -223,6 +223,18 @@ Implemented in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.htm
 - **Sorting sorts by raw count (the number in parentheses), not percentage**
 - Filterable by role (All / Closers / Openers) and campaign/direction dropdowns
 
+## Agent Outcomes (scatter chart, replaces the old "Agent Funnel Visual")
+
+Card `#funnelChartCard`, directly below the Agent Call Funnel table in both `Ytel_Daily_Monitor_ADP.html` and `Ytel_Daily_Monitor_v2.html`. Previously a stacked-bar-per-agent + canned per-agent "coaching" text card; replaced because the bars duplicated the table above with no new information, every bar rendered at 100% width so nothing stood out, the coaching thresholds were hardcoded and judged openers by closer standards, and it ignored enrollment outcomes entirely (a long-talking agent with zero deals looked good).
+
+- Chart.js `type:'bubble'`. One dot per agent: **X = % of that agent's calls over 5 min** (`over5 = r5to10+r10to15+r15to20+r20to30+gt30m`, i.e. `sec>=300`), **Y = conversion % on those calls** (`enr/over5`, clamped to 100 — `enr` is the agent's total enrolled-phone credit, not restricted to the over-5-min calls, so this is an approximation consistent with the `Conv% (enr/>2m)` convention used elsewhere in the app), **dot radius = call volume** (sqrt-scaled between 6px and 26px across the currently-filtered agent set)
+- Dot color = role, from the same `CLOSERS`/`RETENTION`/`OPENERS` sets used everywhere else: closer `#1377bd`, opener `#D97706`, retention `#7C3AED`, unassigned `#94A3B8` — same 4-color mapping hardcoded in both files (not read from CSS custom properties, so it stays identical regardless of which file's `--blue`/`--accent` token means something else)
+- **Quadrant divider lines** are drawn by an inline Chart.js plugin (`beforeDatasetsDraw`) at the **median** X and median Y of the currently-plotted agents (not a hardcoded threshold) — solid hairline `#E2E8F0`, never dashed. Four corner labels are fixed chart chrome (not generated per-agent text): top-right "Top performers", top-left "Efficient closers", bottom-right "Long calls, no deals — pull recordings", bottom-left "Can't engage"
+- Reuses the existing filter row (`fc-all`/`fc-closer`/`fc-opener` role toggle, `fc-camp`, `fc-dir`, `fc-name` search, `fc-min` min-calls threshold) via the existing `filterFunnelChart()` → `renderFunnelChart(rows)` pipeline; the `fc-sort` dropdown was removed (sorting has no meaning for a scatter — there's no row order)
+- `renderFunnelChart(rows)` destroys and recreates `window._funnelScatterChart` on every call (role/campaign/direction/name/min-calls filter changes all re-render); card hides when no agent clears the min-calls threshold
+- Tooltip shows agent name, "% of calls over 5 min (over5/calls)", "% conversion on those (N enrolled)", total calls
+- No separate table view was added for this card — the Agent Call Funnel table immediately above already serves as the tabular twin of the same underlying per-agent data
+
 ## Openers — Transfer Breakdown by Campaign
 
 Card is only visible when opener calls exist. Features:
