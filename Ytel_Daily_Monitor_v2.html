@@ -706,6 +706,8 @@ function funnelCell(val,denom,color){
   return `${val}<div style="font-size:9px;color:${color};margin-top:1px">${p}%</div>`;
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
+// JSON for use inside single-quoted onclick attributes — apostrophes in agent/campaign names would otherwise truncate the attribute
+function attrJson(v){ return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
 function showToast(msg,dur=2500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -809,6 +811,7 @@ function exportTable(tableId, filename){
   a.href=URL.createObjectURL(blob);
   a.download=filename+'.csv';
   a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 function exportDncPhones(){
   const phones=window._dncPhones||[];
@@ -817,6 +820,7 @@ function exportDncPhones(){
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='dnc_phones.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 
 // ══ ROLE EDITOR ═════════════════════════════════════════════════════════════
@@ -1181,7 +1185,7 @@ function renderOpenerTable(){
   const rangeCell=(cl,enr,total,recs,label)=>{
     if(total===0) return '—';
     const clPart=cl>0
-      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showFlaggedPhones(${JSON.stringify(recs||[])},${JSON.stringify((label||'')+' — Transfers')})'>${cl} Transfer</span>`
+      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showFlaggedPhones(${attrJson(recs||[])},${attrJson((label||'')+' — Transfers')})'>${cl} Transfer</span>`
       :`<span style="color:var(--text-muted);font-size:11px">0 Transfer</span>`;
     const enrPart=enr>0?`<div style="font-size:9px;color:var(--green-dk);font-weight:600">${enr} enrolled</div>`:'';
     const totPart=`<div style="font-size:9px;color:var(--text-muted);margin-top:1px">${total} calls</div>`;
@@ -1210,7 +1214,7 @@ function renderOpenerTable(){
     enrolledPhones:new Set()});
   const renderRow=(s,ag,camp,style,agId)=>{
     const enrollCell=s.enroll>0
-      ?`<span class="enroll-click" onclick='event.stopPropagation();showEnrolledPhones(${JSON.stringify([...s.enrolledPhones])},${JSON.stringify(ag+(camp?' · '+camp:''))})'>${s.enroll}</span>`:'—';
+      ?`<span class="enroll-click" onclick='event.stopPropagation();showEnrolledPhones(${attrJson([...s.enrolledPhones])},${attrJson(ag+(camp?' · '+camp:''))})'>${s.enroll}</span>`:'—';
     const isTot=style==='total'; const isAgent=style==='agent';
     let firstCols,trAttrs;
     if(isAgent){
@@ -1356,7 +1360,7 @@ function renderDpcDrops(){
   });
   const enrolled=data.filter(d=>d.enrolled);
   const other=data.filter(d=>!d.enrolled);
-  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — no outbound call was ever made to this phone after the drop" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${JSON.stringify(d.records)},${JSON.stringify(d.phone+" — Dropped Call")})' title="Click to play/download the dropped call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— dropped by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — no outbound call was ever made to this phone after the drop" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${attrJson(d.records)},${attrJson(d.phone+" — Dropped Call")})' title="Click to play/download the dropped call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— dropped by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
   document.getElementById('dpcEnrolledCount').textContent='('+enrolled.length+')';
   document.getElementById('dpcEnrolledList').innerHTML=rowHtml(enrolled);
   document.getElementById('dpcOtherCount').textContent='('+other.length+')';
@@ -1367,7 +1371,7 @@ function renderBadTransfers(){
   const data=(window._badTransferData||[]).filter(d=>!camps.length||d.camps.some(c=>camps.includes(c)));
   const enrolled=data.filter(d=>d.enrolled);
   const other=data.filter(d=>!d.enrolled);
-  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — dispositioned as a transfer but no inbound call ever followed, meaning the call never actually landed with another agent" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${JSON.stringify(d.records)},${JSON.stringify(d.phone+" — Incomplete Transfer")})' title="Click to play/download the CLtrns call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— marked transfer by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  const rowHtml=arr=>arr.map(d=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span title="High alert — dispositioned as a transfer but no inbound call ever followed, meaning the call never actually landed with another agent" style="margin-right:4px">⚠️</span><span class="enroll-click" style="font-family:monospace;font-weight:600" onclick='showFlaggedPhones(${attrJson(d.records)},${attrJson(d.phone+" — Incomplete Transfer")})' title="Click to play/download the CLtrns call recording">${d.phone}</span>${d.debt>0?'<span style="margin-left:8px;font-weight:700;color:var(--green-dk);font-size:11px">'+fmt$(d.debt)+'</span>':''} <span style="color:var(--text-muted);font-size:11px">— marked transfer by: ${d.agents}</span>${d.camps.length?'<span style="margin-left:6px;font-size:10px;background:var(--gray-100);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text-muted)">'+d.camps.join(', ')+'</span>':''}</div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
   document.getElementById('badTransferEnrolledCount').textContent='('+enrolled.length+')';
   document.getElementById('badTransferEnrolledList').innerHTML=rowHtml(enrolled);
   document.getElementById('badTransferOtherCount').textContent='('+other.length+')';
@@ -1430,7 +1434,7 @@ function renderLongNoDeal(rows){
       <td>${a.total}</td>
       <td style="color:var(--green-dk)">${converted}</td>
       <td>${pct(converted,a.total)}</td>
-      <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${JSON.stringify(a.longNoConvertRecords)},${JSON.stringify(a.name+' — Long Calls, No Deal')})'>${a.longNoConvert.length}</span></td>
+      <td class="enroll-num"><span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${attrJson(a.longNoConvertRecords)},${attrJson(a.name+' — Long Calls, No Deal')})'>${a.longNoConvert.length}</span></td>
     </tr>`;
   }).join('');
 }
@@ -1447,6 +1451,7 @@ function exportLongNoDeal(){
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='long_calls_no_deal.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 
 // ══ FILE I/O ════════════════════════════════════════════════════════════════
@@ -1493,7 +1498,7 @@ function handleMerged(input){
 }
 function autoSetDate(data){
   const dates=new Set();
-  data.slice(0,200).forEach(r=>{
+  data.forEach(r=>{
     const v=r['call_date']||r['Call Date']||r['date']||'';
     const s=typeof v==='string'?v:String(v);
     const m=s.match(/(\d{4}-\d{2}-\d{2})/);
@@ -1575,14 +1580,7 @@ function runAnalysis(){
 }
 
 function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent){
-  const enrolledFirstCallTs={};
-  calls.forEach(r=>{
-    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    if(!enrolledPhones.has(phone)) return;
-    const ts=parseTs(r['call_date']||r['date']||'');
-    if(!enrolledFirstCallTs[phone]||ts<enrolledFirstCallTs[phone]) enrolledFirstCallTs[phone]=ts;
-  });
-
+  // Normalize call fields — r._ts is parsed once here and reused by every loop below
   calls.forEach(r=>{
     r._sec=parseInt(r['length_in_sec']||r['duration']||r['Duration']||r['talk_sec']||0,10)||0;
     r._campaign=normCamp((r['campaign_id']||r['Campaign']||'').trim());
@@ -1592,14 +1590,24 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._dir=(r['direction']||r['Direction']||'').toLowerCase();
     r._status=(r['status']||r['Status']||'').trim();
     r._statusName=(r['status_name']||r['Status Name']||r['dispo']||r._status).trim();
-    r._hour=(String(r['call_date']||r['date']||'')).slice(11,13)||'00';
+    r._ts=parseTs(r['call_date']||r['date']||'');
+    // Hour from the parsed timestamp — string slicing breaks on Date objects (cellDates:true) and M/D/YYYY strings
+    r._hour=r._ts?String(new Date(r._ts).getHours()).padStart(2,'0'):((String(r['call_date']||r['date']||'')).slice(11,13)||'00');
     r._ug=(r['user_group']||'').trim();
     r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    r._enrolled=!!(enrolledPhoneAgent&&enrolledPhoneAgent[r._phone] && parseTs(r['call_date']||r['date']||'')===enrolledFirstCallTs[r._phone]);
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
     r._recording=(r['recording_location']||r['Recording Location']||r['recording_url']||'').trim();
   });
+
+  // First call row per enrolled phone — enrollment is credited to that call's campaign.
+  // Flag the row itself (not its timestamp) so tied timestamps can't mark two rows enrolled.
+  const enrolledFirstCallRow={};
+  calls.forEach(r=>{
+    if(!r._phone||!enrolledPhones.has(r._phone)) return;
+    if(!enrolledFirstCallRow[r._phone]||r._ts<enrolledFirstCallRow[r._phone]._ts) enrolledFirstCallRow[r._phone]=r;
+  });
+  calls.forEach(r=>{ r._enrolled=enrolledFirstCallRow[r._phone]===r; });
 
   const total=calls.length;
   const uniquePhones=new Set(calls.map(r=>r._phone).filter(Boolean)).size;
@@ -1655,7 +1663,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const timeoutCamps={};
   calls.forEach(r=>{
     if(r._status==='TIMEOT'&&r._dir==='inbound'&&r._phone){
-      const ts=parseTs(r['call_date']||r['date']||'');
+      const ts=r._ts;
       if(!timeoutTs[r._phone]||ts>timeoutTs[r._phone]) timeoutTs[r._phone]=ts;
       if(!timeoutAgents[r._phone]) timeoutAgents[r._phone]=new Set();
       if(!timeoutCamps[r._phone]) timeoutCamps[r._phone]=new Set();
@@ -1666,7 +1674,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const calledBack=new Set();
   calls.forEach(r=>{
     if(r._phone&&timeoutTs[r._phone]&&r._status!=='TIMEOT'){
-      const ts=parseTs(r['call_date']||r['date']||'');
+      const ts=r._ts;
       if(ts>timeoutTs[r._phone]) calledBack.add(r._phone);
     }
   });
@@ -1695,14 +1703,14 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._status==='DPC'&&r._phone){
       if(!dpcEvents[r._phone]) dpcEvents[r._phone]=[];
-      dpcEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+      dpcEvents[r._phone].push({ts:r._ts,agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
     }
   });
   const nonDpcTs={};
   calls.forEach(r=>{
     if(r._phone&&r._status!=='DPC'){
       if(!nonDpcTs[r._phone]) nonDpcTs[r._phone]=[];
-      nonDpcTs[r._phone].push(parseTs(r['call_date']||r['date']||''));
+      nonDpcTs[r._phone].push(r._ts);
     }
   });
   const dpcFlagged={};
@@ -1743,14 +1751,14 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._status==='CLtrns'&&r._phone){
       if(!cltrnsEvents[r._phone]) cltrnsEvents[r._phone]=[];
-      cltrnsEvents[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+      cltrnsEvents[r._phone].push({ts:r._ts,agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
     }
   });
   const inboundTs={};  // phone → [ts, ...] (any status, direction=inbound)
   calls.forEach(r=>{
     if(r._phone&&r._dir==='inbound'){
       if(!inboundTs[r._phone]) inboundTs[r._phone]=[];
-      inboundTs[r._phone].push(parseTs(r['call_date']||r['date']||''));
+      inboundTs[r._phone].push(r._ts);
     }
   });
   const badTransferFlagged={};  // phone → {agents:Set, camps:Set, secs:[], recs:[]}
@@ -1791,7 +1799,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     if(r._phone&&r._dir==='inbound'){
       if(!inboundCalls[r._phone]) inboundCalls[r._phone]=[];
-      inboundCalls[r._phone].push({ts:parseTs(r['call_date']||r['date']||''),agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
+      inboundCalls[r._phone].push({ts:r._ts,agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||''});
     }
   });
   const receivedTransfers={};  // agent → {count, records:[{phone,sec,recording}], enrolledPhones:Set}
@@ -1814,8 +1822,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     receivedTransferCard.style.display='';
     document.getElementById('receivedTransferBody').innerHTML=receivedTransferRows.map(r=>`<tr>
       <td>${r.agent}</td>
-      <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${JSON.stringify(r.records)},${JSON.stringify(r.agent+" — Transfers Received")})'>${r.count}</span></td>
-      <td class="${r.enrolledPhones.size>0?'enroll-num':'enroll-zero'}">${r.enrolledPhones.size>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...r.enrolledPhones])},${JSON.stringify(r.agent+" — Enrolled from Transfers")})'>${r.enrolledPhones.size}</span>`:'—'}</td>
+      <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${attrJson(r.records)},${attrJson(r.agent+" — Transfers Received")})'>${r.count}</span></td>
+      <td class="${r.enrolledPhones.size>0?'enroll-num':'enroll-zero'}">${r.enrolledPhones.size>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...r.enrolledPhones])},${attrJson(r.agent+" — Enrolled from Transfers")})'>${r.enrolledPhones.size}</span>`:'—'}</td>
       <td>${pct(r.enrolledPhones.size,r.count)}</td>
     </tr>`).join('');
   } else {
@@ -1966,7 +1974,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentPhoneLastCall={};
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._phone).forEach(r=>{
     const key=r._name+'||'+r._phone;
-    const ts=parseTs(r['call_date']||r['date']||'');
+    const ts=r._ts;
     if(!agentPhoneFirstDir[key]||ts<agentPhoneFirstDir[key].ts)
       agentPhoneFirstDir[key]={dir:r._dir,ts};
     const hr=parseInt(r._hour);
@@ -2130,7 +2138,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const activeHourMap=hourMapSrc||(window._agentHourMap||agentHourMap);
     const maxC=rows[0]?rows[0].calls:1;
     const enrollPhones=window._agentEnrollPhones||agentEnrollPhones;
-    document.getElementById('agentBody').innerHTML=rows.map((a,i)=>{
+    const agentRowsHtml=rows.map((a,i)=>{
       const convPct=a.gt2m>0&&a.enr>0?pct(a.enr,a.gt2m):'—';
       const shortCls=a.shortPct>55?'bad':'';
       const isOpener=OPENERS.has(a.name.toLowerCase());
@@ -2193,7 +2201,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       sec:t.sec+a.sec, enr:t.enr+a.enr, debt:t.debt+a.debt
     }),{calls:0,uniqueCalls:0,short:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0,enr:0,debt:0});
     const agTotShortPct=agTot.calls?agTot.short/agTot.calls*100:0;
-    document.getElementById('agentBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+    document.getElementById('agentBody').innerHTML=agentRowsHtml+`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
       <td style="text-align:left">TOTAL</td>
       <td>${agTot.calls}</td><td>${agTot.uniqueCalls}</td><td>—</td><td>—</td>
       <td>${agTotShortPct.toFixed(0)}%</td>
@@ -2423,7 +2431,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agMapSrc=agentMapSrc||campAgentMap;
   const campRows=Object.entries(sourceMap).sort((a,b)=>(typeOrder[a[1].type]||9)-(typeOrder[b[1].type]||9)||b[1].calls-a[1].calls);
   const typeTag={Marketing:'<span class="tag mkt">Marketing</span>',Manual:'<span class="tag man">Manual</span>',VDCL:'<span class="tag vdcl">VDCL</span>',Other:'<span class="tag oth">Other</span>'};
-  document.getElementById('campBody').innerHTML=campRows.map(([camp,d],i)=>{
+  const campRowsHtml=campRows.map(([camp,d],i)=>{
     const rowId='camp-ag-'+i;
     let agentRows=Object.entries(agMapSrc[camp]||{}).sort((a,b)=>b[1].calls-a[1].calls);
     if(_campRoleFilter==='closer') agentRows=agentRows.filter(([ag])=>CLOSERS.has(ag.toLowerCase()));
@@ -2441,7 +2449,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <td>${funnelCell(a.gt30m,a.calls,"var(--green-dk)")}</td>
         <td>${a.drops>0?'<span style="color:var(--red);font-weight:600">'+a.drops+'</span>':'—'}</td>
         <td>${fmtDur(a.calls?Math.round(a.sec/a.calls):0)}</td>
-        <td class="${a.enroll>0?'enroll-num':'enroll-zero'}">${a.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...a.enrolledPhones])},${JSON.stringify(ag)})'>${a.enroll}</span>`:'—'}</td>
+        <td class="${a.enroll>0?'enroll-num':'enroll-zero'}">${a.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...a.enrolledPhones])},${attrJson(ag)})'>${a.enroll}</span>`:'—'}</td>
       </tr>`).join('');
     return `<tr id="${rowId}" style="cursor:pointer" onclick="toggleCampAgents('${rowId}')">
       <td style="text-align:left"><span class="agent-toggle" id="tog-${rowId}">▶</span> ${camp} ${typeTag[d.type]||''}</td>
@@ -2455,7 +2463,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <td>${funnelCell(d.gt30m,d.calls,"var(--green-dk)")}</td>
       <td>${d.drops>0?'<span style="color:var(--red);font-weight:600">'+d.drops+'</span>':'—'}</td>
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
-      <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${JSON.stringify([...d.enrolledPhones])},${JSON.stringify(camp)})'>${d.enroll}</span>`:'—'}</td>
+      <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...d.enrolledPhones])},${attrJson(camp)})'>${d.enroll}</span>`:'—'}</td>
       <td>${d.calls>0&&d.enroll>0?pct(d.enroll,d.calls):'—'}</td>
       <td>${d.phonesGt2m.size>0&&d.enroll>0?pct(d.enroll,d.phonesGt2m.size):'—'}</td>
     </tr>${agentSubRows}`;
@@ -2467,7 +2475,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r15to20:t.r15to20+d.r15to20, r20to30:t.r20to30+d.r20to30, gt30m:t.gt30m+d.gt30m,
     drops:t.drops+d.drops, sec:t.sec+d.sec, enroll:t.enroll+d.enroll
   }),{calls:0,short:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,sec:0,enroll:0});
-  document.getElementById('campBody').innerHTML+=`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
+  document.getElementById('campBody').innerHTML=campRowsHtml+`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
     <td style="text-align:left">TOTAL</td>
     <td>${cTot.calls}</td>
     <td>${cTot.short} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.short,cTot.calls)}</span></td>
