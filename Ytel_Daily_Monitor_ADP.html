@@ -1401,7 +1401,7 @@ function renderLongNoDeal(rows){
     const longPhones=Object.keys(phoneMaxSec).filter(p=>phoneMaxSec[p]>=thresholdSec);
     const longNoConvert=longPhones.filter(p=>!enrolledSet.has(p));
     const longNoConvertRecords=longNoConvert.flatMap(p=>
-      (phoneRecordings[p]||[]).filter(rec=>rec.sec>=thresholdSec).map(rec=>({phone:p,sec:rec.sec,recording:rec.recording}))
+      (phoneRecordings[p]||[]).filter(rec=>rec.sec>=thresholdSec).map(rec=>({phone:p,sec:rec.sec,recording:rec.recording,crmStatus:rec.crmStatus||''}))
     );
     return {name:a.name,total:longPhones.length,longNoConvert,longNoConvertRecords};
   }).filter(a=>a.longNoConvert.length>0)
@@ -1423,9 +1423,9 @@ function renderLongNoDeal(rows){
 function exportLongNoDeal(){
   const flagged=window._longNoDealFlagged||[];
   const rows=[];
-  flagged.forEach(a=>a.longNoConvert.forEach(p=>rows.push([a.name,p])));
+  flagged.forEach(a=>a.longNoConvertRecords.forEach(r=>rows.push([a.name,r.phone,r.crmStatus||'',fmtDur(r.sec),r.recording||''])));
   if(!rows.length){ alert('No flagged phones to export.'); return; }
-  const csv='Agent,Phone Number\n'+rows.map(r=>'"'+r[0].replace(/"/g,'""')+'","'+r[1]+'"').join('\n');
+  const csv='Agent,Phone Number,CRM Status,Call Duration,Recording Location\n'+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='long_calls_no_deal.csv'; a.click();
@@ -2059,7 +2059,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(r._sec>=1200&&r._phone){
       d.phoneMaxSec[r._phone]=Math.max(d.phoneMaxSec[r._phone]||0,r._sec);
       if(!d.phoneRecordings[r._phone]) d.phoneRecordings[r._phone]=[];
-      d.phoneRecordings[r._phone].push({sec:r._sec,recording:r._recording||''});
+      d.phoneRecordings[r._phone].push({sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
     // direction breakdown
     const dkey=r._dir==='inbound'?'inbound':'outbound';
