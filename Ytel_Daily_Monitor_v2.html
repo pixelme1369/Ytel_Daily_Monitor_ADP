@@ -187,7 +187,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 .enroll-click:hover{opacity:.8}
 #enrollModal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
 #enrollModal.open{display:flex}
-#enrollModalBox{background:var(--white);border-radius:10px;padding:24px;min-width:280px;max-width:480px;max-height:80vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+#enrollModalBox{background:var(--white);border-radius:10px;padding:24px;min-width:280px;max-width:560px;width:90vw;max-height:80vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
 #enrollModalTitle{font-size:14px;font-weight:700;color:var(--text)}
 #enrollModalList{overflow-y:auto;display:flex;flex-direction:column;gap:4px}
 #enrollModalList span{font-size:13px;color:var(--text-muted);padding:4px 8px;border-radius:4px;background:var(--gray-100);font-family:monospace;letter-spacing:.03em}
@@ -1392,7 +1392,7 @@ function showFlaggedPhones(records, label){
         <span style="font-size:11px;color:var(--text-muted)">${fmtDur(r.sec)}</span>
       </div>
       ${hasRec
-        ?`<audio controls preload="none" src="${r.recording}" style="width:100%;height:32px"></audio>
+        ?`<audio controls preload="none" src="${r.recording}" style="width:100%;height:44px"></audio>
         <a href="${r.recording}" download style="font-size:11px;color:var(--accent);text-decoration:none;align-self:flex-end">⬇ Download recording</a>`
         :`<div style="font-size:11px;color:var(--text-muted);font-style:italic">No recording available</div>`}
     </div>`;
