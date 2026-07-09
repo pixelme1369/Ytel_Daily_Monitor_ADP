@@ -28,7 +28,12 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 |---------|---------|
 | Date range | `fromDate`/`toDate` pickers; `runAnalysis()` filters `d>=fromStr&&d<=toStr`; enrollment date must fall within range |
 | Export CSV | `exportTable(tableId, filename)` — reads DOM table, converts to CSV, downloads via Blob. Buttons on Agent, Funnel, Campaign cards |
-| Role editor | Settings section: textareas (one name/line) for Closers / Openers / Retention; `saveRoles()` updates Sets in memory (session-only); `renderRoleEditor()` populates textareas |
+| Role editor | Settings section: textareas (one name/line) for Closers / Openers / Retention; `saveRoles()` updates the Sets AND persists to `localStorage` key `roles` (restored on load; `resetRoles()` restores `DEFAULT_ROLES` and clears storage) |
+| Alert thresholds | Settings card with number inputs (`th-<key>`); `TH` object (defaults in `DEFAULT_THRESHOLDS`: vdclAfterHours 10, dncCalls 20, plrDrops 30, deadPct 30, dropPct 5, agentShortPct 55, agentMinCalls 30, mktConvPct 5, redials 15) drives every trigger in the Issues engine; persisted to `localStorage` key `thresholds`; `saveThresholds()` re-runs the analysis if data is loaded |
+| Contact Rate | KPI tile = unique phones reached >30s ÷ unique phones dialed (`contactedUnique`/`phoneBest`); Campaign table has a matching `Contact%` column (per-campaign `phones`/`phonesContacted` Sets — tracked in `campMap`, `campDirMap`, AND the `filterCampTable` rebuild map; TOTAL row uses the union across campaigns; agent sub-rows show `—`) |
+| Copy Summary | Sidebar button → `copySummary()` builds a text digest from `window._summary` (captured in `buildDashboard`: calls, contact rate, enrollments+debt, conv, dead/drops/DNC, non-ok issue titles) and copies via `navigator.clipboard` with `execCommand` fallback for `file://` |
+| Data-quality warning | `runAnalysis()` counts rows whose `call_date` can't be parsed (`badDateRows`) — shown in the sidebar hint + toast so a malformed export can't silently shrink the numbers |
+| Auto date range | After upload, `autoSetDate()` sets `fromDate`/`toDate` to the **newest** day in the file (it previously wrote to `targetDate`, an element that only existed in the deleted original dashboard, and threw) |
 | Collapsible sections | Each card has ▼/▶ toggle; state persisted in `localStorage` keyed `collapse:<sectionId>` |
 | Multi-file upload | Merged into `mergedRaw[]` — analyze data from multiple XLSX files at once |
 
