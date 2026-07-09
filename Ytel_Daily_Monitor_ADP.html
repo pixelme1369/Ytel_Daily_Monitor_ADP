@@ -1411,8 +1411,10 @@ function renderLongNoDeal(rows){
   card.style.display='';
   body.innerHTML=flagged.map(a=>{
     const converted=a.total-a.longNoConvert.length;
+    const nameLC=a.name.toLowerCase();
+    const roleTag=RETENTION.has(nameLC)?'<span class="tag-retention">Retention</span>':OPENERS.has(nameLC)?'<span class="tag-opener">Opener</span>':'';
     return `<tr>
-      <td style="text-align:left">${a.name}</td>
+      <td style="text-align:left">${a.name}${roleTag}</td>
       <td>${a.total}</td>
       <td style="color:var(--green-dk)">${converted}</td>
       <td>${pct(converted,a.total)}</td>
