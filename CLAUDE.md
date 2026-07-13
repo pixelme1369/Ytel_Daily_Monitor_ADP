@@ -203,6 +203,15 @@ Card `#receivedTransferCard`, placed directly after the Incomplete Transfers car
 - `receivedTransferRows[].notEnrolledRecords` = `d.records.filter(rec=>!d.enrolledPhones.has(rec.phone))` — the received-transfer call records whose phone never enrolled, computed at render time (not stored on `receivedTransfers[agent]` itself)
 - Table: Agent | Transfers Received (count) | Enrolled (count) | Not Enrolled (count) | Conv% — sorted by Transfers Received descending; Transfers Received, Enrolled, and Not Enrolled are all clickable. Transfers Received via `showFlaggedPhones(r.records, r.agent+' — Transfers Received')` (audio playback); Enrolled via `showEnrolledPhones([...r.enrolledPhones], r.agent+' — Enrolled from Transfers')` (plain phone list, no audio); Not Enrolled via `showFlaggedPhones(r.notEnrolledRecords, r.agent+' — Transfers Received, Not Enrolled')` (audio playback, red styling, so these calls can be listened to) — Enrolled/Not Enrolled show `—` when zero; Conv% = `pct(r.enrolledPhones.size, r.count)` (e.g. 1 enrolled of 2 received = 50.0%)
 
+### Unassigned Agents
+
+Card `#unassignedAgentCard`, placed last in the `sec-alerts` section (bottom of the report, directly after Correct Transfers), hidden when empty. Flags agents who placed/received calls in the selected range but aren't in `CLOSERS`, `RETENTION`, or `OPENERS` — so a brand-new agent name in the data doesn't silently get treated as "no role" (no tag, excluded from role-filtered views) without anyone noticing.
+
+- Computed directly off `calls` in `buildDashboard` (not `agentMap`, so it isn't affected by the `agentMap` VDCL/VDAD exclusion filter being applied inconsistently elsewhere) — same exclusion rule as `agentMap`: skip rows where `r._user` is `VDCL`/`VDAD`, and skip `r._name==='Unknown'`
+- `unassignedCounts[name]` = raw call count for that agent name (case-sensitive display name, matched against the role sets via `.toLowerCase()`)
+- Table: Agent | Calls — sorted by call count descending, plain (not clickable) since the point is just to surface the name; once the user tells Claude the correct role, the fix is adding the (lowercased) name to the appropriate Set per the Agent Name Matching rules above
+- Not persisted anywhere — recomputed fresh on every `buildDashboard()` run, so it always reflects the currently loaded file/date range
+
 ## Agent Performance Table
 
 Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10 min | 10–15 min | 15–20 min | 20–30 min | 30+ min | Avg Talk | Total Talk | Enrolled | Debt $ | Conv%
