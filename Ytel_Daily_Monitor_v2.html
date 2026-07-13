@@ -611,6 +611,14 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <tbody id="receivedTransferBody"></tbody>
         </table>
       </div>
+
+      <div class="card" id="unassignedAgentCard" style="display:none">
+        <div class="card-title" style="color:var(--amber);margin-bottom:12px">⚠ Unassigned Agents <span class="card-title-sub">have calls in this range but aren't in the Closer/Opener/Retention sets — tell Claude which role to add them to</span></div>
+        <table style="table-layout:fixed">
+          <thead><tr><th style="width:60%">Agent</th><th style="width:40%">Calls</th></tr></thead>
+          <tbody id="unassignedAgentBody"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -681,7 +689,7 @@ function classifyRow(r){
 }
 const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','logan apana','brian smith','emren salim']);
 const RETENTION=new Set(['eli riano','erika ceja']);
-const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','jaiden lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','mohamad dadou']);
+const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','alexander tulkoff','jaiden lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','mohamad dadou']);
 
 // Snapshot of the hardcoded defaults above, then overlay any roles saved from the Settings editor
 const DEFAULT_ROLES={closers:[...CLOSERS],openers:[...OPENERS],retention:[...RETENTION]};
@@ -1962,6 +1970,25 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     </tr>`).join('');
   } else {
     receivedTransferCard.style.display='none';
+  }
+
+  // ── Unassigned agents (calls in range but not in CLOSERS/RETENTION/OPENERS) ──
+  const unassignedCounts={};
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._name&&r._name!=='Unknown').forEach(r=>{
+    const nameLC=r._name.toLowerCase();
+    if(CLOSERS.has(nameLC)||RETENTION.has(nameLC)||OPENERS.has(nameLC)) return;
+    unassignedCounts[r._name]=(unassignedCounts[r._name]||0)+1;
+  });
+  const unassignedAgentRows=Object.entries(unassignedCounts).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count);
+  const unassignedAgentCard=document.getElementById('unassignedAgentCard');
+  if(unassignedAgentRows.length){
+    unassignedAgentCard.style.display='';
+    document.getElementById('unassignedAgentBody').innerHTML=unassignedAgentRows.map(a=>`<tr>
+      <td style="text-align:left">${a.name}</td>
+      <td>${a.count.toLocaleString()}</td>
+    </tr>`).join('');
+  } else {
+    unassignedAgentCard.style.display='none';
   }
 
   const vdclAfterHours=vdclCalls.filter(r=>parseInt(r._hour)>=18).length;

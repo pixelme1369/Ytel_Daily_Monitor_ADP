@@ -106,6 +106,7 @@ All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (
 - All role lookups are done with `.toLowerCase()` — names in the sets must be lowercase
 - When an agent's name has a known alternate spelling in the data, **add both spellings** to the set
   - Example: `'jon stultz'` and `'jon stults'` are both in OPENERS because the data has been seen with both spellings
+  - Example: `'alex tulkoff'` and `'alexander tulkoff'` are both in OPENERS
 - When a user reports an agent is "missing from the report", check if it's a spelling mismatch before assuming the agent isn't in the set
 
 ## Enrollment Logic
@@ -201,6 +202,15 @@ Card `#receivedTransferCard`, placed directly after the Incomplete Transfers car
 - `receivedTransfers[agent]` = `{count, records:[{phone,sec,recording,crmStatus}], enrolledPhones:Set}` — one record per transfer received, using the **receiving agent's own call** (not the opener's CLtrns call) for sec/recording/crmStatus; `enrolledPhones` = subset of received phones present in `anyEnrolledPhone` (any row for that phone has a `Cordoba Enrolled Date`)
 - `receivedTransferRows[].notEnrolledRecords` = `d.records.filter(rec=>!d.enrolledPhones.has(rec.phone))` — the received-transfer call records whose phone never enrolled, computed at render time (not stored on `receivedTransfers[agent]` itself)
 - Table: Agent | Transfers Received (count) | Enrolled (count) | Not Enrolled (count) | Conv% — sorted by Transfers Received descending; Transfers Received, Enrolled, and Not Enrolled are all clickable. Transfers Received via `showFlaggedPhones(r.records, r.agent+' — Transfers Received')` (audio playback); Enrolled via `showEnrolledPhones([...r.enrolledPhones], r.agent+' — Enrolled from Transfers')` (plain phone list, no audio); Not Enrolled via `showFlaggedPhones(r.notEnrolledRecords, r.agent+' — Transfers Received, Not Enrolled')` (audio playback, red styling, so these calls can be listened to) — Enrolled/Not Enrolled show `—` when zero; Conv% = `pct(r.enrolledPhones.size, r.count)` (e.g. 1 enrolled of 2 received = 50.0%)
+
+### Unassigned Agents
+
+Card `#unassignedAgentCard`, placed last in the `sec-alerts` section (bottom of the report, directly after Correct Transfers), hidden when empty. Flags agents who placed/received calls in the selected range but aren't in `CLOSERS`, `RETENTION`, or `OPENERS` — so a brand-new agent name in the data doesn't silently get treated as "no role" (no tag, excluded from role-filtered views) without anyone noticing.
+
+- Computed directly off `calls` in `buildDashboard` (not `agentMap`, so it isn't affected by the `agentMap` VDCL/VDAD exclusion filter being applied inconsistently elsewhere) — same exclusion rule as `agentMap`: skip rows where `r._user` is `VDCL`/`VDAD`, and skip `r._name==='Unknown'`
+- `unassignedCounts[name]` = raw call count for that agent name (case-sensitive display name, matched against the role sets via `.toLowerCase()`)
+- Table: Agent | Calls — sorted by call count descending, plain (not clickable) since the point is just to surface the name; once the user tells Claude the correct role, the fix is adding the (lowercased) name to the appropriate Set per the Agent Name Matching rules above
+- Not persisted anywhere — recomputed fresh on every `buildDashboard()` run, so it always reflects the currently loaded file/date range
 
 ## Agent Performance Table
 
