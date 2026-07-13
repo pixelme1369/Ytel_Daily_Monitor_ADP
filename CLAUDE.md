@@ -106,6 +106,7 @@ All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (
 - All role lookups are done with `.toLowerCase()` — names in the sets must be lowercase
 - When an agent's name has a known alternate spelling in the data, **add both spellings** to the set
   - Example: `'jon stultz'` and `'jon stults'` are both in OPENERS because the data has been seen with both spellings
+  - Example: `'alex tulkoff'` and `'alexander tulkoff'` are both in OPENERS
 - When a user reports an agent is "missing from the report", check if it's a spelling mismatch before assuming the agent isn't in the set
 
 ## Enrollment Logic
