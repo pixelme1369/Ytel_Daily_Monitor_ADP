@@ -37,7 +37,7 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 | Auto date range | After upload, `autoSetDate()` sets `fromDate`/`toDate` to the **newest** day in the file (it previously wrote to `targetDate`, an element that only existed in the deleted original dashboard, and threw) |
 | Collapsible sections | Each card has ▼/▶ toggle; state persisted in `localStorage` keyed `collapse:<sectionId>` |
 | Multi-file upload | Merged into `mergedRaw[]` — analyze data from multiple XLSX files at once |
-| Ytel Discrepancy | KPI tile = count of unique phones with a `status==='SALE'` row where **no row for that phone** has a `Cordoba Enrolled Date`/`Enrolled Date` (reuses `anyEnrolledPhone`, the same per-phone enrollment-presence Set used by DPC/Incomplete Transfers/Received Transfers) — a dialer-side "sale" that never made it into the CRM as an enrollment; phones kept in `window._saleDiscrepancyPhones`, CRM status per phone (from the SALE row's `r._crmStatus`, first non-empty wins) kept in `window._saleDiscrepancyCrm`; clicking the tile opens the shared enroll modal (`showSaleDiscrepancyPhones()`, phone list with a CRM status pill next to each number, same modal as `showEnrolledPhones`) |
+| Ytel Discrepancy | KPI tile = count of unique phones with a `status==='SALE'` row where **no row for that phone** has a `Cordoba Enrolled Date`/`Enrolled Date` (reuses `anyEnrolledPhone`, the same per-phone enrollment-presence Set used by DPC/Incomplete Transfers/Received Transfers) — a dialer-side "sale" that never made it into the CRM as an enrollment; phones kept in `window._saleDiscrepancyPhones`, CRM status per phone (from the SALE row's `r._crmStatus`, first non-empty wins) kept in `window._saleDiscrepancyCrm`, and State per phone (from the SALE row's `r._state`, sourced from a `State` column, first non-empty wins) kept in `window._saleDiscrepancyState`; clicking the tile opens the shared enroll modal (`showSaleDiscrepancyPhones()`, phone list with State + CRM status pills next to each number, same modal as `showEnrolledPhones`) |
 
 ### Script Regions (in order)
 `CONFIG` → `UTILS` → `STATS` → `FILE I/O` → `NORMALIZATION` → `ENROLLMENT` → `ACCUMULATION` → `ANALYSIS` → `RENDER AGENTS` → `RENDER CAMPAIGNS` → `RENDER OPENERS` → `RENDER ALERTS` → `RENDER KPI` → `CHARTS` → `FILTERS` → `EXPORT` → `ROLE EDITOR` → `UI EVENTS` → `INIT`
@@ -316,6 +316,7 @@ Ranking table below the summary. Shows every opener agent sorted by transfer rat
 | `Enrolled Debt` | dollar amount, may include `$` and commas |
 | `Assigned To` | enrollment credit override |
 | `CRM Status` | lead status |
+| `State` | lead's state — used next to CRM Status in the Ytel Discrepancy modal |
 | `recording_location` | URL/path to the call recording — used by the Long Calls, No Deal popup for inline playback + download |
 
 ## Date Parsing (`getDateStr`)

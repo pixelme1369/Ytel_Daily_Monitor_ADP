@@ -878,11 +878,13 @@ function exportAfterDncPhones(){
 function showSaleDiscrepancyPhones(){
   const phones=window._saleDiscrepancyPhones||[];
   const crm=window._saleDiscrepancyCrm||{};
+  const state=window._saleDiscrepancyState||{};
   if(!phones.length){ showToast('No SALE discrepancies found'); return; }
   document.getElementById('enrollModalTitle').textContent='Ytel Discrepancy — SALE, no Cordoba Enrolled Date ('+phones.length+')';
   document.getElementById('enrollModalList').innerHTML=phones.map(p=>{
     const status=crm[p];
-    return `<span style="display:flex;align-items:center;justify-content:space-between;gap:8px">${p}${status?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${status}</span>`:''}</span>`;
+    const st=state[p];
+    return `<span style="display:flex;align-items:center;justify-content:space-between;gap:8px">${p}<span style="display:flex;align-items:center;gap:6px">${st?`<span style="font-size:10px;font-weight:600;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${st}</span>`:''}${status?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${status}</span>`:''}</span></span>`;
   }).join('');
   document.getElementById('enrollModal').classList.add('open');
 }
@@ -1710,6 +1712,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
+    r._state=(r['State']||r['state']||'').trim();
     r._recording=(r['recording_location']||r['Recording Location']||r['recording_url']||'').trim();
   });
 
@@ -1768,9 +1771,11 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{ if(r['Cordoba Enrolled Date']||r['Enrolled Date']) anyEnrolledPhone.add(r._phone); });
   const saleDiscrepancyPhones=new Set();
   const saleDiscrepancyCrm={};
-  calls.forEach(r=>{ if(r._status==='SALE'&&r._phone&&!anyEnrolledPhone.has(r._phone)){ saleDiscrepancyPhones.add(r._phone); if(!saleDiscrepancyCrm[r._phone]) saleDiscrepancyCrm[r._phone]=r._crmStatus||''; } });
+  const saleDiscrepancyState={};
+  calls.forEach(r=>{ if(r._status==='SALE'&&r._phone&&!anyEnrolledPhone.has(r._phone)){ saleDiscrepancyPhones.add(r._phone); if(!saleDiscrepancyCrm[r._phone]) saleDiscrepancyCrm[r._phone]=r._crmStatus||''; if(!saleDiscrepancyState[r._phone]) saleDiscrepancyState[r._phone]=r._state||''; } });
   window._saleDiscrepancyPhones=[...saleDiscrepancyPhones].sort();
   window._saleDiscrepancyCrm=saleDiscrepancyCrm;
+  window._saleDiscrepancyState=saleDiscrepancyState;
 
   // ── KPIs ──
   const kpiData=[
