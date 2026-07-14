@@ -146,6 +146,18 @@ All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (
 - If a phone first came in on TransferK, then the closer called back on `1000`, the enrollment belongs to **TransferK**
 - This is correctly handled by the first-call attribution rule above
 
+## CA Escrow Deals (State=CA + CRM Status=Approved)
+
+When a row's `State` column is `CA` and `CRM Status` is `Approved`, the file is in **escrow** and will be enrolled within 3 days — it counts as a deal now, even though it has no `Cordoba Enrolled Date` yet.
+
+- Folded directly into the existing enrollment pipeline (not a separate KPI): `enrolledPhoneAgent` (built in `runAnalysis()`) treats a row as enrolled if it has a `Cordoba Enrolled Date`/`Enrolled Date` in range **OR** `State==='CA'` (case-insensitive) `&& CRM Status==='Approved'` (case-insensitive, exact match) — the escrow case is dated by the row's own `call_date` (no enrolled-date column exists yet) instead of the enrolled-date column
+- Entry carries an `escrow:true` flag (`enrolledPhoneAgent[phone].escrow`) so escrow-sourced deals can be distinguished from real Cordoba enrollments; whichever row (real or escrow) has the latest timestamp for a phone determines the final agent credit/debt/escrow flag for that phone
+- This flows automatically into everything keyed off `enrolledPhoneAgent`/`enrolledPhones`: Total Enrolled KPI, Conv Rate, agent credit (`agentEnrollCredit`)/Agent Performance Enrolled column, campaign attribution (`_enrolled` flag via `enrolledFirstCallRow`)
+- `anyEnrolledPhone` (used by DPC/Incomplete Transfers/Received Transfers/Ytel Discrepancy to check "has this phone ever enrolled") also treats CA+Approved rows as enrolled, so an escrow deal's SALE row won't be flagged as a Ytel Discrepancy and its phone is treated as an enrolled client in those sections
+- `r._state` = `(r['State']||'').trim()` — normalized alongside `r._crmStatus` in `buildDashboard()`
+- Total Enrolled KPI subtitle shows `incl. N CA escrow (Approved, enrolls in 3d)` when `escrowEnrolledCount>0`, otherwise the original `with Cordoba Enrolled Date` text
+- `Enrolled Debt` on escrow rows is typically empty/0 (the deal isn't formalized in Cordoba yet) — this is expected, not a bug
+
 ## Hourly Breakdown Logic
 
 - **Unique #s per hour** — phone counted in the hour of its **first call of the day**
@@ -317,6 +329,7 @@ Ranking table below the summary. Shows every opener agent sorted by transfer rat
 | `Assigned To` | enrollment credit override |
 | `CRM Status` | lead status |
 | `recording_location` | URL/path to the call recording — used by the Long Calls, No Deal popup for inline playback + download |
+| `State` | lead's US state abbreviation — used with `CRM Status` to detect CA escrow deals (see CA Escrow Deals section) |
 
 ## Date Parsing (`getDateStr`)
 
