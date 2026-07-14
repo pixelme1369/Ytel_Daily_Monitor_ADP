@@ -1657,10 +1657,14 @@ function runAnalysis(){
   calls.forEach(r=>{
     const v=r['Cordoba Enrolled Date']||r['Enrolled Date']||'';
     let ds=getDateStr(v);
+    const crmStatus=(r['CRM Status']||'').trim().toLowerCase();
     // CA + CRM Status "Approved" = in escrow, enrolls in 3 days — counts as a deal now, dated by the call itself
-    const isEscrow=(r['State']||'').trim().toUpperCase()==='CA'&&(r['CRM Status']||'').trim().toLowerCase()==='approved';
+    const isEscrow=(r['State']||'').trim().toUpperCase()==='CA'&&crmStatus==='approved';
+    // CRM Status "Waiting for First Payment" = deal already closed, just waiting on payment to process
+    const isWaitingPayment=crmStatus==='waiting_for_first_payment';
+    const isPendingDeal=isEscrow||isWaitingPayment;
     if(!ds||ds<fromStr||ds>toStr){
-      if(!isEscrow) return;
+      if(!isPendingDeal) return;
       ds=getDateStr(r['call_date']||r['date']||'');
       if(!ds||ds<fromStr||ds>toStr) return;
     }
@@ -1671,7 +1675,7 @@ function runAnalysis(){
     const assignedTo=(r['Assigned To']||'').trim();
     const agent=assignedTo||(r['full_name']||r['user']||'Unknown').trim();
     if(!enrolledPhoneAgent[phone]||ts>enrolledPhoneAgent[phone].ts){
-      enrolledPhoneAgent[phone]={agent,ts,debt,escrow:isEscrow};
+      enrolledPhoneAgent[phone]={agent,ts,debt,escrow:isPendingDeal};
     }
   });
   const enrolledPhones=new Set(Object.keys(enrolledPhoneAgent));
@@ -1747,7 +1751,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const deadCalls=calls.filter(r=>r._sec<=30).length;
   const totalEnrolled=totalEnrolledCount;
   const totalDebt=totalDebtSum;
-  const escrowEnrolledCount=Object.values(enrolledPhoneAgent).filter(v=>v.escrow).length;
+  const pendingEnrolledCount=Object.values(enrolledPhoneAgent).filter(v=>v.escrow).length;
   const drops=calls.filter(r=>['DROP','TIMEOT'].includes(r._status)).length;
   const dncRows=calls.filter(r=>r._status==='DNC');
   const dncCount=dncRows.length;
@@ -1774,8 +1778,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     .sort((a,b)=>b.calls-a.calls);
   const anyEnrolledPhone=new Set();
   calls.forEach(r=>{
-    const isEscrow=r._state.toUpperCase()==='CA'&&r._crmStatus.toLowerCase()==='approved';
-    if(r['Cordoba Enrolled Date']||r['Enrolled Date']||isEscrow) anyEnrolledPhone.add(r._phone);
+    const crmStatus=r._crmStatus.toLowerCase();
+    const isEscrow=r._state.toUpperCase()==='CA'&&crmStatus==='approved';
+    const isWaitingPayment=crmStatus==='waiting_for_first_payment';
+    if(r['Cordoba Enrolled Date']||r['Enrolled Date']||isEscrow||isWaitingPayment) anyEnrolledPhone.add(r._phone);
   });
   const saleDiscrepancyPhones=new Set();
   const saleDiscrepancyCrm={};
@@ -1788,7 +1794,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'Total Calls',val:total.toLocaleString(),sub:'all dispositions',cls:'blue'},
     {label:'Unique Calls',val:uniquePhones.toLocaleString(),sub:'distinct phone numbers',cls:'blue'},
     {label:'Contact Rate',val:pct(contactedUnique,uniquePhones),sub:contactedUnique.toLocaleString()+' unique #s reached >30s',cls:'blue'},
-    {label:'Total Enrolled',val:totalEnrolled,sub:escrowEnrolledCount?('incl. '+escrowEnrolledCount+' CA escrow (Approved, enrolls in 3d)'):'with Cordoba Enrolled Date',cls:'green'},
+    {label:'Total Enrolled',val:totalEnrolled,sub:pendingEnrolledCount?('incl. '+pendingEnrolledCount+' pending (CA escrow / waiting for payment)'):'with Cordoba Enrolled Date',cls:'green'},
     {label:'Conv Rate',val:pct(totalEnrolled,calls.filter(r=>r._sec>=300).length),sub:'enrolled / calls >5 min',cls:'green'},
     {label:'Total Debt Enrolled',val:totalDebt>0?fmt$(totalDebt):'—',sub:'sum of Enrolled Debt',cls:'green'},
     {label:'Dead ≤30s',val:deadCalls.toLocaleString(),sub:pct(deadCalls,total)+' wasted',cls:'red'},
