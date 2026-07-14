@@ -146,6 +146,23 @@ All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (
 - If a phone first came in on TransferK, then the closer called back on `1000`, the enrollment belongs to **TransferK**
 - This is correctly handled by the first-call attribution rule above
 
+## Pending Deals Without a Cordoba Enrolled Date (CA Escrow / Waiting for Payment)
+
+Two `CRM Status` situations mean a lead has effectively already closed even though `Cordoba Enrolled Date` hasn't been populated yet — both count as a deal now, not just once the enrolled-date column shows up:
+
+| Rule | Condition | Rationale |
+|------|-----------|-----------|
+| CA escrow | `State==='CA'` (case-insensitive) `&& CRM Status==='Approved'` (case-insensitive, exact match) | CA leads sit in a legally-required 3-day escrow/rescission period before they can be formally enrolled |
+| Waiting for payment | `CRM Status==='waiting_for_first_payment'` (case-insensitive, exact match, any state) | Deal already closed — just waiting on the first payment to process |
+
+- Folded directly into the existing enrollment pipeline (not a separate KPI): `enrolledPhoneAgent` (built in `runAnalysis()`) treats a row as enrolled if it has a `Cordoba Enrolled Date`/`Enrolled Date` in range **OR** either pending-deal condition above is true — the pending case is dated by the row's own `call_date` (no enrolled-date column exists yet) instead of the enrolled-date column
+- Entry carries an `escrow:true` flag (`enrolledPhoneAgent[phone].escrow`, set when either condition is true) so pending deals can be distinguished from real Cordoba enrollments; whichever row (real or pending) has the latest timestamp for a phone determines the final agent credit/debt/flag for that phone
+- This flows automatically into everything keyed off `enrolledPhoneAgent`/`enrolledPhones`: Total Enrolled KPI, Conv Rate, agent credit (`agentEnrollCredit`)/Agent Performance Enrolled column, campaign attribution (`_enrolled` flag via `enrolledFirstCallRow`), and **Long Calls, No Deal** (a long call to a pending-deal phone is excluded from `longNoConvert` since the phone is now in `agentEnrollPhones`)
+- `anyEnrolledPhone` (used by DPC/Incomplete Transfers/Received Transfers/Ytel Discrepancy to check "has this phone ever enrolled") also treats both pending-deal conditions as enrolled, so a pending deal's SALE row won't be flagged as a Ytel Discrepancy and its phone is treated as an enrolled client in those sections
+- `r._state` = `(r['State']||'').trim()` — normalized alongside `r._crmStatus` in `buildDashboard()`
+- Total Enrolled KPI subtitle shows `incl. N pending (CA escrow / waiting for payment)` when `pendingEnrolledCount>0`, otherwise the original `with Cordoba Enrolled Date` text
+- `Enrolled Debt` on pending-deal rows is typically empty/0 (the deal isn't formalized in Cordoba yet) — this is expected, not a bug
+
 ## Hourly Breakdown Logic
 
 - **Unique #s per hour** — phone counted in the hour of its **first call of the day**
@@ -317,6 +334,7 @@ Ranking table below the summary. Shows every opener agent sorted by transfer rat
 | `Assigned To` | enrollment credit override |
 | `CRM Status` | lead status |
 | `recording_location` | URL/path to the call recording — used by the Long Calls, No Deal popup for inline playback + download |
+| `State` | lead's US state abbreviation — used with `CRM Status` to detect CA escrow deals (see CA Escrow Deals section) |
 
 ## Date Parsing (`getDateStr`)
 
