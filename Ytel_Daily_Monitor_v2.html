@@ -1656,13 +1656,23 @@ function runAnalysis(){
   const days=[...new Set(calls.map(r=>getDateStr(r['call_date']||r['date']||'')).filter(Boolean))].length;
   const dateStr=fromStr===toStr?fromStr:fromStr+' → '+toStr;
 
+  // State is a lead attribute that isn't necessarily stamped on every row for a phone (e.g. only on the intake
+  // row, not the row carrying the latest CRM Status) — so look it up per-phone, not per-row, like enrolledPhones.
+  const phoneIsCA=new Set();
+  calls.forEach(r=>{
+    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
+    if(phone&&(r['State']||'').trim().toUpperCase()==='CA') phoneIsCA.add(phone);
+  });
+
   const enrolledPhoneAgent={};
   calls.forEach(r=>{
+    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
+    if(!phone) return;
     const v=r['Cordoba Enrolled Date']||r['Enrolled Date']||'';
     let ds=getDateStr(v);
     const crmStatus=(r['CRM Status']||'').trim().toLowerCase();
     // CA + CRM Status "Approved" = in escrow, enrolls in 3 days — counts as a deal now, dated by the call itself
-    const isEscrow=(r['State']||'').trim().toUpperCase()==='CA'&&crmStatus==='approved';
+    const isEscrow=phoneIsCA.has(phone)&&crmStatus==='approved';
     // CRM Status "Waiting for First Payment" = deal already closed, just waiting on payment to process
     const isWaitingPayment=crmStatus==='waiting_for_first_payment';
     const isPendingDeal=isEscrow||isWaitingPayment;
@@ -1671,8 +1681,6 @@ function runAnalysis(){
       ds=getDateStr(r['call_date']||r['date']||'');
       if(!ds||ds<fromStr||ds>toStr) return;
     }
-    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    if(!phone) return;
     const ts=parseTs(r['call_date']||r['date']||'');
     const debt=parseDebt(r['Enrolled Debt']||0);
     const assignedTo=(r['Assigned To']||'').trim();
@@ -1779,10 +1787,13 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   window._afterDncDetail=Object.entries(afterDncDetail)
     .map(([phone,d])=>({phone,calls:d.calls,agents:[...d.agents]}))
     .sort((a,b)=>b.calls-a.calls);
+  // State isn't necessarily stamped on the same row as the CRM Status update — look it up per-phone first
+  const phoneIsCA=new Set();
+  calls.forEach(r=>{ if(r._phone&&r._state.toUpperCase()==='CA') phoneIsCA.add(r._phone); });
   const anyEnrolledPhone=new Set();
   calls.forEach(r=>{
     const crmStatus=r._crmStatus.toLowerCase();
-    const isEscrow=r._state.toUpperCase()==='CA'&&crmStatus==='approved';
+    const isEscrow=phoneIsCA.has(r._phone)&&crmStatus==='approved';
     const isWaitingPayment=crmStatus==='waiting_for_first_payment';
     if(r['Cordoba Enrolled Date']||r['Enrolled Date']||isEscrow||isWaitingPayment) anyEnrolledPhone.add(r._phone);
   });
