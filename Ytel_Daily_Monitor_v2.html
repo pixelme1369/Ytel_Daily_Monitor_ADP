@@ -1516,6 +1516,7 @@ function renderLongNoDeal(rows){
   if(!card||!body) return;
   const thresholdSec=window._longDealThresholdSec||1200;
   const enrollPhones=window._agentEnrollPhones||{};
+  const pendingPhones=window._pendingDealPhones||new Set();
   const flagged=list.filter(a=>{
     const nameLC=a.name.toLowerCase();
     return !OPENERS.has(nameLC)&&!RETENTION.has(nameLC);
@@ -1524,7 +1525,9 @@ function renderLongNoDeal(rows){
     const phoneRecordings=a.phoneRecordings||{};
     const enrolledSet=new Set(enrollPhones[a.name.toLowerCase()]||[]);
     const longPhones=Object.keys(phoneMaxSec).filter(p=>phoneMaxSec[p]>=thresholdSec);
-    const longNoConvert=longPhones.filter(p=>!enrolledSet.has(p));
+    // pendingPhones (CA escrow / waiting for payment) are excluded regardless of which agent got enrollment credit —
+    // the closing call is often a later follow-up by a different agent, not the one who made the original long call
+    const longNoConvert=longPhones.filter(p=>!enrolledSet.has(p)&&!pendingPhones.has(p));
     const longNoConvertRecords=longNoConvert.flatMap(p=>
       (phoneRecordings[p]||[]).filter(rec=>rec.sec>=thresholdSec).map(rec=>({phone:p,sec:rec.sec,recording:rec.recording,crmStatus:rec.crmStatus||''}))
     );
@@ -2309,6 +2312,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   window._agentDirMap=agentDirMap;
   window._agentEnrollCredit=agentEnrollCredit;
   window._agentEnrollPhones=agentEnrollPhones;
+  window._pendingDealPhones=new Set(Object.entries(enrolledPhoneAgent).filter(([,v])=>v.escrow).map(([p])=>p));
   window._agentPhoneFirstDir=agentPhoneFirstDir;
   window._agentHourMap=agentHourMap;
   window._agentHourDirMap=agentHourDirMap;
