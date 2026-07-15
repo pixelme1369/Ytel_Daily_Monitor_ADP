@@ -238,6 +238,16 @@ Card `#unassignedAgentCard`, placed last in the `sec-alerts` section (bottom of 
 
 Time bracket columns (in order): Short% ≤30s | <2 min | **1–2 min** | 5–10 min | 10–15 min | 15–20 min | 20–30 min | 30+ min | Avg Talk | Total Talk | Enrolled | Debt $ | Conv%
 
+### Inbound / Outbound columns — click to view phone list
+
+The `Inbound`/`Outbound` unique-phone-count cells in the agent main row are clickable (same shared `#enrollModal` used elsewhere), opening a list of that agent's phones in that direction bucket with CRM Status and Enrolled Debt per number.
+
+- Direction bucketing matches what's already displayed in the count (`agentPhoneFirstDir[name+'||'+phone].dir` — the direction of the phone's **first** call to that agent), so the modal list always matches the number shown
+- `agentPhoneDetail[name][phone]` — built in the same per-row loop as `agentMap`/`agentDirMap` (line ~2210), keeps the CRM Status (`r._crmStatus`) from whichever row has the latest `r._ts` for that phone
+- Each agent row (`agentRows` in `buildDashboard`) carries `inboundPhones`/`outboundPhones` arrays of `{phone, crmStatus, debt}` — `debt` comes from `enrolledPhoneAgent[phone].debt` (0/— if the phone never enrolled, since Enrolled Debt only applies to enrolled phones)
+- `showPhoneCrmList(records, label)` (defined next to `showEnrolledPhones`/`showFlaggedPhones`) renders the modal: phone (monospace) on the left, CRM Status pill + Enrolled Debt (green, `fmt$`) on the right; `—` shown for empty CRM Status or zero debt
+- Hourly sub-rows still show the plain (non-clickable) Inbound/Outbound counts — no per-hour phone/CRM detail is tracked
+
 - `1–2 min` = 60 ≤ sec < 120 (orange color) — added to highlight calls that had real contact but were short
 - `<2 min` = all calls under 120s (unchanged — includes the 1–2 min range)
 - Bracket data tracked in: `agentMap`, `agentDirMap`, `agentCampDataMap`, hourly map — all use field `r1to2m`
