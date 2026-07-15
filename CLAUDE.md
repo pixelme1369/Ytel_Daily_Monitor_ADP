@@ -164,6 +164,7 @@ Two `CRM Status` situations mean a lead has effectively already closed even thou
 - `r._state` = `(r['State']||'').trim()` — normalized alongside `r._crmStatus` in `buildDashboard()`
 - Total Enrolled KPI subtitle shows `incl. N pending (CA escrow / waiting for payment)` when `pendingEnrolledCount>0`, otherwise the original `with Cordoba Enrolled Date` text
 - `Enrolled Debt` on pending-deal rows is typically empty/0 (the deal isn't formalized in Cordoba yet) — this is expected, not a bug
+- **Bug fixed (July 2026): stale CRM Status re-minting duplicate enrollments.** `CRM Status` often doesn't get cleared/updated once a deal actually closes — a phone can sit at `waiting_for_first_payment` (or CA `Approved`) for days after its real `Cordoba Enrolled Date`. Any later call to that phone (e.g. a Retention follow-up) would re-trigger the pending-deal branch and get counted as a **second, new** enrollment dated by that later call, credited to whoever made it — even though the phone already enrolled days earlier. Fixed by building `realEnrolledPhones` in `runAnalysis()` — a Set of every phone with a real, parseable `Cordoba Enrolled Date`/`Enrolled Date` **anywhere in the full uploaded file** (`mergedRaw`, not just the selected date range) — and gating `isPendingDeal` on `!realEnrolledPhones.has(phone)`. A phone that has ever really enrolled can no longer be re-flagged as a pending deal on a later day.
 
 ## Hourly Breakdown Logic
 

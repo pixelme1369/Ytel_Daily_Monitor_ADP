@@ -1664,6 +1664,16 @@ function runAnalysis(){
     if(phone&&(r['State']||'').trim().toUpperCase()==='CA') phoneIsCA.add(phone);
   });
 
+  // Phones that already have a real Cordoba Enrolled Date somewhere in the WHOLE uploaded file (not just this
+  // date range) — a pending-deal (escrow/waiting-for-payment) CRM Status can linger on a phone's later calls
+  // (e.g. a Retention follow-up) long after the deal actually closed, which would otherwise re-mint a duplicate
+  // "new" enrollment dated by that later call instead of the real enrollment day.
+  const realEnrolledPhones=new Set();
+  mergedRaw.forEach(r=>{
+    const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
+    if(phone&&getDateStr(r['Cordoba Enrolled Date']||r['Enrolled Date']||'')) realEnrolledPhones.add(phone);
+  });
+
   const enrolledPhoneAgent={};
   calls.forEach(r=>{
     const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
@@ -1675,7 +1685,7 @@ function runAnalysis(){
     const isEscrow=phoneIsCA.has(phone)&&crmStatus==='approved';
     // CRM Status "Waiting for First Payment" = deal already closed, just waiting on payment to process
     const isWaitingPayment=crmStatus==='waiting_for_first_payment';
-    const isPendingDeal=isEscrow||isWaitingPayment;
+    const isPendingDeal=(isEscrow||isWaitingPayment)&&!realEnrolledPhones.has(phone);
     if(!ds||ds<fromStr||ds>toStr){
       if(!isPendingDeal) return;
       ds=getDateStr(r['call_date']||r['date']||'');
