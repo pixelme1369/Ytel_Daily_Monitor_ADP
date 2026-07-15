@@ -157,6 +157,7 @@ Two `CRM Status` situations mean a lead has effectively already closed even thou
 
 - Folded directly into the existing enrollment pipeline (not a separate KPI): `enrolledPhoneAgent` (built in `runAnalysis()`) treats a row as enrolled if it has a `Cordoba Enrolled Date`/`Enrolled Date` in range **OR** either pending-deal condition above is true — the pending case is dated by the row's own `call_date` (no enrolled-date column exists yet) instead of the enrolled-date column
 - `State` is looked up **per-phone, not per-row** (`phoneIsCA` Set, built once from every row for that phone) before combining with `CRM Status` — a dialer export doesn't necessarily stamp `State` on the same row that carries the latest `CRM Status` update, so requiring both on one row missed real CA-approved deals; the same `phoneIsCA` per-phone lookup is used for `anyEnrolledPhone` in `buildDashboard()`
+- **Bug fixed (July 2026): wrong column name silently zeroed out every CA escrow deal.** The lookup only checked `r['State']`, but this org's exports carry the column as `CRM_State` — so `phoneIsCA` was always empty and the CA-escrow branch could never fire for any lead, even ones the CRM UI clearly shows as an approved CA deal (confirmed via a real "Correct Transfers Received" row showing 0 Enrolled despite the underlying lead being CA/Approved). Fixed by checking `r['State']||r['CRM_State']` everywhere `State` is read (`phoneIsCA` build in both `runAnalysis()` and `buildDashboard()`, and `r._state`).
 - Entry carries an `escrow:true` flag (`enrolledPhoneAgent[phone].escrow`, set when either condition is true) so pending deals can be distinguished from real Cordoba enrollments; whichever row (real or pending) has the latest timestamp for a phone determines the final agent credit/debt/flag for that phone
 - This flows automatically into everything keyed off `enrolledPhoneAgent`/`enrolledPhones`: Total Enrolled KPI, Conv Rate, agent credit (`agentEnrollCredit`)/Agent Performance Enrolled column, campaign attribution (`_enrolled` flag via `enrolledFirstCallRow`)
 - `window._pendingDealPhones` = `Set` of every phone flagged `escrow:true` in `enrolledPhoneAgent`, built once per `buildDashboard()` run. **Long Calls, No Deal** (`renderLongNoDeal()`) excludes a phone from `longNoConvert` if it's in `pendingPhones` **regardless of which agent the enrollment credit landed on** — the closing/approval call is often a later follow-up by a different agent (or `Assigned To` points elsewhere) than the one who made the original long call, so per-agent `agentEnrollPhones` subtraction alone was missing these
@@ -337,7 +338,7 @@ Ranking table below the summary. Shows every opener agent sorted by transfer rat
 | `Assigned To` | enrollment credit override |
 | `CRM Status` | lead status |
 | `recording_location` | URL/path to the call recording — used by the Long Calls, No Deal popup for inline playback + download |
-| `State` | lead's US state abbreviation — used with `CRM Status` to detect CA escrow deals (see CA Escrow Deals section) |
+| `State` / `CRM_State` | lead's US state abbreviation — used with `CRM Status` to detect CA escrow deals (see CA Escrow Deals section); exports have been seen with the column named either `State` or `CRM_State`, so both are checked |
 
 ## Date Parsing (`getDateStr`)
 

@@ -1661,7 +1661,7 @@ function runAnalysis(){
   const phoneIsCA=new Set();
   calls.forEach(r=>{
     const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    if(phone&&(r['State']||'').trim().toUpperCase()==='CA') phoneIsCA.add(phone);
+    if(phone&&(r['State']||r['CRM_State']||'').trim().toUpperCase()==='CA') phoneIsCA.add(phone);
   });
 
   // Phones that already have a real Cordoba Enrolled Date somewhere in the WHOLE uploaded file (not just this
@@ -1741,7 +1741,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
-    r._state=(r['State']||'').trim();
+    r._state=(r['State']||r['CRM_State']||'').trim();
     r._recording=(r['recording_location']||r['Recording Location']||r['recording_url']||'').trim();
   });
 
