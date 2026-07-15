@@ -1488,6 +1488,17 @@ function showEnrolledPhones(phones, label){
 function closeEnrolledPhones(){
   document.getElementById('enrollModal').classList.remove('open');
 }
+function showPhoneCrmList(records, label){
+  document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' ('+records.length+')';
+  document.getElementById('enrollModalList').innerHTML=records.map(r=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <span style="font-family:monospace;font-weight:600">${r.phone}</span>
+    <span style="display:flex;align-items:center;gap:8px">
+      ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${r.crmStatus}</span>`:'<span style="font-size:11px;color:var(--text-muted)">—</span>'}
+      <span style="font-size:11px;font-weight:700;color:var(--green-dk)">${r.debt>0?fmt$(r.debt):'—'}</span>
+    </span>
+  </div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  document.getElementById('enrollModal').classList.add('open');
+}
 function showFlaggedPhones(records, label){
   const uniquePhones=new Set(records.map(r=>r.phone)).size;
   document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' ('+uniquePhones+')';
@@ -2201,6 +2212,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   });
 
   const agentMap={};
+  const agentPhoneDetail={};
   const agentDirMap={inbound:{},outbound:{}};
   const agentHourMap={};
   const agentHourDirMap={inbound:{},outbound:{}};
@@ -2220,6 +2232,11 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
     else if(r._sec>=1800) d.gt30m++;
     if(r._phone) d.phones.add(r._phone);
+    if(r._phone){
+      if(!agentPhoneDetail[r._name]) agentPhoneDetail[r._name]={};
+      const apd=agentPhoneDetail[r._name];
+      if(!apd[r._phone]||r._ts>=apd[r._phone].ts) apd[r._phone]={crmStatus:r._crmStatus||'',ts:r._ts};
+    }
     if(r._sec>=1200&&r._phone){
       d.phoneMaxSec[r._phone]=Math.max(d.phoneMaxSec[r._phone]||0,r._sec);
       if(!d.phoneRecordings[r._phone]) d.phoneRecordings[r._phone]=[];
@@ -2320,12 +2337,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       const enr=credit.count;
       const debt=credit.debt;
       let inboundUniq=0,outboundUniq=0;
+      const inboundPhones=[],outboundPhones=[];
+      const phoneDetail=agentPhoneDetail[name]||{};
       d.phones.forEach(phone=>{
         const fd=agentPhoneFirstDir[name+'||'+phone];
-        if(fd&&fd.dir==='inbound') inboundUniq++;
-        else outboundUniq++;
+        const detail=phoneDetail[phone]||{};
+        const enrInfo=enrolledPhoneAgent[phone];
+        const entry={phone,crmStatus:detail.crmStatus||'',debt:(enrInfo&&enrInfo.debt)||0};
+        if(fd&&fd.dir==='inbound'){ inboundUniq++; inboundPhones.push(entry); }
+        else{ outboundUniq++; outboundPhones.push(entry); }
       });
-      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
+      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,inboundPhones,outboundPhones,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
     }).sort((a,b)=>b.calls-a.calls);
 
   window._agentAllRows=agentRows;
@@ -2387,8 +2409,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <td style="text-align:left"><span class="agent-toggle" id="tog-${rowId}">▶</span> ${a.name} ${openerTag}</td>
         <td><div class="bar-mini"><div class="bar-bg"><div class="bar-fg" style="width:${(a.calls/maxC*100).toFixed(0)}%"></div></div>${a.calls}</div></td>
         <td>${a.uniqueCalls}</td>
-        <td style="color:var(--blue)">${a.inboundUniq}</td>
-        <td style="color:var(--text-muted)">${a.outboundUniq}</td>
+        <td style="color:var(--blue)">${a.inboundUniq>0?`<span style="cursor:pointer;text-decoration:underline dotted" onclick='showPhoneCrmList(${attrJson(a.inboundPhones||[])},${attrJson(a.name+" — Inbound Numbers")})'>${a.inboundUniq}</span>`:'—'}</td>
+        <td style="color:var(--text-muted)">${a.outboundUniq>0?`<span style="cursor:pointer;text-decoration:underline dotted" onclick='showPhoneCrmList(${attrJson(a.outboundPhones||[])},${attrJson(a.name+" — Outbound Numbers")})'>${a.outboundUniq}</span>`:'—'}</td>
         <td><div class="bar-mini"><div class="bar-bg"><div class="bar-fg ${shortCls}" style="width:${a.shortPct.toFixed(0)}%"></div></div>${a.shortPct.toFixed(0)}%</div></td>
         <td>${funnelCell(a.lt2m,a.calls,"var(--red)")}</td>
         <td>${funnelCell(a.r1to2m,a.calls,"#f97316")}</td>
