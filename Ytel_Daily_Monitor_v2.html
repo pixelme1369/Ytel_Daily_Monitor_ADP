@@ -1490,13 +1490,25 @@ function closeEnrolledPhones(){
 }
 function showPhoneCrmList(records, label){
   document.getElementById('enrollModalTitle').textContent=(label||'Agent')+' ('+records.length+')';
-  document.getElementById('enrollModalList').innerHTML=records.map(r=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">
-    <span style="font-family:monospace;font-weight:600">${r.phone}</span>
-    <span style="display:flex;align-items:center;gap:8px">
-      ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${r.crmStatus}</span>`:'<span style="font-size:11px;color:var(--text-muted)">—</span>'}
-      <span style="font-size:11px;font-weight:700;color:var(--green-dk)">${r.debt>0?fmt$(r.debt):'—'}</span>
-    </span>
-  </div>`).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  document.getElementById('enrollModalList').innerHTML=records.map(r=>{
+    const hasRec=!!r.recording;
+    return `<div style="padding:8px;border-radius:6px;background:var(--gray-100);display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="display:flex;align-items:center;gap:8px">
+          <b style="font-size:13px;font-family:monospace">${r.phone}</b>
+          ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${r.crmStatus}</span>`:''}
+        </span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;font-weight:700;color:var(--green-dk)">${r.debt>0?fmt$(r.debt):'—'}</span>
+          <span style="font-size:11px;color:var(--text-muted)">${fmtDur(r.sec||0)}</span>
+        </span>
+      </div>
+      ${hasRec
+        ?`<audio controls preload="none" src="${r.recording}" style="width:100%;height:44px"></audio>
+        <a href="${r.recording}" download style="font-size:11px;color:var(--accent);text-decoration:none;align-self:flex-end">⬇ Download recording</a>`
+        :`<div style="font-size:11px;color:var(--text-muted);font-style:italic">No recording available</div>`}
+    </div>`;
+  }).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
   document.getElementById('enrollModal').classList.add('open');
 }
 function showFlaggedPhones(records, label){
@@ -2198,7 +2210,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const key=r._name+'||'+r._phone;
     const ts=r._ts;
     if(!agentPhoneFirstDir[key]||ts<agentPhoneFirstDir[key].ts)
-      agentPhoneFirstDir[key]={dir:r._dir,ts};
+      agentPhoneFirstDir[key]={dir:r._dir,ts,recording:r._recording||'',sec:r._sec||0};
     const hr=parseInt(r._hour);
     if(!isNaN(hr)){
       const hk=String(hr).padStart(2,'0')+':00';
@@ -2343,7 +2355,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         const fd=agentPhoneFirstDir[name+'||'+phone];
         const detail=phoneDetail[phone]||{};
         const enrInfo=enrolledPhoneAgent[phone];
-        const entry={phone,crmStatus:detail.crmStatus||'',debt:(enrInfo&&enrInfo.debt)||0};
+        const entry={phone,crmStatus:detail.crmStatus||'',debt:(enrInfo&&enrInfo.debt)||0,recording:(fd&&fd.recording)||'',sec:(fd&&fd.sec)||0};
         if(fd&&fd.dir==='inbound'){ inboundUniq++; inboundPhones.push(entry); }
         else{ outboundUniq++; outboundPhones.push(entry); }
       });

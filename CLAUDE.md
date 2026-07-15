@@ -244,9 +244,9 @@ The `Inbound`/`Outbound` unique-phone-count cells in the agent main row are clic
 
 - Direction bucketing matches what's already displayed in the count (`agentPhoneFirstDir[name+'||'+phone].dir` — the direction of the phone's **first** call to that agent), so the modal list always matches the number shown
 - `agentPhoneDetail[name][phone]` — built in the same per-row loop as `agentMap`/`agentDirMap` (line ~2210), keeps the CRM Status (`r._crmStatus`) from whichever row has the latest `r._ts` for that phone
-- Each agent row (`agentRows` in `buildDashboard`) carries `inboundPhones`/`outboundPhones` arrays of `{phone, crmStatus, debt}` — `debt` comes from `enrolledPhoneAgent[phone].debt` (0/— if the phone never enrolled, since Enrolled Debt only applies to enrolled phones)
-- `showPhoneCrmList(records, label)` (defined next to `showEnrolledPhones`/`showFlaggedPhones`) renders the modal: phone (monospace) on the left, CRM Status pill + Enrolled Debt (green, `fmt$`) on the right; `—` shown for empty CRM Status or zero debt
-- Hourly sub-rows still show the plain (non-clickable) Inbound/Outbound counts — no per-hour phone/CRM detail is tracked
+- Each agent row (`agentRows` in `buildDashboard`) carries `inboundPhones`/`outboundPhones` arrays of `{phone, crmStatus, debt, recording, sec}` — `debt` comes from `enrolledPhoneAgent[phone].debt` (0/— if the phone never enrolled, since Enrolled Debt only applies to enrolled phones); `recording`/`sec` come from `agentPhoneFirstDir[name+'||'+phone]` (extended to also carry `recording:r._recording`/`sec:r._sec` off the same first-call row that determines the direction bucket, so the audio played matches the specific inbound/outbound call being counted, not just the phone's latest call)
+- `showPhoneCrmList(records, label)` (defined next to `showEnrolledPhones`/`showFlaggedPhones`, same audio UI pattern as `showFlaggedPhones`) renders the modal: phone (monospace) + CRM Status pill on the left, Enrolled Debt (green, `fmt$`) + call duration on the right, then an inline `<audio controls>` player sourced from `recording` + a "⬇ Download recording" link below; phones with no recording show "No recording available"
+- Hourly sub-rows still show the plain (non-clickable) Inbound/Outbound counts — no per-hour phone/CRM/recording detail is tracked
 
 - `1–2 min` = 60 ≤ sec < 120 (orange color) — added to highlight calls that had real contact but were short
 - `<2 min` = all calls under 120s (unchanged — includes the 1–2 min range)
