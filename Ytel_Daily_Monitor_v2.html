@@ -690,6 +690,10 @@ function classifyRow(r){
 const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','angel esparza','logan apana','brian smith','emren salim','renato toribio','brian ballman','taha aoukal','alex tambouly']);
 const RETENTION=new Set(['eli riano','erika ceja','daniel soldevilla','jose salgado']);
 const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','alexander tulkoff','jaiden lopez','jaiden j lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','mark carlos','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','elizabeth arredondo','mohamad dadou']);
+// Terminated agents — excluded from all agent-specific views (Agent Performance, Rankings, Funnel,
+// Outcomes scatter, Long Calls No Deal, Unassigned Agents, coaching-issue callouts) but their calls
+// still count toward overall KPIs/campaign totals since those calls actually happened.
+const TERMINATED=new Set(['anthony dimora']);
 
 // Snapshot of the hardcoded defaults above, then overlay any roles saved from the Settings editor
 const DEFAULT_ROLES={closers:[...CLOSERS],openers:[...OPENERS],retention:[...RETENTION]};
@@ -2045,7 +2049,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
 
   // ── Unassigned agents (calls in range but not in CLOSERS/RETENTION/OPENERS) ──
   const unassignedCounts={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._name&&r._name!=='Unknown').forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._name&&r._name!=='Unknown'&&!TERMINATED.has(r._name.toLowerCase())).forEach(r=>{
     const nameLC=r._name.toLowerCase();
     if(CLOSERS.has(nameLC)||RETENTION.has(nameLC)||OPENERS.has(nameLC)) return;
     unassignedCounts[r._name]=(unassignedCounts[r._name]||0)+1;
@@ -2078,6 +2082,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const agentDrops={},agentTimeouts={};
     calls.forEach(r=>{
       const n=r._name||'Unknown';
+      if(TERMINATED.has(n.toLowerCase())) return;
       if(r._status==='DROP') agentDrops[n]=(agentDrops[n]||0)+1;
       if(r._status==='TIMEOT') agentTimeouts[n]=(agentTimeouts[n]||0)+1;
     });
@@ -2087,7 +2092,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   }
 
   const agentMapIssue={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)).forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())).forEach(r=>{
     if(!agentMapIssue[r._name]) agentMapIssue[r._name]={calls:0,short:0};
     agentMapIssue[r._name].calls++; if(r._sec<=30) agentMapIssue[r._name].short++;
   });
@@ -2104,7 +2109,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
 
   const agentPhoneOutCounts={};
   calls.forEach(r=>{
-    if(r._dir==='outbound'&&r._phone&&r._name){
+    if(r._dir==='outbound'&&r._phone&&r._name&&!TERMINATED.has(r._name.toLowerCase())){
       const key=r._name+'||'+r._phone;
       agentPhoneOutCounts[key]=(agentPhoneOutCounts[key]||0)+1;
     }
@@ -2207,7 +2212,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentPhoneFirstDir={};
   const agentPhoneFirstCall={};
   const agentPhoneLastCall={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._phone).forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._phone&&!TERMINATED.has((r._name||'').toLowerCase())).forEach(r=>{
     const key=r._name+'||'+r._phone;
     const ts=r._ts;
     if(!agentPhoneFirstDir[key]||ts<agentPhoneFirstDir[key].ts)
@@ -2232,7 +2237,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentHourCampMap={};
   const agentCampsMap={};
   const agentCampDataMap={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)).forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())).forEach(r=>{
     if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{}};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;

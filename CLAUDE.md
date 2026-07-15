@@ -101,6 +101,18 @@ const OPENERS = new Set([...]);    // openers — show Opener tag, show >2min % 
 Agents not in any set show no role tag.
 All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (editable at runtime via the Settings role editor; edits are session-only).
 
+### Terminated Agents
+
+```js
+const TERMINATED = new Set(['anthony dimora']);
+```
+
+- Defined right after `OPENERS` (line ~695); lowercase, same matching convention as the role sets
+- Excluded from all agent-specific views: Agent Performance table, Agent Rankings, Agent Call Funnel, Agent Outcomes scatter, Long Calls No Deal, Unassigned Agents, and the coaching-issue callouts in Issues Detected (high short-call rate, drop/timeout leaderboard, excessive redials)
+- **Not** excluded from overall KPIs, campaign totals, or call-flagging views keyed by phone (DPC, Incomplete Transfers) — those calls actually happened and still count; only agent-level roll-ups hide the name
+- Implementation: every `calls.filter(...)` that builds `agentMap`/`agentMapIssue`/`agentPhoneFirstCall`/`unassignedCounts`/`agentPhoneOutCounts` (redials) also excludes `TERMINATED.has(r._name.toLowerCase())`
+- Not part of the Settings role editor — this is a hardcoded exclusion, not a role, and isn't persisted to `localStorage`
+
 ### Agent Name Matching
 
 - All role lookups are done with `.toLowerCase()` — names in the sets must be lowercase
