@@ -1496,7 +1496,8 @@ function showPhoneCrmList(records, label){
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="display:flex;align-items:center;gap:8px">
           <b style="font-size:13px;font-family:monospace">${r.phone}</b>
-          ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)">${r.crmStatus}</span>`:''}
+          ${r.ytelStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--blue)" title="Ytel status">${r.ytelStatus}</span>`:''}
+          ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)" title="CRM status">${r.crmStatus}</span>`:''}
         </span>
         <span style="display:flex;align-items:center;gap:8px">
           <span style="font-size:11px;font-weight:700;color:var(--green-dk)">${r.debt>0?fmt$(r.debt):'—'}</span>
@@ -2247,7 +2248,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(r._phone){
       if(!agentPhoneDetail[r._name]) agentPhoneDetail[r._name]={};
       const apd=agentPhoneDetail[r._name];
-      if(!apd[r._phone]||r._ts>=apd[r._phone].ts) apd[r._phone]={crmStatus:r._crmStatus||'',ts:r._ts};
+      if(!apd[r._phone]||r._ts>=apd[r._phone].ts) apd[r._phone]={crmStatus:r._crmStatus||'',ytelStatus:r._status||'',ts:r._ts};
     }
     if(r._sec>=1200&&r._phone){
       d.phoneMaxSec[r._phone]=Math.max(d.phoneMaxSec[r._phone]||0,r._sec);
@@ -2355,7 +2356,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         const fd=agentPhoneFirstDir[name+'||'+phone];
         const detail=phoneDetail[phone]||{};
         const enrInfo=enrolledPhoneAgent[phone];
-        const entry={phone,crmStatus:detail.crmStatus||'',debt:(enrInfo&&enrInfo.debt)||0,recording:(fd&&fd.recording)||'',sec:(fd&&fd.sec)||0};
+        const entry={phone,crmStatus:detail.crmStatus||'',ytelStatus:detail.ytelStatus||'',debt:(enrInfo&&enrInfo.debt)||0,recording:(fd&&fd.recording)||'',sec:(fd&&fd.sec)||0};
         if(fd&&fd.dir==='inbound'){ inboundUniq++; inboundPhones.push(entry); }
         else{ outboundUniq++; outboundPhones.push(entry); }
       });
