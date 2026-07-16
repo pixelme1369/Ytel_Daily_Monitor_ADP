@@ -103,6 +103,18 @@ All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (
 
 **Bug fixed (July 2026): stale saved roles hid newly-added agents.** Loading a saved `localStorage['roles']` snapshot used to *replace* `CLOSERS`/`OPENERS`/`RETENTION` outright. If a browser had ever saved a snapshot via "Save Roles" before an agent was added to the hardcoded defaults in source, that agent would never appear in the saved snapshot and would show up in Unassigned Agents forever on that browser, even though the source code was correct — resetting via "Reset to Defaults" was the only workaround. Fixed: after applying a saved snapshot, any hardcoded-default agent (`DEFAULT_ROLES`) not present in *any* saved category is added back to its default role, so newly-added agents surface automatically while explicit user edits (moving an agent between categories) are still respected.
 
+### Terminated Agents
+
+```js
+const TERMINATED = new Set(['anthony dimora']);
+```
+
+- Defined right after `OPENERS` (line ~695); lowercase, same matching convention as the role sets
+- Excluded from all agent-specific views: Agent Performance table, Agent Rankings, Agent Call Funnel, Agent Outcomes scatter, Long Calls No Deal, Unassigned Agents, and the coaching-issue callouts in Issues Detected (high short-call rate, drop/timeout leaderboard, excessive redials)
+- **Not** excluded from overall KPIs, campaign totals, or call-flagging views keyed by phone (DPC, Incomplete Transfers) — those calls actually happened and still count; only agent-level roll-ups hide the name
+- Implementation: every `calls.filter(...)` that builds `agentMap`/`agentMapIssue`/`agentPhoneFirstCall`/`unassignedCounts`/`agentPhoneOutCounts` (redials) also excludes `TERMINATED.has(r._name.toLowerCase())`
+- Not part of the Settings role editor — this is a hardcoded exclusion, not a role, and isn't persisted to `localStorage`
+
 ### Agent Name Matching
 
 - All role lookups are done with `.toLowerCase()` — names in the sets must be lowercase
@@ -110,6 +122,9 @@ All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (
   - Example: `'jon stultz'` and `'jon stults'` are both in OPENERS because the data has been seen with both spellings
   - Example: `'alex tulkoff'` and `'alexander tulkoff'` are both in OPENERS
   - Example: `'angel espraza'` and `'angel esparza'` are both in CLOSERS
+  - Example: `'mark claros'` and `'mark carlos'` are both in OPENERS
+  - Example: `'liz arredondo'` and `'elizabeth arredondo'` are both in OPENERS
+  - Example: `'jaiden lopez'` and `'jaiden j lopez'` are both in OPENERS
 - When a user reports an agent is "missing from the report", check if it's a spelling mismatch before assuming the agent isn't in the set
 
 ## Enrollment Logic
