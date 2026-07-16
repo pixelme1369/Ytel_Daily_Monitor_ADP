@@ -699,6 +699,13 @@ try{
     CLOSERS.clear(); saved.closers.forEach(v=>CLOSERS.add(v));
     OPENERS.clear(); (saved.openers||[]).forEach(v=>OPENERS.add(v));
     RETENTION.clear(); (saved.retention||[]).forEach(v=>RETENTION.add(v));
+    // Agents added to the hardcoded defaults after this snapshot was saved wouldn't
+    // exist in any saved category and would otherwise appear "unassigned" forever —
+    // add them back to their default role instead of dropping them.
+    const savedAll=new Set([...CLOSERS,...OPENERS,...RETENTION]);
+    DEFAULT_ROLES.closers.forEach(v=>{ if(!savedAll.has(v)) CLOSERS.add(v); });
+    DEFAULT_ROLES.openers.forEach(v=>{ if(!savedAll.has(v)) OPENERS.add(v); });
+    DEFAULT_ROLES.retention.forEach(v=>{ if(!savedAll.has(v)) RETENTION.add(v); });
   }
 }catch(e){}
 

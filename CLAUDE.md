@@ -99,7 +99,9 @@ const OPENERS = new Set([...]);    // openers — show Opener tag, show >2min % 
 ```
 
 Agents not in any set show no role tag.
-All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (editable at runtime via the Settings role editor; edits are session-only).
+All three sets are defined at lines ~690–692 of `Ytel_Daily_Monitor_v2.html` (editable at runtime via the Settings role editor; edits persist to `localStorage` key `roles`, restored on every load — not session-only).
+
+**Bug fixed (July 2026): stale saved roles hid newly-added agents.** Loading a saved `localStorage['roles']` snapshot used to *replace* `CLOSERS`/`OPENERS`/`RETENTION` outright. If a browser had ever saved a snapshot via "Save Roles" before an agent was added to the hardcoded defaults in source, that agent would never appear in the saved snapshot and would show up in Unassigned Agents forever on that browser, even though the source code was correct — resetting via "Reset to Defaults" was the only workaround. Fixed: after applying a saved snapshot, any hardcoded-default agent (`DEFAULT_ROLES`) not present in *any* saved category is added back to its default role, so newly-added agents surface automatically while explicit user edits (moving an agent between categories) are still respected.
 
 ### Agent Name Matching
 
