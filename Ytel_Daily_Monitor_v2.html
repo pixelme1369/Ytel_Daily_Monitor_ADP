@@ -215,6 +215,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <a href="#sec-campaigns">Campaign Breakdown</a>
     <a href="#sec-alerts">Missed / DPC</a>
     <a href="#sec-settings">Settings</a>
+    <a href="#sec-transfer-lb">Transfers Leaderboard</a>
   </nav>
 </aside>
 
@@ -651,6 +652,25 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
         </div>
         <button class="af-btn af-active" style="margin-top:12px" onclick="saveThresholds()">Save Thresholds</button>
         <button class="af-btn" style="margin-top:12px" onclick="resetThresholds()">Reset to Defaults</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRANSFERS RECEIVED LEADERBOARD -->
+  <section id="sec-transfer-lb">
+    <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">Transfers Received Leaderboard</span></div>
+    <div class="sec-body">
+      <div class="card" id="transferLbCard" style="display:none">
+        <div class="card-title">🔄 Transfers Received Leaderboard <span class="card-title-sub">agents ranked by correct transfers received from openers, alongside overall Inbound volume and Conv%</span></div>
+        <table style="table-layout:fixed">
+          <thead id="transferLbHead"><tr>
+            <th data-col="0" style="width:34%;text-align:left">Agent</th>
+            <th data-col="1" style="width:22%">Inbound <span style="font-weight:400;font-size:10px;color:var(--text-muted)">(unique)</span></th>
+            <th data-col="2" style="width:22%">Conv% (enr/&gt;2m)</th>
+            <th data-col="3" style="width:22%">Transfers Received</th>
+          </tr></thead>
+          <tbody id="transferLbBody"></tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -1599,6 +1619,56 @@ function exportLongNoDeal(){
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 
+function renderTransferLeaderboard(){
+  const transferRows=window._receivedTransferRows||[];
+  const card=document.getElementById('transferLbCard');
+  if(!transferRows.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const byName={};
+  (window._agentAllRows||[]).forEach(a=>{ byName[a.name.toLowerCase()]=a; });
+  const rows=transferRows.map(t=>{
+    const a=byName[t.agent.toLowerCase()]||{};
+    return {
+      agent:t.agent,
+      inboundUniq:a.inboundUniq||0,
+      inboundPhones:a.inboundPhones||[],
+      convPct:(a.gt2m>0&&a.enr>0)?pct(a.enr,a.gt2m):'—',
+      count:t.count,
+      records:t.records
+    };
+  });
+  document.getElementById('transferLbBody').innerHTML=rows.map(r=>`<tr>
+    <td style="text-align:left;font-weight:600">${r.agent}</td>
+    <td style="color:var(--blue)">${r.inboundUniq>0?`<span style="cursor:pointer;text-decoration:underline dotted" onclick='showPhoneCrmList(${attrJson(r.inboundPhones)},${attrJson(r.agent+' — Inbound Numbers')})'>${r.inboundUniq}</span>`:'—'}</td>
+    <td>${r.convPct}</td>
+    <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${attrJson(r.records)},${attrJson(r.agent+' — Transfers Received')})'>${r.count}</span></td>
+  </tr>`).join('');
+  const thead=document.getElementById('transferLbHead');
+  const tbody=document.getElementById('transferLbBody');
+  let sortCol=-1,sortDir=1;
+  function cellVal(td){
+    const txt=td.textContent.trim();
+    if(txt==='—'||txt==='') return -Infinity;
+    const n=parseFloat(txt.replace(/[^0-9.\-]/g,''));
+    return isNaN(n)?txt.toLowerCase():n;
+  }
+  thead.querySelectorAll('th[data-col]').forEach(th=>{
+    th.classList.remove('sort-asc','sort-desc');
+    th.onclick=()=>{
+      const col=parseInt(th.dataset.col);
+      if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=-1;}
+      thead.querySelectorAll('th').forEach(h=>h.classList.remove('sort-asc','sort-desc'));
+      th.classList.add(sortDir===1?'sort-asc':'sort-desc');
+      const trs=[...tbody.querySelectorAll('tr')];
+      trs.sort((a,b)=>{
+        const av=cellVal(a.cells[col]), bv=cellVal(b.cells[col]);
+        return av<bv?-sortDir:av>bv?sortDir:0;
+      });
+      trs.forEach(r=>tbody.appendChild(r));
+    };
+  });
+}
+
 // ══ FILE I/O ════════════════════════════════════════════════════════════════
 function readFile(file, cb){
   const ext=file.name.split('.').pop().toLowerCase();
@@ -2385,6 +2455,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   window._agentHourMap=agentHourMap;
   window._agentHourDirMap=agentHourDirMap;
   window._agentHourCampMap=agentHourCampMap;
+
+  renderTransferLeaderboard();
 
   const maxCalls=agentRows[0]?agentRows[0].calls:1;
   document.getElementById('agentCount').textContent=agentRows.length+' agents';
