@@ -251,9 +251,9 @@ Card `#unassignedAgentCard`, placed last in the `sec-alerts` section (bottom of 
 - Table: Agent | Calls — sorted by call count descending, plain (not clickable) since the point is just to surface the name; once the user tells Claude the correct role, the fix is adding the (lowercased) name to the appropriate Set per the Agent Name Matching rules above
 - Not persisted anywhere — recomputed fresh on every `buildDashboard()` run, so it always reflects the currently loaded file/date range
 
-### Transfers Received Leaderboard
+### Agent Management Board
 
-Its own top-level collapsible section `#sec-transfer-lb` (with sidebar nav link "Transfers Leaderboard"), placed as the last section on the page — after Settings, still inside the `#dashboard` wrapper. Card `#transferLbCard`, hidden when there are no received transfers. A summary view combining per-agent data that otherwise lives in separate tables: Agent | Inbound (unique) | Conv% (enr/>2m) | Transfers Received.
+Its own top-level collapsible section `#sec-transfer-lb` (with sidebar nav link "Agent Management Board"), placed as the last section on the page — after Settings, still inside the `#dashboard` wrapper. Card `#transferLbCard`, hidden when there are no received transfers. A summary view combining per-agent data that otherwise lives in separate tables: Agent | Inbound (unique) | Conv% (enr/>2m) | Transfers Received.
 
 - Built by `renderTransferLeaderboard()` (top-level function, called from `buildDashboard()` right after `window._agentAllRows` is set) — merges `window._receivedTransferRows` (from the Correct Transfers Received card, already sorted by Transfers Received descending) with the matching entry in `window._agentAllRows` (looked up by lowercased agent name)
 - Inbound count/phone list and Conv% are **not recomputed** — they're the same `inboundUniq`/`inboundPhones`/`gt2m`/`enr` values used to render the main Agent Performance table's Inbound and Conv% (enr/>2m) columns, so the two always agree
