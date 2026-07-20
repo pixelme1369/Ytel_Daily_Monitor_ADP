@@ -260,6 +260,7 @@ Its own top-level collapsible section `#sec-transfer-lb` (with sidebar nav link 
 - Inbound is clickable via the shared `showPhoneCrmList()` modal (same as the Agent Performance table's Inbound column); Transfers Received is clickable via `showFlaggedPhones()` (same records as the Correct Transfers card, audio playback)
 - An agent present in `_receivedTransferRows` but missing from `_agentAllRows` (shouldn't normally happen) falls back to Inbound `0`/Conv% `—` rather than throwing
 - Columns are click-to-sort (`data-col` on each `th`, `sort-asc`/`sort-desc` arrow classes) — sort wiring is rebuilt inside `renderTransferLeaderboard()` on every call (via `th.onclick=`, not `addEventListener`, so repeated re-renders don't stack duplicate handlers)
+- **Role filter**: `af-btn` toggle row (`#tlbRoleBtns`) in the card header — All / Closers / Openers / Retention, same pattern as the Campaign Breakdown role filter (`cr-all`/`cr-closer`/`cr-opener`). `filterTransferLeaderboard(role)` sets `window._tlbRoleFilter` and re-renders; `renderTransferLeaderboard()` filters `_receivedTransferRows` by `CLOSERS`/`OPENERS`/`RETENTION` (matched against `t.agent.toLowerCase()`) before joining with `_agentAllRows`. Filter selection persists across re-analyses (not reset to "all"), consistent with the other role-filter buttons in the app. Card only hides entirely when there are zero received transfers overall (unfiltered) — a filter that matches no rows just renders an empty table body.
 
 ## Agent Performance Table
 

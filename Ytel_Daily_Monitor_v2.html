@@ -661,7 +661,15 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">Agent Management Board</span></div>
     <div class="sec-body">
       <div class="card" id="transferLbCard" style="display:none">
-        <div class="card-title">🔄 Agent Management Board <span class="card-title-sub">agents ranked by correct transfers received from openers, alongside overall Inbound volume and Conv%</span></div>
+        <div class="card-title">
+          <span>🔄 Agent Management Board <span class="card-title-sub">agents ranked by correct transfers received from openers, alongside overall Inbound volume and Conv%</span></span>
+          <div id="tlbRoleBtns" style="display:flex;align-items:center;gap:4px">
+            <button onclick="filterTransferLeaderboard('all')"       id="tlb-all"       class="af-btn af-active">All</button>
+            <button onclick="filterTransferLeaderboard('closer')"    id="tlb-closer"    class="af-btn">Closers</button>
+            <button onclick="filterTransferLeaderboard('opener')"    id="tlb-opener"    class="af-btn">Openers</button>
+            <button onclick="filterTransferLeaderboard('retention')" id="tlb-retention" class="af-btn">Retention</button>
+          </div>
+        </div>
         <table style="table-layout:fixed">
           <thead id="transferLbHead"><tr>
             <th data-col="0" style="width:34%;text-align:left">Agent</th>
@@ -1619,6 +1627,15 @@ function exportLongNoDeal(){
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 
+let _tlbRoleFilter='all';
+function filterTransferLeaderboard(role){
+  if(role){
+    _tlbRoleFilter=role;
+    document.querySelectorAll('#tlbRoleBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
+    document.getElementById('tlb-'+role)?.classList.add('af-active');
+  }
+  renderTransferLeaderboard();
+}
 function renderTransferLeaderboard(){
   const transferRows=window._receivedTransferRows||[];
   const card=document.getElementById('transferLbCard');
@@ -1626,7 +1643,9 @@ function renderTransferLeaderboard(){
   card.style.display='';
   const byName={};
   (window._agentAllRows||[]).forEach(a=>{ byName[a.name.toLowerCase()]=a; });
-  const rows=transferRows.map(t=>{
+  const roleSet={closer:CLOSERS,opener:OPENERS,retention:RETENTION}[_tlbRoleFilter];
+  const filteredTransferRows=roleSet?transferRows.filter(t=>roleSet.has(t.agent.toLowerCase())):transferRows;
+  const rows=filteredTransferRows.map(t=>{
     const a=byName[t.agent.toLowerCase()]||{};
     return {
       agent:t.agent,
