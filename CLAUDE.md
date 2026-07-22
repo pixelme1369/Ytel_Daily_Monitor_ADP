@@ -19,6 +19,8 @@ The original single-date dashboard (`Ytel_Daily_Monitor_ADP.html`) was removed i
 ### Layout
 Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upload drag-drop zone, `fromDate`/`toDate` pickers, Run Analysis button, and nav links.
 
+**Auto-hide on mouse leave**: `#sidebar` collapses to a 14px rail when the mouse leaves it (250ms delay via `initSidebarAutoHide()`, called from Init), giving the dashboard the reclaimed width — `.sidebar` animates `width`/`min-width` (240px ↔ 14px) via CSS transition; its actual content lives in a fixed-240px `.sb-inner` wrapper so nothing squishes mid-transition, just clips under the outer `overflow:hidden`. Hovering the rail (`mouseenter`) or dragging a file onto it (`dragenter`) re-expands it. Not persisted — always starts expanded on load.
+
 ### Color Palette
 - Sidebar: `#0F172A` | Accent: `#6366F1` | Success: `#10B981` | Danger: `#EF4444` | Warning: `#F59E0B`
 - Background: `#F8FAFC` | Cards: `#FFFFFF` with `border-radius:12px`
