@@ -6,7 +6,7 @@ A single-file HTML dashboard for call center daily operations. Upload one merged
 
 ## How to Use
 
-1. Open `Ytel_Daily_Monitor_ADP.html` in any modern browser (Chrome recommended)
+1. Open `Ytel_Daily_Monitor_v2.html` in any modern browser (Chrome recommended)
 2. Upload your merged Ytel + CRM XLSX file by clicking the upload card or dragging and dropping
 3. Pick a date using the date filter and click **Run Analysis**
 4. The dashboard populates instantly — all processing happens in your browser
@@ -195,7 +195,7 @@ For KPI cards, **> 15 Min**, **> 30 Min**, and **> 45 Min** are based on **uniqu
 
 ## Technical Details
 
-- **Single file** — all HTML, CSS, and JavaScript in `Ytel_Daily_Monitor_ADP.html`
+- **Single file** — all HTML, CSS, and JavaScript in `Ytel_Daily_Monitor_v2.html`
 - **No server required** — open directly in a browser, works fully offline
 - **No frameworks** — vanilla JavaScript only
 - **Libraries (loaded via CDN):**
