@@ -1844,10 +1844,10 @@ function runAnalysis(){
     +(badDateRows?' · ⚠ '+badDateRows.toLocaleString()+' row'+(badDateRows>1?'s':'')+' skipped (unreadable call_date)':'');
   if(badDateRows) showToast('⚠ '+badDateRows.toLocaleString()+' row'+(badDateRows>1?'s':'')+' with an unreadable call_date skipped');
 
-  buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent);
+  buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent, toStr);
 }
 
-function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent){
+function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent, toStr){
   // Normalize call fields — r._ts is parsed once here and reused by every loop below
   calls.forEach(r=>{
     r._sec=parseInt(r['length_in_sec']||r['duration']||r['Duration']||r['talk_sec']||0,10)||0;
@@ -1868,6 +1868,20 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._state=(r['State']||r['CRM_State']||'').trim();
     r._recording=(r['recording_location']||r['Recording Location']||r['recording_url']||'').trim();
   });
+
+  // Agents with no calls in the most recent 10 days of the selected range (window ends on toStr) are treated
+  // like TERMINATED for every agent-level view — a long date range can otherwise keep showing an agent who
+  // stopped taking calls days ago, just because they had older activity earlier in the range.
+  const inactiveCutoff=new Date(toStr+'T00:00:00'); inactiveCutoff.setDate(inactiveCutoff.getDate()-9);
+  const inactiveCutoffStr=getDateStr(inactiveCutoff);
+  const agentLastCallDate={};
+  calls.forEach(r=>{
+    if(!r._name||r._name==='Unknown'||!r._ts) return;
+    const k=r._name.toLowerCase();
+    const ds=getDateStr(new Date(r._ts));
+    if(ds&&(!agentLastCallDate[k]||ds>agentLastCallDate[k])) agentLastCallDate[k]=ds;
+  });
+  const INACTIVE_RECENT=new Set(Object.keys(agentLastCallDate).filter(k=>agentLastCallDate[k]<inactiveCutoffStr));
 
   // First call row per enrolled phone — enrollment is credited to that call's campaign.
   // Flag the row itself (not its timestamp) so tied timestamps can't mark two rows enrolled.
@@ -2145,7 +2159,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
 
   // ── Unassigned agents (calls in range but not in CLOSERS/RETENTION/OPENERS) ──
   const unassignedCounts={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._name&&r._name!=='Unknown'&&!TERMINATED.has(r._name.toLowerCase())).forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._name&&r._name!=='Unknown'&&!TERMINATED.has(r._name.toLowerCase())&&!INACTIVE_RECENT.has(r._name.toLowerCase())).forEach(r=>{
     const nameLC=r._name.toLowerCase();
     if(CLOSERS.has(nameLC)||RETENTION.has(nameLC)||OPENERS.has(nameLC)) return;
     unassignedCounts[r._name]=(unassignedCounts[r._name]||0)+1;
@@ -2178,7 +2192,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const agentDrops={},agentTimeouts={};
     calls.forEach(r=>{
       const n=r._name||'Unknown';
-      if(TERMINATED.has(n.toLowerCase())) return;
+      if(TERMINATED.has(n.toLowerCase())||INACTIVE_RECENT.has(n.toLowerCase())) return;
       if(r._status==='DROP') agentDrops[n]=(agentDrops[n]||0)+1;
       if(r._status==='TIMEOT') agentTimeouts[n]=(agentTimeouts[n]||0)+1;
     });
@@ -2188,7 +2202,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   }
 
   const agentMapIssue={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())).forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())&&!INACTIVE_RECENT.has((r._name||'').toLowerCase())).forEach(r=>{
     if(!agentMapIssue[r._name]) agentMapIssue[r._name]={calls:0,short:0};
     agentMapIssue[r._name].calls++; if(r._sec<=30) agentMapIssue[r._name].short++;
   });
@@ -2205,7 +2219,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
 
   const agentPhoneOutCounts={};
   calls.forEach(r=>{
-    if(r._dir==='outbound'&&r._phone&&r._name&&!TERMINATED.has(r._name.toLowerCase())){
+    if(r._dir==='outbound'&&r._phone&&r._name&&!TERMINATED.has(r._name.toLowerCase())&&!INACTIVE_RECENT.has(r._name.toLowerCase())){
       const key=r._name+'||'+r._phone;
       agentPhoneOutCounts[key]=(agentPhoneOutCounts[key]||0)+1;
     }
@@ -2308,7 +2322,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentPhoneFirstDir={};
   const agentPhoneFirstCall={};
   const agentPhoneLastCall={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._phone&&!TERMINATED.has((r._name||'').toLowerCase())).forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&r._phone&&!TERMINATED.has((r._name||'').toLowerCase())&&!INACTIVE_RECENT.has((r._name||'').toLowerCase())).forEach(r=>{
     const key=r._name+'||'+r._phone;
     const ts=r._ts;
     if(!agentPhoneFirstDir[key]||ts<agentPhoneFirstDir[key].ts)
@@ -2333,7 +2347,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentHourCampMap={};
   const agentCampsMap={};
   const agentCampDataMap={};
-  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())).forEach(r=>{
+  calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())&&!INACTIVE_RECENT.has((r._name||'').toLowerCase())).forEach(r=>{
     if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{}};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;

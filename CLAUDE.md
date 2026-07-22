@@ -115,6 +115,17 @@ const TERMINATED = new Set(['anthony dimora']);
 - Implementation: every `calls.filter(...)` that builds `agentMap`/`agentMapIssue`/`agentPhoneFirstCall`/`unassignedCounts`/`agentPhoneOutCounts` (redials) also excludes `TERMINATED.has(r._name.toLowerCase())`
 - Not part of the Settings role editor — this is a hardcoded exclusion, not a role, and isn't persisted to `localStorage`
 
+### Recently Inactive Agents (no calls in the last 10 days of the selected range)
+
+When a user runs a report over a date range longer than ~10 days, an agent who stopped taking calls partway through (left the floor, moved teams, etc.) would otherwise still show up in every agent view just because of older activity earlier in the range. `INACTIVE_RECENT` is computed fresh on every `buildDashboard()` run (not hardcoded, not persisted) and excludes those agents the same way `TERMINATED` does.
+
+- Window: `toStr` (the selected range's end date) minus 9 days through `toStr` inclusive = a 10-day window. An agent is flagged `INACTIVE_RECENT` if their latest call in the filtered `calls` set falls **before** that window, i.e. they have zero calls anywhere in the most recent 10 days of the selected range
+- If the selected range itself is 10 days or shorter, the cutoff falls before `fromDate`, so every agent's calls are inside the window and nothing is excluded — this only kicks in on longer ranges
+- Computed right after the field-normalization pass at the top of `buildDashboard()` (`agentLastCallDate` = per-agent latest call date via `getDateStr(new Date(r._ts))`, compared against `inactiveCutoffStr`)
+- Same scope as `TERMINATED`: excluded from Agent Performance table, Agent Rankings, Agent Call Funnel, Agent Outcomes scatter, Long Calls No Deal, Unassigned Agents, and the coaching-issue callouts in Issues Detected — **not** excluded from overall KPIs, campaign totals, or phone-keyed views (DPC, Incomplete Transfers)
+- Implementation: every same `calls.filter(...)` site listed under Terminated Agents above also excludes `INACTIVE_RECENT.has(r._name.toLowerCase())`
+- Not part of the Settings role editor and not persisted — recalculated from whatever file/range is currently loaded
+
 ### Agent Name Matching
 
 - All role lookups are done with `.toLowerCase()` — names in the sets must be lowercase
