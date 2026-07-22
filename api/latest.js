@@ -1,19 +1,22 @@
-const { get } = require('@vercel/blob');
+const { list } = require('@vercel/blob');
 
 module.exports = async (req, res) => {
   try {
-    const result = await get('latest.xlsx', { access: 'private', useCache: false });
-    if (!result || result.statusCode !== 200 || !result.stream) {
+    const { blobs } = await list({ prefix: 'latest.xlsx', limit: 1 });
+    if (!blobs || !blobs.length) {
       res.status(404).json({ error: 'No shared file uploaded yet' });
       return;
     }
-    const chunks = [];
-    for await (const chunk of result.stream) chunks.push(chunk);
-    const buf = Buffer.concat(chunks);
+    const upstream = await fetch(blobs[0].url);
+    if (!upstream.ok) {
+      res.status(502).json({ error: 'Failed to fetch stored file' });
+      return;
+    }
+    const buf = Buffer.from(await upstream.arrayBuffer());
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Cache-Control', 'private, no-cache');
+    res.setHeader('Cache-Control', 'no-store');
     res.status(200).send(buf);
   } catch (e) {
-    res.status(404).json({ error: 'No shared file uploaded yet' });
+    res.status(500).json({ error: e.message });
   }
 };

@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
   try {
     const buf = Buffer.from(dataBase64, 'base64');
     const blob = await put('latest.xlsx', buf, {
-      access: 'private',
+      access: 'public',
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/octet-stream',
