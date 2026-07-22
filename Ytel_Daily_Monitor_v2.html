@@ -27,7 +27,9 @@
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;display:flex}
 
 /* ── SIDEBAR ── */
-.sidebar{width:240px;min-width:240px;background:var(--sb);color:var(--sb-text);height:100vh;position:sticky;top:0;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar{width:240px;min-width:240px;background:var(--sb);color:var(--sb-text);height:100vh;position:sticky;top:0;overflow:hidden;transition:width .22s ease,min-width .22s ease}
+.sidebar.collapsed{width:14px;min-width:14px}
+.sb-inner{width:240px;min-width:240px;height:100%;display:flex;flex-direction:column;overflow-y:auto}
 .sb-logo{font-size:17px;font-weight:800;color:#fff;letter-spacing:-0.02em;padding:20px 20px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)}
 .sb-logo .dot{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
 .sb-upload{padding:16px 16px 8px;border-bottom:1px solid rgba(255,255,255,.08)}
@@ -184,7 +186,8 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 <body>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
+ <div class="sb-inner">
   <div class="sb-logo"><span class="dot">YM</span> Ytel Monitor v2</div>
   <div class="sb-upload">
     <div class="sb-drop" id="mergedCard">
@@ -218,6 +221,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <a href="#sec-settings">Settings</a>
     <a href="#sec-transfer-lb">Agent Management Board</a>
   </nav>
+ </div>
 </aside>
 
 <!-- CONTENT -->
@@ -3054,6 +3058,13 @@ function initCollapse(){
     });
   });
 }
+function initSidebarAutoHide(){
+  const sb=document.getElementById('sidebar');
+  let leaveTimer=null;
+  sb.addEventListener('mouseenter',()=>{ clearTimeout(leaveTimer); sb.classList.remove('collapsed'); });
+  sb.addEventListener('mouseleave',()=>{ leaveTimer=setTimeout(()=>sb.classList.add('collapsed'),250); });
+  sb.addEventListener('dragenter',()=>{ clearTimeout(leaveTimer); sb.classList.remove('collapsed'); });
+}
 function initNav(){
   const links=[...document.querySelectorAll('.sb-nav a')];
   const content=document.querySelector('.content');
@@ -3101,6 +3112,7 @@ renderRoleEditor();
 renderThresholdEditor();
 initCollapse();
 initNav();
+initSidebarAutoHide();
 loadSharedData(true);
 </script>
 </body>
