@@ -205,6 +205,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <button class="sb-btn" onclick="runAnalysis()">&#9654; Run Analysis</button>
     <button class="sb-btn ghost" onclick="copySummary()">&#128203; Copy Summary</button>
     <button class="sb-btn ghost" onclick="clearAll()">Clear</button>
+    <button class="sb-btn ghost" id="loadSharedBtn" onclick="loadSharedData()">&#8635; Load Shared Data</button>
     <div class="sb-hint" id="filterHint">Upload the merged file, pick a date, then click Run Analysis.</div>
     <div class="sb-hint" id="hdrDate" style="color:#34D399;font-weight:700">No date selected</div>
   </div>
@@ -1746,6 +1747,30 @@ function autoSetDate(data){
     document.getElementById('toDate').value=sorted[sorted.length-1];
   }
 }
+function loadSharedData(auto){
+  const btn=document.getElementById('loadSharedBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
+  fetch('/api/latest').then(r=>{
+    if(!r.ok) throw new Error(r.status===404?'No shared data uploaded yet':'Server error ('+r.status+')');
+    return r.arrayBuffer();
+  }).then(buf=>{
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+    mergedRaw=data;
+    document.getElementById('mergedCard').classList.add('loaded');
+    document.getElementById('mergedName').textContent='Shared data (auto-loaded)';
+    document.getElementById('mergedStatus').className='sb-status ok';
+    document.getElementById('mergedStatus').textContent='✓ '+data.length.toLocaleString()+' rows loaded';
+    showToast('Shared data loaded — '+data.length.toLocaleString()+' rows');
+    autoSetDate(data);
+    runAnalysis();
+  }).catch(err=>{
+    if(!auto) showToast('Could not load shared data: '+err.message);
+  }).finally(()=>{
+    if(btn){ btn.disabled=false; btn.innerHTML='&#8635; Load Shared Data'; }
+  });
+}
 function clearAll(){
   mergedRaw=null;
   document.getElementById('mergedFile').value='';
@@ -3076,6 +3101,7 @@ renderRoleEditor();
 renderThresholdEditor();
 initCollapse();
 initNav();
+loadSharedData(true);
 </script>
 </body>
 </html>
