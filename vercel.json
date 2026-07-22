@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/Ytel_Daily_Monitor_v2.html" }
+  ]
+}
