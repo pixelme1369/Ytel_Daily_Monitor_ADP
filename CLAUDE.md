@@ -21,6 +21,8 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 
 **Auto-hide on mouse leave**: `#sidebar` collapses to a 14px rail when the mouse leaves it (250ms delay via `initSidebarAutoHide()`, called from Init), giving the dashboard the reclaimed width — `.sidebar` animates `width`/`min-width` (240px ↔ 14px) via CSS transition; its actual content lives in a fixed-240px `.sb-inner` wrapper so nothing squishes mid-transition, just clips under the outer `overflow:hidden`. Hovering the rail (`mouseenter`) or dragging a file onto it (`dragenter`) re-expands it. Not persisted — always starts expanded on load.
 
+**Bug fixed (July 2026): sidebar collapsed itself before "Run Analysis" could be clicked.** Clicking the upload drop zone opens the native OS file picker, which moves the mouse off `#sidebar` and fires `mouseleave` — starting the 250ms collapse timer. Picking a file from the dialog routinely takes longer than 250ms, so by the time `handleMerged()` ran, the sidebar had already collapsed to the 14px rail, hiding the From/To date fields and Run Analysis button. The dashboard never rendered (still showing the empty state) and looked like the upload silently did nothing, even though the "File loaded — N rows" toast confirmed the file was read. Fixed: `initSidebarAutoHide()` exposes `window._expandSidebar()` (same clear-timer-and-un-collapse logic as `mouseenter`/`dragenter`), and `handleMerged()` calls it as soon as a file is selected so the sidebar stays open through Run Analysis.
+
 ### Color Palette
 - Sidebar: `#0F172A` | Accent: `#6366F1` | Success: `#10B981` | Danger: `#EF4444` | Warning: `#F59E0B`
 - Background: `#F8FAFC` | Cards: `#FFFFFF` with `border-radius:12px`

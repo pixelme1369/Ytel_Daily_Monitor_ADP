@@ -1723,6 +1723,7 @@ function parseCSV(text){
 }
 function handleMerged(input){
   const file=input.files[0]; if(!file) return;
+  if(window._expandSidebar) window._expandSidebar();
   document.getElementById('mergedName').textContent=file.name;
   document.getElementById('mergedStatus').textContent='Reading...';
   readFile(file, data=>{
@@ -3064,6 +3065,7 @@ function initSidebarAutoHide(){
   sb.addEventListener('mouseenter',()=>{ clearTimeout(leaveTimer); sb.classList.remove('collapsed'); });
   sb.addEventListener('mouseleave',()=>{ leaveTimer=setTimeout(()=>sb.classList.add('collapsed'),250); });
   sb.addEventListener('dragenter',()=>{ clearTimeout(leaveTimer); sb.classList.remove('collapsed'); });
+  window._expandSidebar=()=>{ clearTimeout(leaveTimer); sb.classList.remove('collapsed'); };
 }
 function initNav(){
   const links=[...document.querySelectorAll('.sb-nav a')];
