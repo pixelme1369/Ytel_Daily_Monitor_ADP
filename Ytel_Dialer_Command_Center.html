@@ -431,8 +431,7 @@ function runAnalysis(){
   mergedRaw.forEach(r=>{ if(r._ts===undefined) normalize(r); });
   badDateRows = mergedRaw.filter(r=>!r._dateStr).length;
 
-  calls = mergedRaw.filter(r=> r._dateStr && r._dateStr>=fromStr && r._dateStr<=toStr && r._name!=='Unknown/VDCL_SKIP');
-  calls = calls.filter(r=> !(r._user==='VDCL' || r._user==='VDAD'));
+  calls = mergedRaw.filter(r=> r._dateStr && r._dateStr>=fromStr && r._dateStr<=toStr);
 
   const hint = document.getElementById('hint');
   if(badDateRows>0){ hint.style.display='block'; hint.textContent = badDateRows+' row(s) had an unparseable call_date and were excluded.'; }
@@ -445,8 +444,6 @@ function runAnalysis(){
 }
 
 function buildDashboard(fromStr, toStr){
-  const agentRows = calls; // includes VDCL-excluded set already for agent purposes; other views use `calls` too since no CRM cross-filtering needed
-
   // ---- basic sets ----
   const outboundCalls = calls.filter(r=>r._direction==='outbound');
   const dialedUnique = new Set(outboundCalls.map(r=>r._phone).filter(Boolean));
@@ -498,7 +495,7 @@ function buildDashboard(fromStr, toStr){
 
   // ---- agent map ----
   const isTagged = name=>{ const n=name.toLowerCase(); return CLOSERS.has(n)||OPENERS.has(n)||RETENTION.has(n); };
-  const agentEligible = calls.filter(r=>r._name!=='Unknown');
+  const agentEligible = calls.filter(r=>r._name!=='Unknown' && r._user!=='VDCL' && r._user!=='VDAD');
   const agentMap = {};
   function agentBucket(name){ if(!agentMap[name]) agentMap[name]={ total:0, inbound:0, outbound:0, sec:0, short:0, r2m:0, r5to10:0, r10to15:0, r15to20:0, r20to30:0, gt30:0, drops:0, phoneOutCounts:{}, phoneMaxSec:{}, phoneRecordings:{}, lastCallTs:{}, outboundPhones:new Set(), contactedPhones:new Set() }; return agentMap[name]; }
   agentEligible.forEach(r=>{
@@ -791,7 +788,7 @@ function renderTopNumbers(calls){
 
 /* ================= RENDER: VDCL ================= */
 function renderVdcl(){
-  const vdclCalls = mergedRaw.filter(r=>r._dateStr>=document.getElementById('fromDate').value && r._dateStr<=document.getElementById('toDate').value && (r._user==='VDCL'||r._user==='VDAD'));
+  const vdclCalls = calls.filter(r=>r._user==='VDCL'||r._user==='VDAD');
   const b = document.getElementById('vdclBody');
   if(!vdclCalls.length){ b.innerHTML='<div class="empty-note">No VDCL/VDAD activity in this range.</div>'; return; }
   const byStatus = {};
