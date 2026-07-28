@@ -9,10 +9,23 @@ SheetJS 0.18.5 + Chart.js 4.4.0 via CDN.
 |------|---------|
 | `Ytel_Daily_Monitor_v2.html` | The dashboard (production) — sidebar nav, date range, export CSV, role editor |
 | `Agent_Performance_Range.html` | Standalone agent performance report with date range picker |
+| `Ytel_Dialer_Command_Center.html` | Independent Ytel-only ops dashboard — see its own section below |
 
 The original single-date dashboard (`Ytel_Daily_Monitor_ADP.html`) was removed in July 2026 — v2 is the only dashboard. Any older doc/commit references to "both dashboards" or "the original" refer to that deleted file.
 
 ---
+
+## Dialer Command Center (`Ytel_Dialer_Command_Center.html`)
+
+Added July 2026. A **completely independent** dashboard — its own file, own dark "ops center" visual design, own script from scratch. It does **not** share code, functions, CSS, or localStorage keys with `Ytel_Daily_Monitor_v2.html` / `Agent_Performance_Range.html` (localStorage keys are prefixed `dcc_` to avoid collision). Treat it as a separate product that happens to live in the same repo — changes to v2 should not be assumed to apply here and vice versa.
+
+**Why it exists**: v2 and Agent Performance Range both assume a Ytel export merged with CRM columns (`Cordoba Enrolled Date`, `CRM Status`, `Assigned To`, `Enrolled Debt`, `State`/`CRM_State`). This dashboard analyzes a **raw Ytel-only export** — call detail records with no CRM columns at all. Every feature that depends on enrollment/conversion (Enrolled KPI, Debt, Conv%, CA Escrow pending-deal logic, Ytel Discrepancy, Agent Outcomes scatter) is dropped entirely rather than approximated, since without CRM data there is no ground truth for "did this lead close."
+
+**Sections**: Overview KPIs (Total Calls, Unique Numbers Dialed, Contact Rate, Avg Talk Time, Drops, DNC Calls, Dialed After DNC) · Issues Detected (compliance/ops alerts, not conversion-based) · Call Volume/DNC/Drops by hour charts · Disposition Breakdown · Agent Performance table (talk-time brackets, inbound/outbound, drops, redials — no Enrolled/Debt/Conv% columns) · Agent Rankings (by volume / contact rate / drop rate — conversion ranking removed) · Campaign/Queue Breakdown (Contact% only, no Enrolled column) · Top 5 Numbers · VDCL/VDAD Analysis · Missed Callbacks (TIMEOT, single list) · DPC Drops Never Called Back (single list) · Incomplete Transfers + Correct Transfers Received (counts only) · Openers Transfer Breakdown + Lowest Transfer Rate ranking · **Long Calls, No Follow-up** (renamed from v2's "Long Calls, No Deal" — flags a phone if no call from *anyone* occurs after the qualifying long call, per the phone's full call timeline in `window._phoneAllCalls`, rather than checking against enrollment) · Settings (role editor for Closers/Openers/Retention, alert thresholds).
+
+**Known v1 gaps** (flag to the user if asked, don't silently claim otherwise): agent-level opener transfer-rate rounding uses the same bracket data as the breakdown table (accurate); redial threshold in Settings (`TH.redials`) is not yet wired 1:1 to the redial-flag count shown in Issues Detected (issue text uses a coarser `heavyRedialAgents` cutoff, not the exact threshold value) — cosmetic, not a correctness bug, but worth tightening if this dashboard gets real usage.
+
+Deployed to Vercel as a static file (same zero-build approach as v2) — not wired into `vercel.json`'s root rewrite (which still points to v2), so it's reachable at `/Ytel_Dialer_Command_Center.html` on whatever Vercel deployment serves this repo. Ask the user if they want a dedicated route/rewrite added.
 
 ## v2 Dashboard (`Ytel_Daily_Monitor_v2.html`)
 

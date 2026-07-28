@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ytel Dialer Command Center</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0B1220; --panel:#0F1A2E; --panel2:#111E36; --border:#1E2C4A;
+  --text:#E2E8F0; --text-dim:#8FA2C4; --text-mute:#5E7099;
+  --cyan:#22D3EE; --green:#34D399; --red:#F87171; --amber:#FBBF24; --purple:#A78BFA;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#24344F;border-radius:6px}
+a{color:var(--cyan)}
+
+/* ---------- top bar ---------- */
+#topbar{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0D1626,#0B1220);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:8px}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:.02em}
+.brand small{display:block;font-size:10px;color:var(--text-mute);letter-spacing:.08em;text-transform:uppercase}
+#dropzone{border:1.5px dashed #2C3F63;border-radius:8px;padding:8px 14px;font-size:12px;color:var(--text-dim);cursor:pointer;transition:.15s}
+#dropzone:hover,#dropzone.drag{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,.06)}
+.tb-field{display:flex;flex-direction:column;gap:3px}
+.tb-field label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-mute)}
+.tb-field input[type=date]{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;color-scheme:dark}
+.btn{background:var(--cyan);color:#00212B;border:none;border-radius:6px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.02em}
+.btn:hover{filter:brightness(1.1)}
+.btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+.btn.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+#fileCount{font-size:11px;color:var(--text-mute)}
+#hint{width:100%;font-size:11px;color:var(--amber);display:none}
+
+/* ---------- layout ---------- */
+#main{display:flex;max-width:1600px;margin:0 auto}
+#nav{width:190px;flex:0 0 190px;padding:18px 10px;position:sticky;top:57px;align-self:flex-start;height:calc(100vh - 57px);overflow-y:auto}
+#nav a{display:block;font-size:12px;color:var(--text-dim);text-decoration:none;padding:7px 10px;border-radius:6px;margin-bottom:2px}
+#nav a:hover{background:var(--panel2);color:var(--text)}
+#content{flex:1;padding:20px 24px 60px;min-width:0}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;border-bottom:1px solid var(--border)}
+.card-head h2{font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--text)}
+.card-head .meta{font-size:11px;color:var(--text-mute);font-weight:400;text-transform:none;margin-left:8px}
+.card-body{padding:16px}
+.card.collapsed .card-body{display:none}
+.chev{transition:.15s;color:var(--text-mute);font-size:11px}
+.card.collapsed .chev{transform:rotate(-90deg)}
+.card-tools{display:flex;gap:8px;align-items:center}
+
+/* ---------- kpi grid ---------- */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.kpi .v{font-size:24px;font-weight:800;line-height:1.1}
+.kpi .l{font-size:11px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
+.kpi .s{font-size:11px;color:var(--text-dim);margin-top:2px}
+.kpi.danger .v{color:var(--red)}
+.kpi.warn .v{color:var(--amber)}
+.kpi.ok .v{color:var(--green)}
+.kpi.click{cursor:pointer}
+.kpi.click:hover{border-color:var(--cyan)}
+
+/* ---------- issues ---------- */
+.issue-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:8px;background:var(--panel2);border-left:3px solid var(--text-mute)}
+.issue-row.crit{border-left-color:var(--red)}
+.issue-row.warn{border-left-color:var(--amber)}
+.issue-row.ok{border-left-color:var(--green)}
+.issue-row .badge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+.issue-row.crit .badge{background:rgba(248,113,113,.15);color:var(--red)}
+.issue-row.warn .badge{background:rgba(251,191,36,.15);color:var(--amber)}
+.issue-row.ok .badge{background:rgba(52,211,153,.15);color:var(--green)}
+.issue-row .txt{flex:1;font-size:12.5px}
+.issue-row .txt b{color:var(--text)}
+.issue-row button{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:5px;font-size:11px;padding:4px 9px;cursor:pointer}
+.issue-row button:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 10px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.04em;font-size:10.5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--cyan)}
+th.sort-asc:after{content:' \25B2';color:var(--cyan)}
+th.sort-desc:after{content:' \25BC';color:var(--cyan)}
+td{padding:7px 10px;border-bottom:1px solid #16223B;white-space:nowrap}
+tr.total-row td{font-weight:700;background:var(--panel2);border-top:1px solid var(--border)}
+.tbl-wrap{overflow-x:auto}
+.click-num{color:var(--cyan);cursor:pointer;text-decoration:underline dotted}
+.click-num:hover{color:#67E8F9}
+.role-tag{font-size:9px;padding:1px 6px;border-radius:10px;margin-left:6px;font-weight:700}
+.role-closer{background:rgba(34,211,238,.15);color:var(--cyan)}
+.role-opener{background:rgba(251,191,36,.15);color:var(--amber)}
+.role-retention{background:rgba(167,139,250,.15);color:var(--purple)}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.dim{color:var(--text-mute)}
+
+/* ---------- filters ---------- */
+.filter-row{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.filter-row label{font-size:10.5px;color:var(--text-mute);text-transform:uppercase;margin-right:2px}
+.af-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:5px 11px;font-size:11.5px;cursor:pointer}
+.af-btn.active{background:var(--cyan);color:#00212B;border-color:var(--cyan);font-weight:700}
+
+/* multi-select */
+.ms-wrap{position:relative;display:inline-block}
+.ms-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:6px 10px;font-size:11.5px;cursor:pointer;min-width:140px;text-align:left}
+.ms-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px;z-index:40;max-height:240px;overflow-y:auto;min-width:200px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.ms-panel.open{display:block}
+.ms-panel label{display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 4px;cursor:pointer;color:var(--text)}
+.ms-panel hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+
+/* charts */
+.chart-box{position:relative;height:260px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}#nav{display:none}}
+
+/* settings */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.settings-grid textarea{width:100%;min-height:140px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;font-size:12px;font-family:ui-monospace,monospace}
+.th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:10px}
+.th-item label{display:block;font-size:11px;color:var(--text-mute);margin-bottom:4px}
+.th-item input{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px}
+
+/* modal */
+#modalBg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}
+#modalBg.open{display:flex}
+#modalBox{background:var(--panel);border:1px solid var(--border);border-radius:12px;max-width:600px;width:90vw;max-height:80vh;overflow-y:auto}
+#modalBox .m-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel)}
+#modalBox .m-head h3{font-size:14px}
+#modalBox .m-head span{cursor:pointer;color:var(--text-mute);font-size:18px}
+#modalBox .m-body{padding:14px 18px}
+.m-row{padding:10px;border-bottom:1px solid #16223B;font-size:12px}
+.m-row .ph{font-family:ui-monospace,monospace;font-weight:700}
+.m-row .pill{font-size:9px;background:var(--panel2);border:1px solid var(--border);padding:1px 7px;border-radius:20px;margin-left:6px;color:var(--text-dim)}
+.m-row audio{width:100%;height:34px;margin-top:6px}
+.m-row .dl{font-size:11px;display:block;margin-top:4px}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12.5px;z-index:200;display:none;max-width:320px}
+.empty-note{font-size:12px;color:var(--text-mute);padding:10px 0}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1>Dialer Command Center</h1>
+      <small>Ytel call data only &mdash; no CRM</small>
+    </div>
+  </div>
+  <div id="dropzone" onclick="document.getElementById('fileInput').click()">⇪ Drop XLSX or click to upload</div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls" multiple style="display:none">
+  <div class="tb-field"><label>From</label><input type="date" id="fromDate"></div>
+  <div class="tb-field"><label>To</label><input type="date" id="toDate"></div>
+  <button class="btn" onclick="runAnalysis()">Run Analysis</button>
+  <button class="btn ghost" onclick="copySummary()">Copy Summary</button>
+  <button class="btn ghost" onclick="clearAll()">Clear</button>
+  <span id="fileCount"></span>
+  <div id="hint"></div>
+</div>
+
+<div id="main">
+  <nav id="nav">
+    <a href="#sec-kpi">Overview</a>
+    <a href="#sec-issues">Issues Detected</a>
+    <a href="#sec-hour">Call Volume</a>
+    <a href="#sec-dispo">Dispositions</a>
+    <a href="#sec-agent">Agent Performance</a>
+    <a href="#sec-rank">Agent Rankings</a>
+    <a href="#sec-camp">Campaign Breakdown</a>
+    <a href="#sec-top">Top Numbers</a>
+    <a href="#sec-vdcl">VDCL Analysis</a>
+    <a href="#sec-missed">Missed Callbacks</a>
+    <a href="#sec-dpc">DPC Drops</a>
+    <a href="#sec-transfers">Transfers</a>
+    <a href="#sec-openers">Openers Breakdown</a>
+    <a href="#sec-long">Long Calls, No Follow-up</a>
+    <a href="#sec-settings">Settings</a>
+  </nav>
+
+  <div id="content">
+    <div id="emptyState" class="empty-note" style="font-size:14px;padding:60px 0;text-align:center">Upload one or more Ytel export XLSX files to begin.</div>
+    <div id="report" style="display:none">
+
+      <div class="card" id="sec-kpi"><div class="card-head" onclick="toggleCard(this)"><h2>Overview</h2><span class="chev">▼</span></div>
+        <div class="card-body"><div class="kpi-grid" id="kpiGrid"></div></div>
+      </div>
+
+      <div class="card" id="sec-issues"><div class="card-head" onclick="toggleCard(this)"><h2>Issues Detected</h2><span class="chev">▼</span></div>
+        <div class="card-body" id="issuesBody"></div>
+      </div>
+
+      <div class="card" id="sec-hour"><div class="card-head" onclick="toggleCard(this)"><h2>Call Volume &amp; Compliance by Hour</h2><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="two-col">
+            <div><div style="font-size:11px;color:var(--text-mute);margin-bottom:6px">CALLS BY HOUR</div><div class="chart-box"><canvas id="hourChart"></canvas></div></div>
+            <div><div style="font-size:11px;color:var(--text-mute);margin-bottom:6px">DNC CALLS BY HOUR</div><div class="chart-box"><canvas id="dncHourChart"></canvas></div></div>
+          </div>
+          <div class="two-col" style="margin-top:18px">
+            <div><div style="font-size:11px;color:var(--text-mute);margin-bottom:6px">DROPS BY HOUR</div><div class="chart-box"><canvas id="dropHourChart"></canvas></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-dispo"><div class="card-head" onclick="toggleCard(this)"><h2>Disposition Breakdown</h2><span class="chev">▼</span></div>
+        <div class="card-body"><div class="tbl-wrap"><table id="dispoTable"><thead><tr><th>Status</th><th>Calls</th><th>%</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <div class="card" id="sec-agent"><div class="card-head" onclick="toggleCard(this)"><h2>Agent Performance</h2><span class="chev">▼</span><div class="card-tools"><button class="btn ghost" onclick="event.stopPropagation();exportTable('agentTable','agent_performance.csv')">⬇ CSV</button></div></div>
+        <div class="card-body"><div class="tbl-wrap"><table id="agentTable"><thead></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <div class="card" id="sec-rank"><div class="card-head" onclick="toggleCard(this)"><h2>Agent Rankings</h2><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="filter-row">
+            <button class="af-btn active" data-r="volume" onclick="setRankMode('volume',this)">By Volume</button>
+            <button class="af-btn" data-r="contact" onclick="setRankMode('contact',this)">By Contact Rate</button>
+            <button class="af-btn" data-r="drop" onclick="setRankMode('drop',this)">By Drop Rate</button>
+          </div>
+          <div class="tbl-wrap"><table id="rankTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-camp"><div class="card-head" onclick="toggleCard(this)"><h2>Campaign / Queue Breakdown</h2><span class="chev">▼</span><div class="card-tools"><button class="btn ghost" onclick="event.stopPropagation();exportTable('campTable','campaign_breakdown.csv')">⬇ CSV</button></div></div>
+        <div class="card-body"><div class="tbl-wrap"><table id="campTable"><thead><tr><th>Campaign</th><th>Calls</th><th>Contacted</th><th>Contact%</th><th>Drops</th><th>DNC</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <div class="card" id="sec-top"><div class="card-head" onclick="toggleCard(this)"><h2>Top 5 Dialed Numbers</h2><span class="chev">▼</span></div>
+        <div class="card-body"><div class="tbl-wrap"><table id="topTable"><thead><tr><th>Phone</th><th>Calls</th><th>Campaigns</th><th>Agents</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <div class="card" id="sec-vdcl"><div class="card-head" onclick="toggleCard(this)"><h2>VDCL / VDAD Analysis</h2><span class="chev">▼</span></div>
+        <div class="card-body" id="vdclBody"></div>
+      </div>
+
+      <div class="card" id="sec-missed"><div class="card-head" onclick="toggleCard(this)"><h2>Missed Callbacks <span class="meta" id="missedMeta"></span></h2><span class="chev">▼</span><div class="card-tools"><button class="btn ghost" onclick="event.stopPropagation();exportTable('missedTable','missed_callbacks.csv')">⬇ CSV</button></div></div>
+        <div class="card-body">
+          <div class="filter-row"><label>Campaign</label><div class="ms-wrap" id="ms-missedCamp"></div></div>
+          <div class="tbl-wrap"><table id="missedTable"><thead><tr><th>Phone</th><th>Timeout Time</th><th>Campaign</th><th>Last Agent</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-dpc"><div class="card-head" onclick="toggleCard(this)"><h2>DPC &mdash; Dropped, Never Called Back <span class="meta" id="dpcMeta"></span></h2><span class="chev">▼</span><div class="card-tools"><button class="btn ghost" onclick="event.stopPropagation();exportTable('dpcTable','dpc_drops.csv')">⬇ CSV</button></div></div>
+        <div class="card-body">
+          <div class="filter-row"><label>Campaign</label><div class="ms-wrap" id="ms-dpcCamp"></div></div>
+          <div class="tbl-wrap"><table id="dpcTable"><thead><tr><th>Phone</th><th>Drop Time</th><th>Agent</th><th>Campaign</th><th>Duration</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-transfers"><div class="card-head" onclick="toggleCard(this)"><h2>Transfers</h2><span class="chev">▼</span></div>
+        <div class="card-body">
+          <h3 style="font-size:12px;color:var(--text-dim);margin-bottom:8px">INCOMPLETE TRANSFERS (no inbound follow-up) <span class="meta" id="badTrMeta"></span></h3>
+          <div class="tbl-wrap" style="margin-bottom:20px"><table id="badTrTable"><thead><tr><th>Phone</th><th>Transfer Time</th><th>Agent</th><th>Campaign</th><th></th></tr></thead><tbody></tbody></table></div>
+          <h3 style="font-size:12px;color:var(--text-dim);margin-bottom:8px">CORRECT TRANSFERS RECEIVED BY AGENT</h3>
+          <div class="tbl-wrap"><table id="rcvTrTable"><thead><tr><th>Agent</th><th>Transfers Received</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-openers"><div class="card-head" onclick="toggleCard(this)"><h2>Openers &mdash; Transfer Breakdown</h2><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="tbl-wrap" style="margin-bottom:20px"><table id="openerBrTable"><thead></thead><tbody></tbody></table></div>
+          <h3 style="font-size:12px;color:var(--text-dim);margin:14px 0 8px">LOWEST TRANSFER RATE (calls &gt; 2min)</h3>
+          <div class="tbl-wrap"><table id="openerRateTable"><thead><tr><th>Agent</th><th>Calls &gt;2min</th><th>Transfers</th><th>Rate</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-long"><div class="card-head" onclick="toggleCard(this)"><h2>Long Calls, No Follow-up</h2><span class="chev">▼</span><div class="card-tools">
+          <select id="longThreshold" onchange="setLongThreshold()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:11.5px">
+            <option value="1200">20+ min</option><option value="1500">25+ min</option><option value="1800">30+ min</option>
+          </select>
+          <button class="btn ghost" onclick="event.stopPropagation();exportTable('longTable','long_calls_no_followup.csv')">⬇ CSV</button>
+        </div></div>
+        <div class="card-body"><div class="tbl-wrap"><table id="longTable"><thead><tr><th>Agent</th><th>Long Calls</th><th>No Follow-up</th><th></th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <div class="card collapsed" id="sec-settings"><div class="card-head" onclick="toggleCard(this)"><h2>Settings</h2><span class="chev">▼</span></div>
+        <div class="card-body">
+          <h3 style="font-size:12px;color:var(--text-dim);margin-bottom:10px">AGENT ROLES (one name per line)</h3>
+          <div class="settings-grid">
+            <div><label style="font-size:11px;color:var(--cyan)">Closers</label><textarea id="roleCloser"></textarea></div>
+            <div><label style="font-size:11px;color:var(--amber)">Openers</label><textarea id="roleOpener"></textarea></div>
+            <div><label style="font-size:11px;color:var(--purple)">Retention</label><textarea id="roleRetention"></textarea></div>
+          </div>
+          <div style="margin-top:10px"><button class="btn" onclick="saveRoles()">Save Roles</button> <button class="btn ghost" onclick="resetRoles()">Reset to Defaults</button></div>
+
+          <h3 style="font-size:12px;color:var(--text-dim);margin:22px 0 4px">ALERT THRESHOLDS</h3>
+          <div class="th-grid" id="thGrid"></div>
+          <div style="margin-top:10px"><button class="btn" onclick="saveThresholds()">Save Thresholds</button></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div id="modalBox">
+    <div class="m-head"><h3 id="modalTitle"></h3><span onclick="closeModal()">&times;</span></div>
+    <div class="m-body" id="modalBody"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ================= CONFIG ================= */
+const DEFAULT_ROLES = {
+  closer: ['sample closer one','sample closer two'],
+  opener: ['sample opener one','sample opener two'],
+  retention: ['sample retention one']
+};
+let CLOSERS = new Set(DEFAULT_ROLES.closer);
+let OPENERS = new Set(DEFAULT_ROLES.opener);
+let RETENTION = new Set(DEFAULT_ROLES.retention);
+
+const DEFAULT_THRESHOLDS = {
+  dncCalls: 20, dropPct: 5, deadPct: 30, agentShortPct: 55, agentMinCalls: 30, redials: 15
+};
+let TH = Object.assign({}, DEFAULT_THRESHOLDS);
+const TH_LABELS = {
+  dncCalls:'DNC Calls (warn above)', dropPct:'Drop % (warn above)', deadPct:'Dead Call % ≤30s (warn above)',
+  agentShortPct:'Agent Short-Call % (flag above)', agentMinCalls:'Agent Min Calls (to qualify for flag)', redials:'Redials to Same Number (flag above)'
+};
+
+/* ================= UTILS ================= */
+function pad2(n){return String(n).padStart(2,'0');}
+function pct(n,d){return d? (n/d*100).toFixed(1)+'%' : '0.0%';}
+function fmtDur(sec){
+  sec = Math.round(sec||0);
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  return h>0 ? h+':'+pad2(m)+':'+pad2(s) : m+':'+pad2(s);
+}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function attrJson(v){return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;');}
+function parseTs(v){
+  if(v instanceof Date) return v.getTime();
+  if(typeof v==='number') return v;
+  if(typeof v==='string'){ const d=new Date(v); if(!isNaN(d)) return d.getTime(); }
+  return NaN;
+}
+function getDateStr(v){
+  const d = v instanceof Date ? v : new Date(v);
+  if(isNaN(d)) return null;
+  return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+}
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(window._toastT); window._toastT=setTimeout(()=>t.style.display='none',3200);
+}
+function toggleCard(head){ head.parentElement.classList.toggle('collapsed'); const id=head.parentElement.id; localStorage.setItem('dcc_collapse:'+id, head.parentElement.classList.contains('collapsed')?'1':'0'); }
+function restoreCollapse(){ document.querySelectorAll('.card[id]').forEach(c=>{ const v=localStorage.getItem('dcc_collapse:'+c.id); if(v==='1') c.classList.add('collapsed'); if(v==='0') c.classList.remove('collapsed'); }); }
+
+/* ================= FILE I/O ================= */
+let mergedRaw = [];
+let loadedFileNames = [];
+
+document.getElementById('fileInput').addEventListener('change', e=>handleFiles(e.target.files));
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e=>{e.preventDefault(); dz.classList.add('drag');});
+dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+dz.addEventListener('drop', e=>{e.preventDefault(); dz.classList.remove('drag'); handleFiles(e.dataTransfer.files);});
+
+function handleFiles(fileList){
+  const files = Array.from(fileList||[]).filter(f=>/\.xlsx?$/i.test(f.name));
+  if(!files.length) return;
+  let pending = files.length;
+  files.forEach(f=>{
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+        mergedRaw = mergedRaw.concat(rows);
+        loadedFileNames.push(f.name);
+      }catch(err){ toast('Failed to read '+f.name); }
+      pending--;
+      if(pending===0){ document.getElementById('fileCount').textContent = loadedFileNames.length+' file(s) loaded ('+mergedRaw.length+' rows)'; autoSetDate(); }
+    };
+    reader.readAsArrayBuffer(f);
+  });
+}
+
+function autoSetDate(){
+  let newest=null;
+  mergedRaw.forEach(r=>{
+    const ds = getDateStr(r.call_date);
+    if(ds && (!newest || ds>newest)) newest=ds;
+  });
+  if(newest){ document.getElementById('fromDate').value=newest; document.getElementById('toDate').value=newest; }
+}
+
+function clearAll(){
+  mergedRaw=[]; loadedFileNames=[];
+  document.getElementById('fileCount').textContent='';
+  document.getElementById('fromDate').value=''; document.getElementById('toDate').value='';
+  document.getElementById('report').style.display='none';
+  document.getElementById('emptyState').style.display='block';
+  document.getElementById('hint').style.display='none';
+  ['hourChart','dncHourChart','dropHourChart'].forEach(id=>{ if(window['_'+id]){ window['_'+id].destroy(); window['_'+id]=null; } });
+}
+
+/* ================= NORMALIZATION ================= */
+function normalize(r){
+  r._ts = parseTs(r.call_date);
+  const dt = new Date(r._ts);
+  r._hour = isNaN(r._ts) ? String(r.call_date||'').slice(11,13) : pad2(dt.getHours());
+  r._dateStr = getDateStr(r.call_date);
+  r._name = (r.full_name||'Unknown').toString().trim() || 'Unknown';
+  r._user = (r.user||'').toString().trim();
+  r._campaign = (r.campaign_id||'Unknown').toString().trim() || 'Unknown';
+  r._source = (r.source_id||'').toString().trim();
+  r._status = (r.status||'').toString().trim();
+  r._direction = (r.direction||'').toString().trim().toLowerCase();
+  r._sec = Number(r.length_in_sec)||0;
+  r._phone = (r.phone_number_dialed || r.phone_number || '').toString().trim();
+  r._recording = (r.recording_location||'').toString().trim();
+}
+
+/* ================= ANALYSIS ================= */
+let calls = [];
+let badDateRows = 0;
+
+function runAnalysis(){
+  if(!mergedRaw.length){ toast('Upload a file first'); return; }
+  const fromStr = document.getElementById('fromDate').value;
+  const toStr = document.getElementById('toDate').value;
+  if(!fromStr || !toStr){ toast('Select a date range'); return; }
+
+  mergedRaw.forEach(r=>{ if(r._ts===undefined) normalize(r); });
+  badDateRows = mergedRaw.filter(r=>!r._dateStr).length;
+
+  calls = mergedRaw.filter(r=> r._dateStr && r._dateStr>=fromStr && r._dateStr<=toStr && r._name!=='Unknown/VDCL_SKIP');
+  calls = calls.filter(r=> !(r._user==='VDCL' || r._user==='VDAD'));
+
+  const hint = document.getElementById('hint');
+  if(badDateRows>0){ hint.style.display='block'; hint.textContent = badDateRows+' row(s) had an unparseable call_date and were excluded.'; }
+  else hint.style.display='none';
+
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('report').style.display='block';
+
+  buildDashboard(fromStr, toStr);
+}
+
+function buildDashboard(fromStr, toStr){
+  const agentRows = calls; // includes VDCL-excluded set already for agent purposes; other views use `calls` too since no CRM cross-filtering needed
+
+  // ---- basic sets ----
+  const outboundCalls = calls.filter(r=>r._direction==='outbound');
+  const dialedUnique = new Set(outboundCalls.map(r=>r._phone).filter(Boolean));
+  const contactedUnique = new Set(outboundCalls.filter(r=>r._sec>30).map(r=>r._phone).filter(Boolean));
+  const totalCalls = calls.length;
+  const dropRows = calls.filter(r=>r._status==='DROP');
+  const dncRows = calls.filter(r=>r._status==='DNC');
+  const deadRows = calls.filter(r=>r._sec<=30);
+  const avgTalk = totalCalls? calls.reduce((a,r)=>a+r._sec,0)/totalCalls : 0;
+
+  // ---- dialed after DNC ----
+  const firstDncTs = {};
+  dncRows.forEach(r=>{ if(!firstDncTs[r._phone] || r._ts<firstDncTs[r._phone]) firstDncTs[r._phone]=r._ts; });
+  const dialedAfterDncPhones = new Set();
+  const afterDncDetail = {};
+  calls.forEach(r=>{
+    const fdt = firstDncTs[r._phone];
+    if(fdt!==undefined && r._direction==='outbound' && r._ts>fdt){
+      dialedAfterDncPhones.add(r._phone);
+      if(!afterDncDetail[r._phone]) afterDncDetail[r._phone]={count:0, agents:new Set()};
+      afterDncDetail[r._phone].count++;
+      afterDncDetail[r._phone].agents.add(r._name);
+    }
+  });
+  window._afterDncDetail = afterDncDetail;
+
+  // ---- dispo breakdown ----
+  const dispoCounts = {};
+  calls.forEach(r=>{ const k=r._status||'(blank)'; dispoCounts[k]=(dispoCounts[k]||0)+1; });
+
+  // ---- hour buckets ----
+  const hourCounts = {}, dncHourCounts = {}, dropHourCounts = {};
+  for(let h=0;h<24;h++){ const k=pad2(h); hourCounts[k]=0; dncHourCounts[k]=0; dropHourCounts[k]=0; }
+  calls.forEach(r=>{ if(hourCounts[r._hour]!==undefined) hourCounts[r._hour]++; });
+  dncRows.forEach(r=>{ if(dncHourCounts[r._hour]!==undefined) dncHourCounts[r._hour]++; });
+  dropRows.forEach(r=>{ if(dropHourCounts[r._hour]!==undefined) dropHourCounts[r._hour]++; });
+
+  // ---- campaign map ----
+  const campMap = {};
+  function campBucket(c){ if(!campMap[c]) campMap[c]={calls:0, phones:new Set(), phonesContacted:new Set(), drops:0, dnc:0}; return campMap[c]; }
+  calls.forEach(r=>{
+    const cb = campBucket(r._campaign);
+    cb.calls++;
+    if(r._phone) cb.phones.add(r._phone);
+    if(r._sec>30 && r._phone) cb.phonesContacted.add(r._phone);
+    if(r._status==='DROP') cb.drops++;
+    if(r._status==='DNC') cb.dnc++;
+  });
+
+  // ---- agent map ----
+  const isTagged = name=>{ const n=name.toLowerCase(); return CLOSERS.has(n)||OPENERS.has(n)||RETENTION.has(n); };
+  const agentEligible = calls.filter(r=>r._name!=='Unknown');
+  const agentMap = {};
+  function agentBucket(name){ if(!agentMap[name]) agentMap[name]={ total:0, inbound:0, outbound:0, sec:0, short:0, r2m:0, r5to10:0, r10to15:0, r15to20:0, r20to30:0, gt30:0, drops:0, phoneOutCounts:{}, phoneMaxSec:{}, phoneRecordings:{}, lastCallTs:{}, outboundPhones:new Set(), contactedPhones:new Set() }; return agentMap[name]; }
+  agentEligible.forEach(r=>{
+    const b = agentBucket(r._name);
+    b.total++;
+    if(r._direction==='inbound') b.inbound++; else if(r._direction==='outbound'){ b.outbound++; if(r._phone){ b.outboundPhones.add(r._phone); if(r._sec>30) b.contactedPhones.add(r._phone); } }
+    b.sec += r._sec;
+    if(r._sec<=30) b.short++;
+    else if(r._sec<120) b.r2m++;
+    else if(r._sec<300){} // 2-5min not separately tracked at top level
+    else if(r._sec<600) b.r5to10++;
+    else if(r._sec<900) b.r10to15++;
+    else if(r._sec<1200) b.r15to20++;
+    else if(r._sec<1800) b.r20to30++;
+    else b.gt30++;
+    if(r._status==='DROP') b.drops++;
+    if(r._direction==='outbound' && r._phone){ b.phoneOutCounts[r._phone]=(b.phoneOutCounts[r._phone]||0)+1; }
+    if(r._sec>=1200 && r._phone){
+      if(!b.phoneMaxSec[r._phone] || r._sec>b.phoneMaxSec[r._phone]) b.phoneMaxSec[r._phone]=r._sec;
+      if(!b.phoneRecordings[r._phone]) b.phoneRecordings[r._phone]=[];
+      b.phoneRecordings[r._phone].push({sec:r._sec, recording:r._recording, ts:r._ts});
+    }
+    if(!b.lastCallTs[r._phone] || r._ts>b.lastCallTs[r._phone]) b.lastCallTs[r._phone]=r._ts;
+  });
+
+  // redials: phones an agent called 3+ times outbound in the range
+  const redialFlags = {};
+  Object.keys(agentMap).forEach(name=>{
+    const b = agentMap[name];
+    const redialed = Object.entries(b.phoneOutCounts).filter(([p,c])=>c>=3);
+    if(redialed.length) redialFlags[name]=redialed.length;
+  });
+
+  // ---- per-phone last-call-anywhere (for "no follow-up" logic) ----
+  const phoneAllCalls = {};
+  calls.forEach(r=>{ if(!r._phone) return; (phoneAllCalls[r._phone]=phoneAllCalls[r._phone]||[]).push(r); });
+  Object.values(phoneAllCalls).forEach(arr=>arr.sort((a,b)=>a._ts-b._ts));
+  window._phoneAllCalls = phoneAllCalls;
+
+  // ---- missed callbacks (TIMEOT with no follow-up) ----
+  const missedList = [];
+  Object.entries(phoneAllCalls).forEach(([phone,arr])=>{
+    const timeouts = arr.filter(r=>r._status==='TIMEOT');
+    if(!timeouts.length) return;
+    const lastTimeout = timeouts[timeouts.length-1];
+    const followUp = arr.some(r=>r._ts>lastTimeout._ts && r._status!=='TIMEOT');
+    if(!followUp){
+      missedList.push({phone, ts:lastTimeout._ts, camp:lastTimeout._campaign, agent:lastTimeout._name});
+    }
+  });
+
+  // ---- DPC drops never called back (per-event) ----
+  const dpcFlagged = {};
+  Object.entries(phoneAllCalls).forEach(([phone,arr])=>{
+    const dpcEvents = arr.filter(r=>r._status==='DPC');
+    if(!dpcEvents.length) return;
+    dpcEvents.forEach(ev=>{
+      const hasFollowUp = arr.some(r=>r._ts>ev._ts && r._status!=='DPC');
+      if(!hasFollowUp){
+        if(!dpcFlagged[phone]) dpcFlagged[phone]={events:[]};
+        dpcFlagged[phone].events.push({ts:ev._ts, agent:ev._name, camp:ev._campaign, sec:ev._sec, recording:ev._recording});
+      }
+    });
+  });
+
+  // ---- incomplete transfers (CLtrns with no later inbound call) ----
+  const badTransferFlagged = {};
+  const inboundCallsByPhone = {};
+  calls.filter(r=>r._direction==='inbound').forEach(r=>{ (inboundCallsByPhone[r._phone]=inboundCallsByPhone[r._phone]||[]).push(r); });
+  Object.values(inboundCallsByPhone).forEach(arr=>arr.sort((a,b)=>a._ts-b._ts));
+  const receivedTransfers = {};
+  Object.entries(phoneAllCalls).forEach(([phone,arr])=>{
+    const cltrnsEvents = arr.filter(r=>r._status==='CLtrns');
+    if(!cltrnsEvents.length) return;
+    const inbounds = inboundCallsByPhone[phone]||[];
+    cltrnsEvents.forEach(ev=>{
+      const followUp = inbounds.find(f=>f._ts>ev._ts);
+      if(!followUp){
+        if(!badTransferFlagged[phone]) badTransferFlagged[phone]={events:[]};
+        badTransferFlagged[phone].events.push({ts:ev._ts, agent:ev._name, camp:ev._campaign, sec:ev._sec, recording:ev._recording});
+      } else {
+        const agent = followUp._name;
+        if(!receivedTransfers[agent]) receivedTransfers[agent]={count:0};
+        receivedTransfers[agent].count++;
+      }
+    });
+  });
+
+  // ---- openers transfer breakdown ----
+  const brackets = [
+    {key:'dead', label:'Dead ≤30s', test:sec=>sec<=30},
+    {key:'b30_2', label:'30s–2min', test:sec=>sec>30&&sec<120},
+    {key:'b2_5', label:'2–5min', test:sec=>sec>=120&&sec<300},
+    {key:'b5_10', label:'5–10min', test:sec=>sec>=300&&sec<600},
+    {key:'b10_15', label:'10–15min', test:sec=>sec>=600&&sec<900},
+    {key:'b15_20', label:'15–20min', test:sec=>sec>=900&&sec<1200},
+    {key:'b20_30', label:'20–30min', test:sec=>sec>=1200&&sec<1800},
+    {key:'b30p', label:'30+min', test:sec=>sec>=1800}
+  ];
+  const openerAgents = agentEligible.filter(r=>OPENERS.has(r._name.toLowerCase()));
+  const openerByAgent = {};
+  openerAgents.forEach(r=>{
+    const name=r._name;
+    if(!openerByAgent[name]){ openerByAgent[name]={}; brackets.forEach(br=>openerByAgent[name][br.key]={total:0,trns:0,records:[]}); }
+    const br = brackets.find(b=>b.test(r._sec));
+    if(!br) return;
+    const cell = openerByAgent[name][br.key];
+    cell.total++;
+    if(r._status==='CLtrns'){ cell.trns++; cell.records.push({phone:r._phone, sec:r._sec, recording:r._recording}); }
+  });
+
+  // ---- long calls no follow-up ----
+  window._longNoFollowFlagged = [];
+
+  // ---- issues ----
+  const dropPct = totalCalls? dropRows.length/totalCalls*100 : 0;
+  const deadPct = totalCalls? deadRows.length/totalCalls*100 : 0;
+  const issues = [];
+  if(dialedAfterDncPhones.size>0) issues.push({sev:'crit', text:'<b>'+dialedAfterDncPhones.size+'</b> phone(s) dialed after being marked DNC — compliance violation.', action:'showAfterDnc'});
+  if(dncRows.length>TH.dncCalls) issues.push({sev:'warn', text:'<b>'+dncRows.length+'</b> DNC calls this period (threshold '+TH.dncCalls+').'});
+  if(dropPct>TH.dropPct) issues.push({sev:'warn', text:'Drop rate at <b>'+dropPct.toFixed(1)+'%</b> (threshold '+TH.dropPct+'%).'});
+  if(deadPct>TH.deadPct) issues.push({sev:'warn', text:'<b>'+deadPct.toFixed(1)+'%</b> of calls are ≤30s (threshold '+TH.deadPct+'%).'});
+  const shortAgents = Object.entries(agentMap).filter(([n,b])=>b.total>=TH.agentMinCalls && (b.short/b.total*100)>TH.agentShortPct);
+  if(shortAgents.length) issues.push({sev:'warn', text:'<b>'+shortAgents.length+'</b> agent(s) with short-call rate above '+TH.agentShortPct+'% (min '+TH.agentMinCalls+' calls): '+shortAgents.map(([n])=>n).join(', ')+'.'});
+  const redialAgents = Object.entries(redialFlags).filter(([n,c])=>c>=1);
+  const heavyRedialAgents = redialAgents.filter(([n,c])=>c>=Math.ceil(TH.redials/3));
+  if(heavyRedialAgents.length) issues.push({sev:'warn', text:'<b>'+heavyRedialAgents.length+'</b> agent(s) with excessive redials to the same number(s).'});
+  if(!issues.length) issues.push({sev:'ok', text:'No issues detected for this range.'});
+
+  // ================= RENDER =================
+  renderKpis({totalCalls, dialedUnique, contactedUnique, avgTalk, dropRows, dncRows, dialedAfterDncPhones});
+  renderIssues(issues);
+  renderHourCharts(hourCounts, dncHourCounts, dropHourCounts);
+  renderDispo(dispoCounts, totalCalls);
+  renderAgentTable(agentMap, redialFlags);
+  window._agentMapForRank = agentMap;
+  renderRankTable(agentMap, window._rankMode||'volume');
+  window._campMapForFilter = campMap;
+  renderCampTable(campMap);
+  renderTopNumbers(calls);
+  renderVdcl();
+  window._missedList = missedList;
+  populateCampFilter('ms-missedCamp', Object.keys(campMap), ()=>renderMissed());
+  renderMissed();
+  window._dpcFlagged = dpcFlagged;
+  populateCampFilter('ms-dpcCamp', Object.keys(campMap), ()=>renderDpc());
+  renderDpc();
+  window._badTransferFlagged = badTransferFlagged;
+  renderBadTransfers(badTransferFlagged);
+  renderReceivedTransfers(receivedTransfers);
+  renderOpenerBreakdown(openerByAgent, brackets);
+  renderOpenerRates(openerByAgent, brackets);
+  window._agentMapForLong = agentMap;
+  renderLongNoFollow(agentMap);
+
+  window._summary = {totalCalls, contactRate: pct(contactedUnique.size, dialedUnique.size), drops:dropRows.length, dnc:dncRows.length, afterDnc:dialedAfterDncPhones.size, issues};
+}
+
+/* ================= RENDER: KPI ================= */
+function renderKpis(d){
+  const g = document.getElementById('kpiGrid');
+  const contactRate = d.dialedUnique.size? (d.contactedUnique.size/d.dialedUnique.size*100) : 0;
+  const tiles = [
+    {v:d.totalCalls.toLocaleString(), l:'Total Calls'},
+    {v:d.dialedUnique.size.toLocaleString(), l:'Unique Numbers Dialed'},
+    {v:contactRate.toFixed(1)+'%', l:'Contact Rate', cls: contactRate<30?'warn':'ok'},
+    {v:fmtDur(d.avgTalk), l:'Avg Talk Time'},
+    {v:d.dropRows.length.toLocaleString(), l:'Drops'},
+    {v:d.dncRows.length.toLocaleString(), l:'DNC Calls'},
+    {v:d.dialedAfterDncPhones.size.toLocaleString(), l:'Dialed After DNC', cls: d.dialedAfterDncPhones.size>0?'danger click':'ok', click:d.dialedAfterDncPhones.size>0}
+  ];
+  g.innerHTML = tiles.map(t=>'<div class="kpi '+(t.cls||'')+'"'+(t.click?' onclick="showAfterDnc()"':'')+'><div class="v">'+t.v+'</div><div class="l">'+t.l+'</div></div>').join('');
+}
+
+function showAfterDnc(){
+  const detail = window._afterDncDetail||{};
+  const recs = Object.entries(detail).map(([phone,d])=>({phone, extra:d.count+' call(s) by '+Array.from(d.agents).join(', ')}));
+  openModal('Dialed After DNC ('+recs.length+')', recs.map(r=>'<div class="m-row"><span class="ph">'+esc(r.phone)+'</span><div class="dim" style="margin-top:4px">'+esc(r.extra)+'</div></div>').join('') || '<div class="empty-note">None</div>');
+}
+
+/* ================= RENDER: Issues ================= */
+function renderIssues(issues){
+  const b = document.getElementById('issuesBody');
+  b.innerHTML = issues.map(i=>'<div class="issue-row '+i.sev+'"><span class="badge">'+i.sev+'</span><span class="txt">'+i.text+'</span>'+(i.action==='showAfterDnc'?'<button onclick="showAfterDnc()">View Numbers</button>':'')+'</div>').join('');
+}
+
+/* ================= RENDER: Charts ================= */
+function renderHourCharts(hourCounts, dncHourCounts, dropHourCounts){
+  const labels = Object.keys(hourCounts).map(h=>h+':00');
+  drawBar('hourChart', labels, Object.values(hourCounts), '#22D3EE');
+  drawBar('dncHourChart', labels, Object.values(dncHourCounts), '#F87171');
+  drawBar('dropHourChart', labels, Object.values(dropHourCounts), '#FBBF24');
+}
+function drawBar(id, labels, data, color){
+  const key='_'+id;
+  if(window[key]) window[key].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  window[key] = new Chart(ctx, {
+    type:'bar',
+    data:{labels, datasets:[{data, backgroundColor:color+'CC', borderRadius:3, barPercentage:.8}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:'#5E7099',font:{size:9}},grid:{display:false}}, y:{ticks:{color:'#5E7099'},grid:{color:'#1E2C4A'}} } }
+  });
+}
+
+/* ================= RENDER: Dispo ================= */
+function renderDispo(dispoCounts, total){
+  const rows = Object.entries(dispoCounts).sort((a,b)=>b[1]-a[1]);
+  document.querySelector('#dispoTable tbody').innerHTML = rows.map(([k,c])=>
+    '<tr><td>'+esc(k)+'</td><td>'+c.toLocaleString()+'</td><td>'+pct(c,total)+'</td></tr>').join('');
+}
+
+/* ================= RENDER: Agent Table ================= */
+function roleTag(name){
+  const n = name.toLowerCase();
+  if(CLOSERS.has(n)) return '<span class="role-tag role-closer">CLOSER</span>';
+  if(OPENERS.has(n)) return '<span class="role-tag role-opener">OPENER</span>';
+  if(RETENTION.has(n)) return '<span class="role-tag role-retention">RETENTION</span>';
+  return '';
+}
+function renderAgentTable(agentMap, redialFlags){
+  const thead = document.querySelector('#agentTable thead');
+  const cols = ['Agent','Total','Inbound','Outbound','Short%','<2m','5-10m','10-15m','15-20m','20-30m','30m+','Avg Talk','Total Talk','Drops','Redials'];
+  thead.innerHTML = '<tr>'+cols.map((c,i)=>'<th data-i="'+i+'" onclick="sortTable(\'agentTable\','+i+',this)">'+c+'</th>').join('')+'</tr>';
+  const rows = Object.entries(agentMap).map(([name,b])=>({
+    name, total:b.total, inbound:b.inbound, outbound:b.outbound,
+    shortPct: b.total?(b.short/b.total*100):0, r2m:b.r2m, r5to10:b.r5to10, r10to15:b.r10to15, r15to20:b.r15to20, r20to30:b.r20to30, gt30:b.gt30,
+    avgTalk: b.total? b.sec/b.total:0, totalTalk:b.sec, drops:b.drops, redials: redialFlags[name]||0
+  })).sort((a,b)=>b.total-a.total);
+  const totalRow = rows.reduce((a,r)=>({total:a.total+r.total, inbound:a.inbound+r.inbound, outbound:a.outbound+r.outbound, totalTalk:a.totalTalk+r.totalTalk, drops:a.drops+r.drops}),{total:0,inbound:0,outbound:0,totalTalk:0,drops:0});
+  let html = rows.map(r=>'<tr><td>'+esc(r.name)+roleTag(r.name)+'</td><td>'+r.total+'</td><td>'+r.inbound+'</td><td>'+r.outbound+'</td><td>'+r.shortPct.toFixed(1)+'%</td><td>'+r.r2m+'</td><td>'+r.r5to10+'</td><td>'+r.r10to15+'</td><td>'+r.r15to20+'</td><td>'+r.r20to30+'</td><td>'+r.gt30+'</td><td>'+fmtDur(r.avgTalk)+'</td><td>'+fmtDur(r.totalTalk)+'</td><td>'+r.drops+'</td><td>'+(r.redials||'—')+'</td></tr>').join('');
+  html += '<tr class="total-row"><td>TOTAL</td><td>'+totalRow.total+'</td><td>'+totalRow.inbound+'</td><td>'+totalRow.outbound+'</td><td>—</td><td colspan="6">—</td><td>—</td><td>'+fmtDur(totalRow.totalTalk)+'</td><td>'+totalRow.drops+'</td><td>—</td></tr>';
+  document.querySelector('#agentTable tbody').innerHTML = html;
+}
+
+/* ================= RENDER: Rankings ================= */
+function setRankMode(mode, btn){
+  window._rankMode = mode;
+  document.querySelectorAll('#sec-rank .af-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRankTable(window._agentMapForRank, mode);
+}
+function renderRankTable(agentMap, mode){
+  if(!agentMap) return;
+  const thead = document.querySelector('#rankTable thead');
+  let rows = Object.entries(agentMap).map(([name,b])=>{
+    const outUnique = Object.keys(b.phoneOutCounts).length;
+    return {name, total:b.total, drops:b.drops, dropPct: b.total?(b.drops/b.total*100):0, outUnique, sec:b.sec, avgTalk: b.total? b.sec/b.total:0};
+  });
+  if(mode==='volume'){
+    thead.innerHTML = '<tr><th>#</th><th>Agent</th><th>Total Calls</th><th>Avg Talk</th></tr>';
+    rows.sort((a,b)=>b.total-a.total);
+    document.querySelector('#rankTable tbody').innerHTML = rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+roleTag(r.name)+'</td><td>'+r.total+'</td><td>'+fmtDur(r.avgTalk)+'</td></tr>').join('');
+  } else if(mode==='contact'){
+    thead.innerHTML = '<tr><th>#</th><th>Agent</th><th>Outbound Unique</th><th>Contacted &gt;30s</th><th>Contact %</th></tr>';
+    const detailed = Object.entries(agentMap).map(([name,b])=>({
+      name, outUnique:b.outboundPhones.size, contacted:b.contactedPhones.size,
+      contactPct: b.outboundPhones.size? (b.contactedPhones.size/b.outboundPhones.size*100):0
+    })).filter(r=>r.outUnique>=10);
+    detailed.sort((a,b)=>b.contactPct-a.contactPct);
+    document.querySelector('#rankTable tbody').innerHTML = detailed.length ? detailed.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+roleTag(r.name)+'</td><td>'+r.outUnique+'</td><td>'+r.contacted+'</td><td>'+r.contactPct.toFixed(1)+'%</td></tr>').join('') : '<tr><td colspan="5" class="empty-note">No agent with 10+ outbound unique numbers.</td></tr>';
+  } else if(mode==='drop'){
+    thead.innerHTML = '<tr><th>#</th><th>Agent</th><th>Drops</th><th>Total Calls</th><th>Drop %</th></tr>';
+    rows.sort((a,b)=>b.dropPct-a.dropPct);
+    document.querySelector('#rankTable tbody').innerHTML = rows.filter(r=>r.total>=10).map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.name)+roleTag(r.name)+'</td><td>'+r.drops+'</td><td>'+r.total+'</td><td>'+r.dropPct.toFixed(1)+'%</td></tr>').join('');
+  }
+}
+
+/* ================= RENDER: Campaign Table ================= */
+function renderCampTable(campMap){
+  const rows = Object.entries(campMap).sort((a,b)=>b[1].calls-a[1].calls);
+  const totals = {calls:0, contacted:0, phones:0, drops:0, dnc:0};
+  let html = rows.map(([name,c])=>{
+    totals.calls+=c.calls; totals.drops+=c.drops; totals.dnc+=c.dnc;
+    return '<tr><td>'+esc(name)+'</td><td>'+c.calls+'</td><td>'+c.phonesContacted.size+'</td><td>'+pct(c.phonesContacted.size, c.phones.size)+'</td><td>'+c.drops+'</td><td>'+c.dnc+'</td></tr>';
+  }).join('');
+  html += '<tr class="total-row"><td>TOTAL</td><td>'+totals.calls+'</td><td colspan="2">—</td><td>'+totals.drops+'</td><td>'+totals.dnc+'</td></tr>';
+  document.querySelector('#campTable tbody').innerHTML = html;
+}
+
+/* ================= RENDER: Top Numbers ================= */
+function renderTopNumbers(calls){
+  const map = {};
+  calls.forEach(r=>{ if(!r._phone) return; if(!map[r._phone]) map[r._phone]={count:0, camps:new Set(), agents:new Set()}; map[r._phone].count++; map[r._phone].camps.add(r._campaign); if(r._name!=='Unknown') map[r._phone].agents.add(r._name); });
+  const top = Object.entries(map).sort((a,b)=>b[1].count-a[1].count).slice(0,5);
+  document.querySelector('#topTable tbody').innerHTML = top.map(([phone,d])=>
+    '<tr><td class="mono">'+esc(phone)+'</td><td>'+d.count+'</td><td>'+Array.from(d.camps).join(', ')+'</td><td>'+Array.from(d.agents).join(', ')+'</td></tr>').join('');
+}
+
+/* ================= RENDER: VDCL ================= */
+function renderVdcl(){
+  const vdclCalls = mergedRaw.filter(r=>r._dateStr>=document.getElementById('fromDate').value && r._dateStr<=document.getElementById('toDate').value && (r._user==='VDCL'||r._user==='VDAD'));
+  const b = document.getElementById('vdclBody');
+  if(!vdclCalls.length){ b.innerHTML='<div class="empty-note">No VDCL/VDAD activity in this range.</div>'; return; }
+  const byStatus = {};
+  vdclCalls.forEach(r=>{ byStatus[r._status||'(blank)'] = (byStatus[r._status||'(blank)']||0)+1; });
+  b.innerHTML = '<div class="kpi-grid"><div class="kpi"><div class="v">'+vdclCalls.length+'</div><div class="l">VDCL/VDAD Calls</div></div></div>'+
+    '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Status</th><th>Calls</th></tr></thead><tbody>'+
+    Object.entries(byStatus).sort((a,b)=>b[1]-a[1]).map(([k,c])=>'<tr><td>'+esc(k)+'</td><td>'+c+'</td></tr>').join('')+'</tbody></table></div>';
+}
+
+/* ================= RENDER: Missed Callbacks ================= */
+function renderMissed(){
+  const camps = getMsValues('ms-missedCamp');
+  let list = window._missedList||[];
+  if(camps.length) list = list.filter(m=>camps.includes(m.camp));
+  document.getElementById('missedMeta').textContent = '('+list.length+')';
+  document.querySelector('#missedTable tbody').innerHTML = list.length ? list.sort((a,b)=>b.ts-a.ts).map(m=>
+    '<tr><td class="mono">'+esc(m.phone)+'</td><td>'+new Date(m.ts).toLocaleString()+'</td><td>'+esc(m.camp)+'</td><td>'+esc(m.agent)+'</td></tr>').join('')
+    : '<tr><td colspan="4" class="empty-note">None</td></tr>';
+}
+
+/* ================= RENDER: DPC ================= */
+function renderDpc(){
+  const camps = getMsValues('ms-dpcCamp');
+  const flagged = window._dpcFlagged||{};
+  let rows = [];
+  Object.entries(flagged).forEach(([phone,d])=>{ d.events.forEach(ev=>{ if(!camps.length || camps.includes(ev.camp)) rows.push({phone, ...ev}); }); });
+  document.getElementById('dpcMeta').textContent = '('+new Set(rows.map(r=>r.phone)).size+')';
+  document.querySelector('#dpcTable tbody').innerHTML = rows.length ? rows.sort((a,b)=>b.ts-a.ts).map(r=>
+    '<tr><td class="mono click-num" onclick=\'showPhoneRecs('+attrJson([{phone:r.phone, sec:r.sec, recording:r.recording}])+', "'+esc(r.phone)+' — Dropped Call")\'>⚠️ '+esc(r.phone)+'</td><td>'+new Date(r.ts).toLocaleString()+'</td><td>'+esc(r.agent)+'</td><td>'+esc(r.camp)+'</td><td>'+fmtDur(r.sec)+'</td><td></td></tr>').join('')
+    : '<tr><td colspan="6" class="empty-note">None</td></tr>';
+}
+
+/* ================= RENDER: Transfers ================= */
+function renderBadTransfers(flagged){
+  let rows = [];
+  Object.entries(flagged).forEach(([phone,d])=>{ d.events.forEach(ev=>rows.push({phone, ...ev})); });
+  document.getElementById('badTrMeta').textContent = '('+new Set(rows.map(r=>r.phone)).size+')';
+  document.querySelector('#badTrTable tbody').innerHTML = rows.length ? rows.sort((a,b)=>b.ts-a.ts).map(r=>
+    '<tr><td class="mono click-num" onclick=\'showPhoneRecs('+attrJson([{phone:r.phone, sec:r.sec, recording:r.recording}])+', "'+esc(r.phone)+' — Incomplete Transfer")\'>'+esc(r.phone)+'</td><td>'+new Date(r.ts).toLocaleString()+'</td><td>'+esc(r.agent)+'</td><td>'+esc(r.camp)+'</td><td></td></tr>').join('')
+    : '<tr><td colspan="5" class="empty-note">None</td></tr>';
+}
+function renderReceivedTransfers(receivedTransfers){
+  const rows = Object.entries(receivedTransfers).sort((a,b)=>b[1].count-a[1].count);
+  document.querySelector('#rcvTrTable tbody').innerHTML = rows.length ? rows.map(([name,d])=>'<tr><td>'+esc(name)+roleTag(name)+'</td><td>'+d.count+'</td></tr>').join('') : '<tr><td colspan="2" class="empty-note">None</td></tr>';
+}
+
+/* ================= RENDER: Openers ================= */
+function renderOpenerBreakdown(openerByAgent, brackets){
+  const names = Object.keys(openerByAgent);
+  const thead = document.querySelector('#openerBrTable thead');
+  thead.innerHTML = '<tr><th>Agent</th>'+brackets.map(b=>'<th>'+b.label+'</th>').join('')+'</tr>';
+  if(!names.length){ document.querySelector('#openerBrTable tbody').innerHTML='<tr><td colspan="'+(brackets.length+1)+'" class="empty-note">No opener activity in this range.</td></tr>'; return; }
+  const totals = {}; brackets.forEach(b=>totals[b.key]={total:0,trns:0});
+  let html = names.map(name=>{
+    const row = openerByAgent[name];
+    return '<tr><td>'+esc(name)+'</td>'+brackets.map(b=>{
+      const c = row[b.key]; totals[b.key].total+=c.total; totals[b.key].trns+=c.trns;
+      return '<td>'+(c.trns? '<span class="click-num" onclick=\'showPhoneRecs('+attrJson(c.records)+', "'+esc(name)+' — '+b.label+' Transfers")\'>'+c.trns+'</span>' : '0')+' / '+c.total+'</td>';
+    }).join('')+'</tr>';
+  }).join('');
+  html += '<tr class="total-row"><td>TOTAL</td>'+brackets.map(b=>'<td>'+totals[b.key].trns+' / '+totals[b.key].total+'</td>').join('')+'</tr>';
+  document.querySelector('#openerBrTable tbody').innerHTML = html;
+}
+function renderOpenerRates(openerByAgent, brackets){
+  const over2minKeys = ['b2_5','b5_10','b10_15','b15_20','b20_30','b30p'];
+  const rows = Object.entries(openerByAgent).map(([name,row])=>{
+    let calls=0, trns=0;
+    over2minKeys.forEach(k=>{ calls+=row[k].total; trns+=row[k].trns; });
+    return {name, calls, trns, rate: calls? (trns/calls*100):0};
+  }).filter(r=>r.calls>0);
+  rows.sort((a,b)=>a.rate-b.rate);
+  document.querySelector('#openerRateTable tbody').innerHTML = rows.length ? rows.map(r=>{
+    const cls = r.rate<15?'style="color:var(--red)"':(r.rate>=30?'style="color:var(--green)"':'');
+    return '<tr><td>'+esc(r.name)+'</td><td>'+r.calls+'</td><td>'+r.trns+'</td><td '+cls+'>'+r.rate.toFixed(1)+'%</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="empty-note">No opener activity.</td></tr>';
+}
+
+/* ================= RENDER: Long Calls No Follow-up ================= */
+function setLongThreshold(){ renderLongNoFollow(window._agentMapForLong); }
+function renderLongNoFollow(agentMap){
+  if(!agentMap) return;
+  const thresh = Number(document.getElementById('longThreshold').value);
+  const phoneAllCalls = window._phoneAllCalls||{};
+  const closers = Object.entries(agentMap).filter(([name])=>!OPENERS.has(name.toLowerCase()) && !RETENTION.has(name.toLowerCase()));
+  const flagged = [];
+  closers.forEach(([name,b])=>{
+    const qualifying = Object.entries(b.phoneRecordings).flatMap(([p,recs])=>recs.filter(rec=>rec.sec>=thresh).map(rec=>({phone:p, ...rec})));
+    if(!qualifying.length) return;
+    const records = qualifying.filter(rec=>{
+      const timeline = phoneAllCalls[rec.phone]||[];
+      return !timeline.some(c=>c._ts>rec.ts);
+    });
+    const longCalls = new Set(qualifying.map(q=>q.phone)).size;
+    const noFollow = new Set(records.map(r=>r.phone)).size;
+    if(noFollow) flagged.push({name, longCalls, noFollow, records});
+  });
+  window._longNoFollowFlagged = flagged;
+  document.querySelector('#longTable tbody').innerHTML = flagged.length ? flagged.sort((a,b)=>b.noFollow-a.noFollow).map(f=>
+    '<tr><td>'+esc(f.name)+roleTag(f.name)+'</td><td>'+f.longCalls+'</td><td class="click-num" onclick=\'showPhoneRecs('+attrJson(f.records)+', "'+esc(f.name)+' — Long Calls, No Follow-up")\'>'+f.noFollow+'</td><td></td></tr>').join('')
+    : '<tr><td colspan="4" class="empty-note">None at this threshold.</td></tr>';
+}
+
+/* ================= MULTI-SELECT FILTER ================= */
+function populateCampFilter(id, campaigns, onchange){
+  const wrap = document.getElementById(id);
+  campaigns = campaigns.sort();
+  wrap.innerHTML = '<button class="ms-btn" onclick="toggleMs(\''+id+'\')">All Campaigns</button>'+
+    '<div class="ms-panel" id="'+id+'-panel">'+
+    '<label><input type="checkbox" checked onchange="onMsAll(\''+id+'\')" data-all>All</label><hr>'+
+    campaigns.map(c=>'<label><input type="checkbox" value="'+esc(c)+'" onchange="onMsItem(\''+id+'\')"> '+esc(c)+'</label>').join('')+
+    '</div>';
+  wrap._onchange = onchange;
+}
+function toggleMs(id){
+  document.querySelectorAll('.ms-panel').forEach(p=>{ if(p.id!==id+'-panel') p.classList.remove('open'); });
+  document.getElementById(id+'-panel').classList.toggle('open');
+}
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.ms-wrap')) document.querySelectorAll('.ms-panel').forEach(p=>p.classList.remove('open'));
+});
+function getMsValues(id){
+  const panel = document.getElementById(id+'-panel');
+  if(!panel) return [];
+  const boxes = Array.from(panel.querySelectorAll('input[type=checkbox]:not([data-all])'));
+  const checked = boxes.filter(b=>b.checked).map(b=>b.value);
+  return checked.length===boxes.length ? [] : checked;
+}
+function onMsAll(id){
+  const panel = document.getElementById(id+'-panel');
+  const all = panel.querySelector('[data-all]');
+  panel.querySelectorAll('input[type=checkbox]:not([data-all])').forEach(b=>b.checked=all.checked);
+  updateMsLabel(id);
+  document.getElementById(id)._onchange && document.getElementById(id)._onchange();
+}
+function onMsItem(id){
+  updateMsLabel(id);
+  document.getElementById(id)._onchange && document.getElementById(id)._onchange();
+}
+function updateMsLabel(id){
+  const panel = document.getElementById(id+'-panel');
+  const boxes = Array.from(panel.querySelectorAll('input[type=checkbox]:not([data-all])'));
+  const checked = boxes.filter(b=>b.checked);
+  const btn = document.getElementById(id).querySelector('.ms-btn');
+  btn.textContent = checked.length===0 || checked.length===boxes.length ? 'All Campaigns' : checked.length+' selected';
+}
+
+/* ================= SORTING ================= */
+function sortTable(tableId, colIdx, th){
+  const table = document.getElementById(tableId);
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr')).filter(r=>!r.classList.contains('total-row'));
+  const totalRow = tbody.querySelector('tr.total-row');
+  const asc = !th.classList.contains('sort-asc');
+  table.querySelectorAll('th').forEach(t=>t.classList.remove('sort-asc','sort-desc'));
+  th.classList.add(asc?'sort-asc':'sort-desc');
+  rows.sort((a,b)=>{
+    let av = a.children[colIdx].textContent.trim().replace('%','').replace(/,/g,'');
+    let bv = b.children[colIdx].textContent.trim().replace('%','').replace(/,/g,'');
+    const an = parseFloat(av), bn = parseFloat(bv);
+    if(!isNaN(an) && !isNaN(bn)) return asc ? an-bn : bn-an;
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+  if(totalRow) tbody.appendChild(totalRow);
+}
+
+/* ================= EXPORT ================= */
+function exportTable(tableId, filename){
+  const table = document.getElementById(tableId);
+  const rows = Array.from(table.querySelectorAll('tr'));
+  const csv = rows.map(r=>Array.from(r.children).map(c=>'"'+c.textContent.replace(/"/g,'""').trim()+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+}
+
+/* ================= MODAL ================= */
+function openModal(title, bodyHtml){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('open'); }
+function showPhoneRecs(records, label){
+  const uniquePhones = new Set(records.map(r=>r.phone)).size;
+  const html = records.map(r=>
+    '<div class="m-row"><span class="ph">'+esc(r.phone)+'</span><span class="dim"> '+fmtDur(r.sec)+'</span>'+
+    (r.recording ? '<audio controls src="'+esc(r.recording)+'"></audio><a class="dl" href="'+esc(r.recording)+'" download>⬇ Download recording</a>' : '<div class="dim" style="margin-top:6px">No recording available</div>')+
+    '</div>').join('');
+  openModal(label+' ('+uniquePhones+')', html || '<div class="empty-note">None</div>');
+}
+
+/* ================= COPY SUMMARY ================= */
+function copySummary(){
+  const s = window._summary;
+  if(!s){ toast('Run analysis first'); return; }
+  const lines = [
+    'Ytel Dialer Command Center Summary',
+    'Total Calls: '+s.totalCalls,
+    'Contact Rate: '+s.contactRate,
+    'Drops: '+s.drops,
+    'DNC Calls: '+s.dnc,
+    'Dialed After DNC: '+s.afterDnc,
+    '',
+    'Issues:',
+    ...s.issues.map(i=>'- '+i.text.replace(/<[^>]+>/g,''))
+  ];
+  const text = lines.join('\n');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast('Summary copied')).catch(()=>fallbackCopy(text));
+  } else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  const ta = document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('Summary copied'); }catch(e){ toast('Copy failed'); }
+  document.body.removeChild(ta);
+}
+
+/* ================= ROLE EDITOR ================= */
+function loadRoles(){
+  const saved = localStorage.getItem('dcc_roles');
+  if(saved){
+    try{
+      const r = JSON.parse(saved);
+      CLOSERS = new Set(r.closer||[]); OPENERS = new Set(r.opener||[]); RETENTION = new Set(r.retention||[]);
+      DEFAULT_ROLES.closer.forEach(n=>{ if(!CLOSERS.has(n)&&!OPENERS.has(n)&&!RETENTION.has(n)) CLOSERS.add(n); });
+      DEFAULT_ROLES.opener.forEach(n=>{ if(!CLOSERS.has(n)&&!OPENERS.has(n)&&!RETENTION.has(n)) OPENERS.add(n); });
+      DEFAULT_ROLES.retention.forEach(n=>{ if(!CLOSERS.has(n)&&!OPENERS.has(n)&&!RETENTION.has(n)) RETENTION.add(n); });
+    }catch(e){}
+  }
+  document.getElementById('roleCloser').value = Array.from(CLOSERS).join('\n');
+  document.getElementById('roleOpener').value = Array.from(OPENERS).join('\n');
+  document.getElementById('roleRetention').value = Array.from(RETENTION).join('\n');
+}
+function saveRoles(){
+  const parseLines = id=>document.getElementById(id).value.split('\n').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  CLOSERS = new Set(parseLines('roleCloser'));
+  OPENERS = new Set(parseLines('roleOpener'));
+  RETENTION = new Set(parseLines('roleRetention'));
+  localStorage.setItem('dcc_roles', JSON.stringify({closer:Array.from(CLOSERS), opener:Array.from(OPENERS), retention:Array.from(RETENTION)}));
+  toast('Roles saved');
+  if(mergedRaw.length && document.getElementById('report').style.display!=='none') runAnalysis();
+}
+function resetRoles(){
+  CLOSERS = new Set(DEFAULT_ROLES.closer); OPENERS = new Set(DEFAULT_ROLES.opener); RETENTION = new Set(DEFAULT_ROLES.retention);
+  localStorage.removeItem('dcc_roles');
+  loadRoles();
+  toast('Roles reset to defaults');
+  if(mergedRaw.length && document.getElementById('report').style.display!=='none') runAnalysis();
+}
+
+/* ================= THRESHOLDS ================= */
+function loadThresholds(){
+  const saved = localStorage.getItem('dcc_thresholds');
+  if(saved){ try{ TH = Object.assign({}, DEFAULT_THRESHOLDS, JSON.parse(saved)); }catch(e){} }
+  const grid = document.getElementById('thGrid');
+  grid.innerHTML = Object.keys(TH_LABELS).map(k=>
+    '<div class="th-item"><label>'+TH_LABELS[k]+'</label><input type="number" id="th-'+k+'" value="'+TH[k]+'"></div>').join('');
+}
+function saveThresholds(){
+  Object.keys(TH_LABELS).forEach(k=>{ const v=Number(document.getElementById('th-'+k).value); if(!isNaN(v)) TH[k]=v; });
+  localStorage.setItem('dcc_thresholds', JSON.stringify(TH));
+  toast('Thresholds saved');
+  if(mergedRaw.length && document.getElementById('report').style.display!=='none') runAnalysis();
+}
+
+/* ================= INIT ================= */
+loadRoles();
+loadThresholds();
+restoreCollapse();
+</script>
+</body>
+</html>
