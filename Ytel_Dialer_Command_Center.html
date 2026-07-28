@@ -412,6 +412,7 @@ function normalize(r){
   r._campaign = (r.campaign_id||'Unknown').toString().trim() || 'Unknown';
   r._source = (r.source_id||'').toString().trim();
   r._status = (r.status||'').toString().trim();
+  r._statusName = (r.status_name||'').toString().trim();
   r._direction = (r.direction||'').toString().trim().toLowerCase();
   r._sec = Number(r.length_in_sec)||0;
   r._phone = (r.phone_number_dialed || r.phone_number || '').toString().trim();
@@ -472,7 +473,8 @@ function buildDashboard(fromStr, toStr){
 
   // ---- dispo breakdown ----
   const dispoCounts = {};
-  calls.forEach(r=>{ const k=r._status||'(blank)'; dispoCounts[k]=(dispoCounts[k]||0)+1; });
+  const dispoNames = {};
+  calls.forEach(r=>{ const k=r._status||'(blank)'; dispoCounts[k]=(dispoCounts[k]||0)+1; if(r._statusName && !dispoNames[k]) dispoNames[k]=r._statusName; });
 
   // ---- hour buckets ----
   const hourCounts = {}, dncHourCounts = {}, dropHourCounts = {};
@@ -629,7 +631,7 @@ function buildDashboard(fromStr, toStr){
   renderKpis({totalCalls, dialedUnique, contactedUnique, avgTalk, dropRows, dncRows, dialedAfterDncPhones});
   renderIssues(issues);
   renderHourCharts(hourCounts, dncHourCounts, dropHourCounts);
-  renderDispo(dispoCounts, totalCalls);
+  renderDispo(dispoCounts, dispoNames, totalCalls);
   renderAgentTable(agentMap, redialFlags);
   window._agentMapForRank = agentMap;
   renderRankTable(agentMap, window._rankMode||'volume');
@@ -703,10 +705,10 @@ function drawBar(id, labels, data, color){
 }
 
 /* ================= RENDER: Dispo ================= */
-function renderDispo(dispoCounts, total){
+function renderDispo(dispoCounts, dispoNames, total){
   const rows = Object.entries(dispoCounts).sort((a,b)=>b[1]-a[1]);
   document.querySelector('#dispoTable tbody').innerHTML = rows.map(([k,c])=>
-    '<tr><td>'+esc(k)+'</td><td>'+c.toLocaleString()+'</td><td>'+pct(c,total)+'</td></tr>').join('');
+    '<tr><td>'+esc(k)+(dispoNames[k]?' <span class="dim">— '+esc(dispoNames[k])+'</span>':'')+'</td><td>'+c.toLocaleString()+'</td><td>'+pct(c,total)+'</td></tr>').join('');
 }
 
 /* ================= RENDER: Agent Table ================= */
