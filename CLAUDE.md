@@ -9,13 +9,13 @@ SheetJS 0.18.5 + Chart.js 4.4.0 + jsPDF 2.5.1 + JSZip 3.10.1 via CDN.
 |------|---------|
 | `Ytel_Daily_Monitor_v2.html` | The dashboard (production) — sidebar nav, date range, export CSV, role editor |
 | `Agent_Performance_Range.html` | Standalone agent performance report with date range picker |
-| `Ytel_Dialer_Command_Center.html` | Independent Ytel-only ops dashboard — see its own section below |
+| `command-center/index.html` | Independent Ytel-only ops dashboard ("Dialer Command Center") — see its own section below |
 
 The original single-date dashboard (`Ytel_Daily_Monitor_ADP.html`) was removed in July 2026 — v2 is the only dashboard. Any older doc/commit references to "both dashboards" or "the original" refer to that deleted file.
 
 ---
 
-## Dialer Command Center (`Ytel_Dialer_Command_Center.html`)
+## Dialer Command Center (`command-center/index.html`)
 
 Added July 2026. A **completely independent** dashboard — its own file, own dark "ops center" visual design, own script from scratch. It does **not** share code, functions, CSS, or localStorage keys with `Ytel_Daily_Monitor_v2.html` / `Agent_Performance_Range.html` (localStorage keys are prefixed `dcc_` to avoid collision). Treat it as a separate product that happens to live in the same repo — changes to v2 should not be assumed to apply here and vice versa.
 
@@ -25,7 +25,7 @@ Added July 2026. A **completely independent** dashboard — its own file, own da
 
 **Known v1 gaps** (flag to the user if asked, don't silently claim otherwise): agent-level opener transfer-rate rounding uses the same bracket data as the breakdown table (accurate); redial threshold in Settings (`TH.redials`) is not yet wired 1:1 to the redial-flag count shown in Issues Detected (issue text uses a coarser `heavyRedialAgents` cutoff, not the exact threshold value) — cosmetic, not a correctness bug, but worth tightening if this dashboard gets real usage.
 
-Deployed to Vercel as a static file (same zero-build approach as v2) — not wired into `vercel.json`'s root rewrite (which still points to v2), so it's reachable at `/Ytel_Dialer_Command_Center.html` on whatever Vercel deployment serves this repo. Ask the user if they want a dedicated route/rewrite added.
+Deployed to Vercel as a **separate project** (`ytel-dialer-command-center`, own domain) from the `ytel-daily-monitor` project that serves v2 — both build from the same `main` branch, so the file lives at `command-center/index.html` (moved out of the repo root in July 2026 for exactly this reason) instead of alongside the other dashboards. The command-center Vercel project has its **Root Directory** set to `command-center` in its project settings, which scopes it to only that folder's files — so `/` on its domain serves `index.html` directly with no `vercel.json` rewrite needed, and it can't collide with or affect the root `vercel.json` that the `ytel-daily-monitor` project (Root Directory `.`, whole repo) uses to route `/` to `Ytel_Daily_Monitor_v2.html`. If this dashboard ever needs its own `vercel.json` (headers, additional rewrites, etc.), add one inside `command-center/` — it will only apply to that project, not to `ytel-daily-monitor`.
 
 ## v2 Dashboard (`Ytel_Daily_Monitor_v2.html`)
 
