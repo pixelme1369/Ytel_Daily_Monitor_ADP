@@ -697,7 +697,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <div class="sec-body">
       <div class="card" id="reportCardsCard">
         <div class="card-title">
-          <span>🪪 Agent Report Cards <span class="card-title-sub">one PDF per agent for the selected date range — calls, enrolled, debt, conv% — bundled as a ZIP to share in Slack</span></span>
+          <span>🪪 Agent Report Cards <span class="card-title-sub">one PDF per closer for the selected date range — calls, transfers received, enrolled, debt, conv% — bundled as a ZIP to share in Slack</span></span>
           <button class="af-btn" onclick="exportAgentReportCards()">⬇ Download All Agent Cards (ZIP)</button>
         </div>
       </div>
@@ -936,16 +936,18 @@ function exportAfterDncPhones(){
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 async function exportAgentReportCards(){
-  const rows=window._agentAllRows;
-  if(!rows||!rows.length){ showToast('Run analysis first'); return; }
+  const rows=(window._agentAllRows||[]).filter(a=>CLOSERS.has(a.name.toLowerCase()));
+  if(!rows.length){ showToast('No closers in the current data/range'); return; }
   if(!window.jspdf||!window.JSZip){ showToast('PDF library failed to load'); return; }
   const {jsPDF}=window.jspdf;
   const dateStr=(window._summary&&window._summary.dateStr)||'';
+  const transfersByName={};
+  (window._receivedTransferRows||[]).forEach(t=>{ transfersByName[t.agent.toLowerCase()]=t.count; });
   const zip=new JSZip();
   rows.forEach(a=>{
     const nameLC=a.name.toLowerCase();
-    const role=RETENTION.has(nameLC)?'Retention':OPENERS.has(nameLC)?'Opener':CLOSERS.has(nameLC)?'Closer':'';
     const convPct=(a.gt2m>0&&a.enr>0)?pct(a.enr,a.gt2m):'—';
+    const transfersReceived=transfersByName[nameLC]||0;
     const doc=new jsPDF({unit:'pt',format:'letter'});
     const pageW=doc.internal.pageSize.getWidth();
     doc.setFillColor(15,23,42); doc.rect(0,0,pageW,60,'F');
@@ -953,7 +955,7 @@ async function exportAgentReportCards(){
     doc.text('Agent Performance Card',40,38);
     doc.setTextColor(15,23,42); doc.setFontSize(24); doc.setFont(undefined,'bold');
     doc.text(a.name,40,110);
-    if(role){ doc.setFontSize(12); doc.setFont(undefined,'normal'); doc.setTextColor(99,102,241); doc.text(role,40,130); }
+    doc.setFontSize(12); doc.setFont(undefined,'normal'); doc.setTextColor(99,102,241); doc.text('Closer',40,130);
     doc.setTextColor(100,116,139); doc.setFontSize(11); doc.setFont(undefined,'normal');
     doc.text('Report period: '+(dateStr||'—'),40,150);
     let y=190;
@@ -961,6 +963,7 @@ async function exportAgentReportCards(){
       ['Total Calls',String(a.calls)],
       ['Inbound (unique)',String(a.inboundUniq)],
       ['Outbound (unique)',String(a.outboundUniq)],
+      ['Transfers Received',String(transfersReceived)],
       ['Enrolled',String(a.enr)],
       ['Enrolled Debt',fmt$(a.debt)],
       ['Conv% (enr / >2min calls)',convPct]
