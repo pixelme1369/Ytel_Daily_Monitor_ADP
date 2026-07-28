@@ -935,14 +935,78 @@ function exportAfterDncPhones(){
   a.download='dialed_after_dnc.csv'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
+function renderVolumeBarChart(a,transfersReceived){
+  const W=1064,H=340;
+  const canvas=document.createElement('canvas');
+  canvas.width=W; canvas.height=H;
+  const barValueLabels={
+    id:'barValueLabels',
+    afterDatasetsDraw(chart){
+      const {ctx}=chart;
+      ctx.save();
+      ctx.font='700 26px -apple-system,Segoe UI,Roboto,sans-serif';
+      ctx.fillStyle='#1E293B';
+      ctx.textBaseline='middle';
+      ctx.textAlign='left';
+      chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+        ctx.fillText(String(chart.data.datasets[0].data[i]),bar.x+10,bar.y);
+      });
+      ctx.restore();
+    }
+  };
+  const chart=new Chart(canvas.getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:['Inbound','Outbound','Transfers Recv.','Enrolled'],
+      datasets:[{
+        data:[a.inboundUniq,a.outboundUniq,transfersReceived,a.enr],
+        backgroundColor:['#6366F1','#94A3B8','#F59E0B','#10B981'],
+        borderRadius:6,
+        barThickness:44
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:false,
+      animation:false,
+      devicePixelRatio:1,
+      layout:{padding:{right:70,left:4,top:6,bottom:6}},
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:'#E2E8F0'},border:{display:false},ticks:{color:'#64748B',font:{size:20}}},
+        y:{grid:{display:false},border:{display:false},ticks:{color:'#1E293B',font:{size:24,weight:'600'}}}
+      }
+    },
+    plugins:[barValueLabels]
+  });
+  const img=chart.toBase64Image('image/png',1.0);
+  chart.destroy();
+  return img;
+}
+function drawKpiBox(doc,x,y,w,h,label,value,fg,dk,lt){
+  doc.setFillColor(lt[0],lt[1],lt[2]);
+  doc.roundedRect(x,y,w,h,6,6,'F');
+  doc.setFillColor(fg[0],fg[1],fg[2]);
+  doc.roundedRect(x,y,w,4,2,2,'F');
+  doc.rect(x,y+2,w,2,'F');
+  doc.setFontSize(8); doc.setFont(undefined,'bold'); doc.setTextColor(100,116,139);
+  doc.text(label.toUpperCase(),x+10,y+22,{charSpace:0.4});
+  doc.setFontSize(19); doc.setFont(undefined,'bold'); doc.setTextColor(dk[0],dk[1],dk[2]);
+  doc.text(value,x+10,y+48);
+}
 async function exportAgentReportCards(){
   const rows=(window._agentAllRows||[]).filter(a=>CLOSERS.has(a.name.toLowerCase()));
   if(!rows.length){ showToast('No closers in the current data/range'); return; }
-  if(!window.jspdf||!window.JSZip){ showToast('PDF library failed to load'); return; }
+  if(!window.jspdf||!window.JSZip||typeof Chart==='undefined'){ showToast('PDF library failed to load'); return; }
   const {jsPDF}=window.jspdf;
   const dateStr=(window._summary&&window._summary.dateStr)||'';
+  const pdfDateStr=dateStr.replace(/\s*→\s*/g,'  to  ');
   const transfersByName={};
   (window._receivedTransferRows||[]).forEach(t=>{ transfersByName[t.agent.toLowerCase()]=t.count; });
+  const BLUE=[99,102,241],BLUE_DK=[79,70,229],BLUE_LT=[238,242,255];
+  const AMBER=[245,158,11],AMBER_DK=[120,53,15],AMBER_LT=[254,243,199];
+  const GREEN=[16,185,129],GREEN_DK=[6,95,70],GREEN_LT=[209,250,229];
+  const marginX=40,contentW=532;
   const zip=new JSZip();
   rows.forEach(a=>{
     const nameLC=a.name.toLowerCase();
@@ -950,34 +1014,60 @@ async function exportAgentReportCards(){
     const transfersReceived=transfersByName[nameLC]||0;
     const doc=new jsPDF({unit:'pt',format:'letter'});
     const pageW=doc.internal.pageSize.getWidth();
+
     doc.setFillColor(15,23,42); doc.rect(0,0,pageW,60,'F');
     doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont(undefined,'bold');
-    doc.text('Agent Performance Card',40,38);
+    doc.text('Agent Performance Card',marginX,38);
+
     doc.setTextColor(15,23,42); doc.setFontSize(24); doc.setFont(undefined,'bold');
-    doc.text(a.name,40,110);
-    doc.setFontSize(12); doc.setFont(undefined,'normal'); doc.setTextColor(99,102,241); doc.text('Closer',40,130);
-    doc.setTextColor(100,116,139); doc.setFontSize(11); doc.setFont(undefined,'normal');
-    doc.text('Report period: '+(dateStr||'—'),40,150);
-    let y=190;
-    const stats=[
-      ['Total Calls',String(a.calls)],
+    doc.text(a.name,marginX,100);
+    doc.setFontSize(12); doc.setFont(undefined,'normal'); doc.setTextColor(99,102,241);
+    doc.text('Closer',marginX,120);
+    doc.setTextColor(100,116,139); doc.setFontSize(10.5); doc.setFont(undefined,'normal');
+    doc.text('Report period: '+(pdfDateStr||'—'),marginX,140);
+
+    // KPI boxes
+    const kpiY=166,kpiH=66,kpiGap=14;
+    const kpiW=(contentW-3*kpiGap)/4;
+    const kpis=[
+      ['Total Calls',String(a.calls),BLUE,BLUE_DK,BLUE_LT],
+      ['Transfers Recv.',String(transfersReceived),AMBER,AMBER_DK,AMBER_LT],
+      ['Enrolled',String(a.enr),GREEN,GREEN_DK,GREEN_LT],
+      ['Conv %',convPct,GREEN,GREEN_DK,GREEN_LT]
+    ];
+    kpis.forEach(([label,val,fg,dk,lt],i)=>{
+      drawKpiBox(doc,marginX+i*(kpiW+kpiGap),kpiY,kpiW,kpiH,label,val,fg,dk,lt);
+    });
+
+    // volume chart
+    const chartLabelY=kpiY+kpiH+30;
+    doc.setFontSize(9); doc.setFont(undefined,'bold'); doc.setTextColor(100,116,139);
+    doc.text('CALL & TRANSFER VOLUME',marginX,chartLabelY,{charSpace:0.4});
+    const chartY=chartLabelY+14,chartH=170;
+    const chartImg=renderVolumeBarChart(a,transfersReceived);
+    doc.addImage(chartImg,'PNG',marginX,chartY,contentW,chartH);
+
+    // details
+    const detailsLabelY=chartY+chartH+30;
+    doc.setFontSize(9); doc.setFont(undefined,'bold'); doc.setTextColor(100,116,139);
+    doc.text('DETAILS',marginX,detailsLabelY,{charSpace:0.4});
+    let y=detailsLabelY+22;
+    const details=[
       ['Inbound (unique)',String(a.inboundUniq)],
       ['Outbound (unique)',String(a.outboundUniq)],
-      ['Transfers Received',String(transfersReceived)],
-      ['Enrolled',String(a.enr)],
-      ['Enrolled Debt',fmt$(a.debt)],
-      ['Conv% (enr / >2min calls)',convPct]
+      ['Enrolled Debt',fmt$(a.debt)]
     ];
-    stats.forEach(([label,val],i)=>{
-      doc.setFontSize(12); doc.setTextColor(100,116,139); doc.setFont(undefined,'normal');
-      doc.text(label,40,y);
-      doc.setFontSize(14); doc.setTextColor(15,23,42); doc.setFont(undefined,'bold');
-      doc.text(val,340,y);
+    details.forEach(([label,val],i)=>{
+      doc.setFontSize(11.5); doc.setTextColor(100,116,139); doc.setFont(undefined,'normal');
+      doc.text(label,marginX,y);
+      doc.setFontSize(13); doc.setTextColor(15,23,42); doc.setFont(undefined,'bold');
+      doc.text(val,marginX+contentW-100,y);
       y+=20;
-      if(i<stats.length-1){ doc.setDrawColor(226,232,240); doc.line(40,y,pageW-40,y); y+=18; }
+      if(i<details.length-1){ doc.setDrawColor(226,232,240); doc.line(marginX,y-6,marginX+contentW,y-6); }
     });
+
     doc.setFontSize(9); doc.setTextColor(148,163,184); doc.setFont(undefined,'normal');
-    doc.text('Generated '+new Date().toLocaleDateString(),40,doc.internal.pageSize.getHeight()-30);
+    doc.text('Generated '+new Date().toLocaleDateString(),marginX,doc.internal.pageSize.getHeight()-30);
     const fname=(a.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'agent')+'.pdf';
     zip.file(fname,doc.output('blob'));
   });
