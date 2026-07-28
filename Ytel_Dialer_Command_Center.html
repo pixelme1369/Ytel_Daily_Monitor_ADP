@@ -150,8 +150,8 @@ tr.total-row td{font-weight:700;background:var(--panel2);border-top:1px solid va
       <small>Ytel call data only &mdash; no CRM</small>
     </div>
   </div>
-  <div id="dropzone" onclick="document.getElementById('fileInput').click()">⇪ Drop XLSX or click to upload</div>
-  <input type="file" id="fileInput" accept=".xlsx,.xls" multiple style="display:none">
+  <div id="dropzone" onclick="document.getElementById('fileInput').click()">⇪ Drop XLSX/CSV or click to upload</div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" multiple style="display:none">
   <div class="tb-field"><label>From</label><input type="date" id="fromDate"></div>
   <div class="tb-field"><label>To</label><input type="date" id="toDate"></div>
   <button class="btn" onclick="runAnalysis()">Run Analysis</button>
@@ -181,7 +181,7 @@ tr.total-row td{font-weight:700;background:var(--panel2);border-top:1px solid va
   </nav>
 
   <div id="content">
-    <div id="emptyState" class="empty-note" style="font-size:14px;padding:60px 0;text-align:center">Upload one or more Ytel export XLSX files to begin.</div>
+    <div id="emptyState" class="empty-note" style="font-size:14px;padding:60px 0;text-align:center">Upload one or more Ytel export XLSX or CSV files to begin.</div>
     <div id="report" style="display:none">
 
       <div class="card" id="sec-kpi"><div class="card-head" onclick="toggleCard(this)"><h2>Overview</h2><span class="chev">▼</span></div>
@@ -362,7 +362,7 @@ dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
 dz.addEventListener('drop', e=>{e.preventDefault(); dz.classList.remove('drag'); handleFiles(e.dataTransfer.files);});
 
 function handleFiles(fileList){
-  const files = Array.from(fileList||[]).filter(f=>/\.xlsx?$/i.test(f.name));
+  const files = Array.from(fileList||[]).filter(f=>/\.(xlsx?|csv)$/i.test(f.name));
   if(!files.length) return;
   let pending = files.length;
   files.forEach(f=>{
