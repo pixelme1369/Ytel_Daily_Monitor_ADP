@@ -3,7 +3,7 @@
 ## Project
 
 Vanilla JS call center dashboard suite — no framework, no build step.
-SheetJS 0.18.5 + Chart.js 4.4.0 via CDN.
+SheetJS 0.18.5 + Chart.js 4.4.0 + jsPDF 2.5.1 + JSZip 3.10.1 via CDN.
 
 | File | Purpose |
 |------|---------|
@@ -40,6 +40,7 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 | Collapsible sections | Each card has ▼/▶ toggle; state persisted in `localStorage` keyed `collapse:<sectionId>` |
 | Multi-file upload | Merged into `mergedRaw[]` — analyze data from multiple XLSX files at once |
 | Ytel Discrepancy | KPI tile = count of unique phones with a `status==='SALE'` row where **no row for that phone** has a `Cordoba Enrolled Date`/`Enrolled Date` (reuses `anyEnrolledPhone`, the same per-phone enrollment-presence Set used by DPC/Incomplete Transfers/Received Transfers) — a dialer-side "sale" that never made it into the CRM as an enrollment; phones kept in `window._saleDiscrepancyPhones`, CRM status per phone (from the SALE row's `r._crmStatus`, first non-empty wins) kept in `window._saleDiscrepancyCrm`; clicking the tile opens the shared enroll modal (`showSaleDiscrepancyPhones()`, phone list with a CRM status pill next to each number, same modal as `showEnrolledPhones`) |
+| Agent Report Cards | New bottom section `#sec-report-cards` (nav link "Agent Report Cards"), last section on the page — card `#reportCardsCard` with a single button "⬇ Download All Agent Cards (ZIP)" → `exportAgentReportCards()`. Uses `window._agentAllRows` (already excludes `TERMINATED`/`INACTIVE_RECENT`, same as every other agent view) and `window._summary.dateStr` for the report-period label (the currently selected date range, not a fixed daily window). For each agent, builds a one-page letter-size PDF via jsPDF: agent name, role tag (Retention/Opener/Closer, blank if unassigned), report period, then Total Calls / Inbound (unique) / Outbound (unique) / Enrolled / Enrolled Debt / Conv% (enr/>2min calls — same `pct(a.enr,a.gt2m)` formula as the Agent Performance table, `—` if either side is 0). Filename is the agent name slugified (`toLowerCase()`, non-alphanumeric → `_`) + `.pdf`. All per-agent PDFs are bundled into one ZIP via JSZip (`agent_report_cards_<dateStr-slugified>.zip`) and downloaded via a Blob URL — one PDF per agent (not a combined multi-page PDF) so a single agent's card can be shared 1:1 in Slack without exposing everyone else's numbers. Shows a toast and no-ops if no data is loaded or the CDN libraries failed to load. |
 
 ### Script Regions (in order)
 `CONFIG` → `UTILS` → `STATS` → `FILE I/O` → `NORMALIZATION` → `ENROLLMENT` → `ACCUMULATION` → `ANALYSIS` → `RENDER AGENTS` → `RENDER CAMPAIGNS` → `RENDER OPENERS` → `RENDER ALERTS` → `RENDER KPI` → `CHARTS` → `FILTERS` → `EXPORT` → `ROLE EDITOR` → `UI EVENTS` → `INIT`
