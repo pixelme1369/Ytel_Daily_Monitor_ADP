@@ -150,11 +150,9 @@ tr.total-row td{font-weight:700;background:var(--panel2);border-top:1px solid va
       <small>Ytel call data only &mdash; no CRM</small>
     </div>
   </div>
-  <div id="dropzone" onclick="document.getElementById('fileInput').click()">⇪ Drop XLSX/CSV or click to upload</div>
-  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" multiple style="display:none">
   <div class="tb-field"><label>From</label><input type="date" id="fromDate"></div>
   <div class="tb-field"><label>To</label><input type="date" id="toDate"></div>
-  <button class="btn" onclick="runAnalysis()">Run Analysis</button>
+  <button class="btn" id="runBtn" onclick="runAnalysis()">Run Analysis</button>
   <button class="btn ghost" onclick="copySummary()">Copy Summary</button>
   <button class="btn ghost" onclick="clearAll()">Clear</button>
   <span id="fileCount"></span>
@@ -181,7 +179,7 @@ tr.total-row td{font-weight:700;background:var(--panel2);border-top:1px solid va
   </nav>
 
   <div id="content">
-    <div id="emptyState" class="empty-note" style="font-size:14px;padding:60px 0;text-align:center">Upload one or more Ytel export XLSX or CSV files to begin.</div>
+    <div id="emptyState" class="empty-note" style="font-size:14px;padding:60px 0;text-align:center">Pick a date range and click Run Analysis to load calls from BigQuery.</div>
     <div id="report" style="display:none">
 
       <div class="card" id="sec-kpi"><div class="card-head" onclick="toggleCard(this)"><h2>Overview</h2><span class="chev">▼</span></div>
@@ -351,48 +349,19 @@ function toast(msg){
 function toggleCard(head){ head.parentElement.classList.toggle('collapsed'); const id=head.parentElement.id; localStorage.setItem('dcc_collapse:'+id, head.parentElement.classList.contains('collapsed')?'1':'0'); }
 function restoreCollapse(){ document.querySelectorAll('.card[id]').forEach(c=>{ const v=localStorage.getItem('dcc_collapse:'+c.id); if(v==='1') c.classList.add('collapsed'); if(v==='0') c.classList.remove('collapsed'); }); }
 
-/* ================= FILE I/O ================= */
+/* ================= DATA FETCH (BigQuery) ================= */
 let mergedRaw = [];
-let loadedFileNames = [];
+let lastFromStr = null, lastToStr = null;
 
-document.getElementById('fileInput').addEventListener('change', e=>handleFiles(e.target.files));
-const dz = document.getElementById('dropzone');
-dz.addEventListener('dragover', e=>{e.preventDefault(); dz.classList.add('drag');});
-dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
-dz.addEventListener('drop', e=>{e.preventDefault(); dz.classList.remove('drag'); handleFiles(e.dataTransfer.files);});
-
-function handleFiles(fileList){
-  const files = Array.from(fileList||[]).filter(f=>/\.(xlsx?|csv)$/i.test(f.name));
-  if(!files.length) return;
-  let pending = files.length;
-  files.forEach(f=>{
-    const reader = new FileReader();
-    reader.onload = ev=>{
-      try{
-        const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
-        mergedRaw = mergedRaw.concat(rows);
-        loadedFileNames.push(f.name);
-      }catch(err){ toast('Failed to read '+f.name); }
-      pending--;
-      if(pending===0){ document.getElementById('fileCount').textContent = loadedFileNames.length+' file(s) loaded ('+mergedRaw.length+' rows)'; autoSetDate(); }
-    };
-    reader.readAsArrayBuffer(f);
-  });
-}
-
-function autoSetDate(){
-  let newest=null;
-  mergedRaw.forEach(r=>{
-    const ds = getDateStr(r.call_date);
-    if(ds && (!newest || ds>newest)) newest=ds;
-  });
-  if(newest){ document.getElementById('fromDate').value=newest; document.getElementById('toDate').value=newest; }
+async function fetchCalls(fromStr, toStr){
+  const resp = await fetch('/api/calls?from='+encodeURIComponent(fromStr)+'&to='+encodeURIComponent(toStr));
+  const data = await resp.json().catch(()=>({}));
+  if(!resp.ok) throw new Error(data.error || ('Request failed ('+resp.status+')'));
+  return data.rows || [];
 }
 
 function clearAll(){
-  mergedRaw=[]; loadedFileNames=[];
+  mergedRaw=[]; calls=[]; lastFromStr=null; lastToStr=null;
   document.getElementById('fileCount').textContent='';
   document.getElementById('fromDate').value=''; document.getElementById('toDate').value='';
   document.getElementById('report').style.display='none';
@@ -423,25 +392,49 @@ function normalize(r){
 let calls = [];
 let badDateRows = 0;
 
-function runAnalysis(){
-  if(!mergedRaw.length){ toast('Upload a file first'); return; }
+async function runAnalysis(){
   const fromStr = document.getElementById('fromDate').value;
   const toStr = document.getElementById('toDate').value;
   if(!fromStr || !toStr){ toast('Select a date range'); return; }
+  if(fromStr>toStr){ toast('From date must be on or before To date'); return; }
 
-  mergedRaw.forEach(r=>{ if(r._ts===undefined) normalize(r); });
-  badDateRows = mergedRaw.filter(r=>!r._dateStr).length;
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true; btn.textContent = 'Loading…';
+  document.getElementById('fileCount').textContent = 'Querying BigQuery…';
 
-  calls = mergedRaw.filter(r=> r._dateStr && r._dateStr>=fromStr && r._dateStr<=toStr);
+  let rows;
+  try{
+    rows = await fetchCalls(fromStr, toStr);
+  }catch(err){
+    toast('Failed to load from BigQuery: '+err.message);
+    document.getElementById('fileCount').textContent = '';
+    btn.disabled = false; btn.textContent = 'Run Analysis';
+    return;
+  }
+
+  rows.forEach(normalize);
+  badDateRows = rows.filter(r=>!r._dateStr).length;
+  mergedRaw = rows;
+  lastFromStr = fromStr; lastToStr = toStr;
+  calls = rows.filter(r=>r._dateStr);
 
   const hint = document.getElementById('hint');
   if(badDateRows>0){ hint.style.display='block'; hint.textContent = badDateRows+' row(s) had an unparseable call_date and were excluded.'; }
   else hint.style.display='none';
 
+  document.getElementById('fileCount').textContent = calls.length.toLocaleString()+' calls loaded';
   document.getElementById('emptyState').style.display='none';
   document.getElementById('report').style.display='block';
 
+  btn.disabled = false; btn.textContent = 'Run Analysis';
+
   buildDashboard(fromStr, toStr);
+}
+
+function rerunIfLoaded(){
+  if(mergedRaw.length && document.getElementById('report').style.display!=='none'){
+    buildDashboard(lastFromStr, lastToStr);
+  }
 }
 
 function buildDashboard(fromStr, toStr){
@@ -1033,14 +1026,14 @@ function saveRoles(){
   RETENTION = new Set(parseLines('roleRetention'));
   localStorage.setItem('dcc_roles', JSON.stringify({closer:Array.from(CLOSERS), opener:Array.from(OPENERS), retention:Array.from(RETENTION)}));
   toast('Roles saved');
-  if(mergedRaw.length && document.getElementById('report').style.display!=='none') runAnalysis();
+  rerunIfLoaded();
 }
 function resetRoles(){
   CLOSERS = new Set(DEFAULT_ROLES.closer); OPENERS = new Set(DEFAULT_ROLES.opener); RETENTION = new Set(DEFAULT_ROLES.retention);
   localStorage.removeItem('dcc_roles');
   loadRoles();
   toast('Roles reset to defaults');
-  if(mergedRaw.length && document.getElementById('report').style.display!=='none') runAnalysis();
+  rerunIfLoaded();
 }
 
 /* ================= THRESHOLDS ================= */
@@ -1055,13 +1048,19 @@ function saveThresholds(){
   Object.keys(TH_LABELS).forEach(k=>{ const v=Number(document.getElementById('th-'+k).value); if(!isNaN(v)) TH[k]=v; });
   localStorage.setItem('dcc_thresholds', JSON.stringify(TH));
   toast('Thresholds saved');
-  if(mergedRaw.length && document.getElementById('report').style.display!=='none') runAnalysis();
+  rerunIfLoaded();
 }
 
 /* ================= INIT ================= */
 loadRoles();
 loadThresholds();
 restoreCollapse();
+(function setDefaultDateRange(){
+  const d = new Date();
+  const s = d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  document.getElementById('fromDate').value = s;
+  document.getElementById('toDate').value = s;
+})();
 </script>
 </body>
 </html>
