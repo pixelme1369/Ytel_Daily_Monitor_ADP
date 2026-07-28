@@ -686,10 +686,11 @@ function renderIssues(issues){
 
 /* ================= RENDER: Charts ================= */
 function renderHourCharts(hourCounts, dncHourCounts, dropHourCounts){
-  const labels = Object.keys(hourCounts).map(h=>h+':00');
-  drawBar('hourChart', labels, Object.values(hourCounts), '#22D3EE');
-  drawBar('dncHourChart', labels, Object.values(dncHourCounts), '#F87171');
-  drawBar('dropHourChart', labels, Object.values(dropHourCounts), '#FBBF24');
+  const hours = Array.from({length:24}, (_,h)=>pad2(h));
+  const labels = hours.map(h=>h+':00');
+  drawBar('hourChart', labels, hours.map(h=>hourCounts[h]), '#22D3EE');
+  drawBar('dncHourChart', labels, hours.map(h=>dncHourCounts[h]), '#F87171');
+  drawBar('dropHourChart', labels, hours.map(h=>dropHourCounts[h]), '#FBBF24');
 }
 function drawBar(id, labels, data, color){
   const key='_'+id;
