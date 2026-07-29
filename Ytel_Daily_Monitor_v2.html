@@ -370,7 +370,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
                 <th data-col="14">Total Talk</th>
                 <th data-col="15">Enrolled</th>
                 <th data-col="16">Debt $</th>
-                <th data-col="17" title="Enrolled phones ÷ unique phones with a call ≥2 min">Conv% (enr/unique &gt;2m)</th>
+                <th data-col="17" title="Enrolled phones ÷ unique phones with a call ≥2 min (excludes phones already enrolled from a different report window)">Conv% (enr/unique &gt;2m)</th>
               </tr>
             </thead>
             <tbody id="agentBody"></tbody>
@@ -702,7 +702,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <thead id="transferLbHead"><tr>
             <th data-col="0" style="width:34%;text-align:left">Agent</th>
             <th data-col="1" style="width:22%">Inbound <span style="font-weight:400;font-size:10px;color:var(--text-muted)">(all calls)</span></th>
-            <th data-col="2" style="width:22%" title="Enrolled phones ÷ unique phones with a call ≥2 min">Conv% (enr/unique &gt;2m)</th>
+            <th data-col="2" style="width:22%" title="Enrolled phones ÷ unique phones with a call ≥2 min (excludes phones already enrolled from a different report window)">Conv% (enr/unique &gt;2m)</th>
             <th data-col="3" style="width:22%">Transfers Received</th>
           </tr></thead>
           <tbody id="transferLbBody"></tbody>
@@ -2615,12 +2615,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentCampsMap={};
   const agentCampDataMap={};
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())&&!INACTIVE_RECENT.has((r._name||'').toLowerCase())).forEach(r=>{
+    // A phone that's already enrolled from a DIFFERENT day's report window (real Cordoba Enrolled Date exists,
+    // but the credit didn't land within the currently selected range) is a "current client" call, not a
+    // conversion opportunity -- exclude it from the >2min unique-phone denominator so a retention/follow-up
+    // call to an already-closed lead can't drag down Conv% with zero chance of a matching numerator credit.
+    const alreadyEnrolledElsewhere=r._phone&&anyEnrolledPhone.has(r._phone)&&!enrolledPhoneAgent[r._phone];
     if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{},funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
     if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     if(r._sec>=60&&r._sec<120) d.r1to2m++;
-    if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
+    if(r._sec>=120){ d.gt2m++; if(r._phone&&!alreadyEnrolledElsewhere) d.phonesGt2m.add(r._phone); }
     if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
@@ -2644,7 +2649,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(r._sec<=30) dd.short++;
     if(r._sec<120){ dd.lt2m++; if(r._phone) dd.funnelRecords.lt2m.push(funnelRec()); }
     if(r._sec>=60&&r._sec<120) dd.r1to2m++;
-    if(r._sec>=120){ dd.gt2m++; if(r._phone) dd.phonesGt2m.add(r._phone); }
+    if(r._sec>=120){ dd.gt2m++; if(r._phone&&!alreadyEnrolledElsewhere) dd.phonesGt2m.add(r._phone); }
     if(r._sec>=300&&r._sec<600){ dd.r5to10++; if(r._phone) dd.funnelRecords.r5to10.push(funnelRec()); }
     else if(r._sec>=600&&r._sec<900){ dd.r10to15++; if(r._phone) dd.funnelRecords.r10to15.push(funnelRec()); }
     else if(r._sec>=900&&r._sec<1200){ dd.r15to20++; if(r._phone) dd.funnelRecords.r15to20.push(funnelRec()); }
@@ -2660,7 +2665,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       if(r._sec<=30) cd.short++;
       if(r._sec<120){ cd.lt2m++; if(r._phone) cd.funnelRecords.lt2m.push(funnelRec()); }
       if(r._sec>=60&&r._sec<120) cd.r1to2m++;
-      if(r._sec>=120){ cd.gt2m++; if(r._phone) cd.phonesGt2m.add(r._phone); }
+      if(r._sec>=120){ cd.gt2m++; if(r._phone&&!alreadyEnrolledElsewhere) cd.phonesGt2m.add(r._phone); }
       if(r._sec>=300&&r._sec<600){ cd.r5to10++; if(r._phone) cd.funnelRecords.r5to10.push(funnelRec()); }
       else if(r._sec>=600&&r._sec<900){ cd.r10to15++; if(r._phone) cd.funnelRecords.r10to15.push(funnelRec()); }
       else if(r._sec>=900&&r._sec<1200){ cd.r15to20++; if(r._phone) cd.funnelRecords.r15to20.push(funnelRec()); }
