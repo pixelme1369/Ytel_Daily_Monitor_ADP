@@ -370,7 +370,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
                 <th data-col="14">Total Talk</th>
                 <th data-col="15">Enrolled</th>
                 <th data-col="16">Debt $</th>
-                <th data-col="17">Conv% (enr/>2m)</th>
+                <th data-col="17" title="Enrolled phones ÷ unique phones with a call ≥2 min">Conv% (enr/unique &gt;2m)</th>
               </tr>
             </thead>
             <tbody id="agentBody"></tbody>
@@ -702,7 +702,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <thead id="transferLbHead"><tr>
             <th data-col="0" style="width:34%;text-align:left">Agent</th>
             <th data-col="1" style="width:22%">Inbound <span style="font-weight:400;font-size:10px;color:var(--text-muted)">(all calls)</span></th>
-            <th data-col="2" style="width:22%">Conv% (enr/&gt;2m)</th>
+            <th data-col="2" style="width:22%" title="Enrolled phones ÷ unique phones with a call ≥2 min">Conv% (enr/unique &gt;2m)</th>
             <th data-col="3" style="width:22%">Transfers Received</th>
           </tr></thead>
           <tbody id="transferLbBody"></tbody>
@@ -1032,7 +1032,8 @@ async function exportAgentReportCards(){
   const zip=new JSZip();
   rows.forEach(a=>{
     const nameLC=a.name.toLowerCase();
-    const convPct=(a.gt2m>0&&a.enr>0)?pct(a.enr,a.gt2m):'—';
+    const gt2mUniq=a.phonesGt2m?a.phonesGt2m.size:0;
+    const convPct=(gt2mUniq>0&&a.enr>0)?pct(a.enr,gt2mUniq):'—';
     const transfersReceived=transfersByName[nameLC]||0;
     const doc=new jsPDF({unit:'pt',format:'letter'});
     const pageW=doc.internal.pageSize.getWidth();
@@ -1836,11 +1837,12 @@ function renderTransferLeaderboard(){
   const filteredTransferRows=roleSet?transferRows.filter(t=>roleSet.has(t.agent.toLowerCase())):transferRows;
   const rows=filteredTransferRows.map(t=>{
     const a=byName[t.agent.toLowerCase()]||{};
+    const gt2mUniq=a.phonesGt2m?a.phonesGt2m.size:0;
     return {
       agent:t.agent,
       inboundUniq:a.inboundTotal||0,
       inboundPhones:a.inboundPhones||[],
-      convPct:(a.gt2m>0&&a.enr>0)?pct(a.enr,a.gt2m):'—',
+      convPct:(gt2mUniq>0&&a.enr>0)?pct(a.enr,gt2mUniq):'—',
       count:t.count,
       records:t.records
     };
@@ -2611,12 +2613,12 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentCampsMap={};
   const agentCampDataMap={};
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())&&!INACTIVE_RECENT.has((r._name||'').toLowerCase())).forEach(r=>{
-    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{},funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
+    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{},funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
     if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     if(r._sec>=60&&r._sec<120) d.r1to2m++;
-    if(r._sec>=120) d.gt2m++;
+    if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
     if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
@@ -2635,12 +2637,12 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
     const funnelRec=()=>({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec});
     const dkey=r._dir==='inbound'?'inbound':'outbound';
-    if(!agentDirMap[dkey][r._name]) agentDirMap[dkey][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enr:0,debt:0,funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
+    if(!agentDirMap[dkey][r._name]) agentDirMap[dkey][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enr:0,debt:0,funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
     const dd=agentDirMap[dkey][r._name]; dd.calls++; dd.sec+=r._sec;
     if(r._sec<=30) dd.short++;
     if(r._sec<120){ dd.lt2m++; if(r._phone) dd.funnelRecords.lt2m.push(funnelRec()); }
     if(r._sec>=60&&r._sec<120) dd.r1to2m++;
-    if(r._sec>=120) dd.gt2m++;
+    if(r._sec>=120){ dd.gt2m++; if(r._phone) dd.phonesGt2m.add(r._phone); }
     if(r._sec>=300&&r._sec<600){ dd.r5to10++; if(r._phone) dd.funnelRecords.r5to10.push(funnelRec()); }
     else if(r._sec>=600&&r._sec<900){ dd.r10to15++; if(r._phone) dd.funnelRecords.r10to15.push(funnelRec()); }
     else if(r._sec>=900&&r._sec<1200){ dd.r15to20++; if(r._phone) dd.funnelRecords.r15to20.push(funnelRec()); }
@@ -2651,12 +2653,12 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       if(!agentCampsMap[r._name]) agentCampsMap[r._name]=new Set();
       agentCampsMap[r._name].add(r._campaign);
       if(!agentCampDataMap[r._campaign]) agentCampDataMap[r._campaign]={};
-      if(!agentCampDataMap[r._campaign][r._name]) agentCampDataMap[r._campaign][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enr:0,debt:0,funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
+      if(!agentCampDataMap[r._campaign][r._name]) agentCampDataMap[r._campaign][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enr:0,debt:0,funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
       const cd=agentCampDataMap[r._campaign][r._name]; cd.calls++; cd.sec+=r._sec;
       if(r._sec<=30) cd.short++;
       if(r._sec<120){ cd.lt2m++; if(r._phone) cd.funnelRecords.lt2m.push(funnelRec()); }
       if(r._sec>=60&&r._sec<120) cd.r1to2m++;
-      if(r._sec>=120) cd.gt2m++;
+      if(r._sec>=120){ cd.gt2m++; if(r._phone) cd.phonesGt2m.add(r._phone); }
       if(r._sec>=300&&r._sec<600){ cd.r5to10++; if(r._phone) cd.funnelRecords.r5to10.push(funnelRec()); }
       else if(r._sec>=600&&r._sec<900){ cd.r10to15++; if(r._phone) cd.funnelRecords.r10to15.push(funnelRec()); }
       else if(r._sec>=900&&r._sec<1200){ cd.r15to20++; if(r._phone) cd.funnelRecords.r15to20.push(funnelRec()); }
@@ -2781,7 +2783,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const maxC=rows[0]?rows[0].calls:1;
     const enrollPhones=window._agentEnrollPhones||agentEnrollPhones;
     const agentRowsHtml=rows.map((a,i)=>{
-      const convPct=a.gt2m>0&&a.enr>0?pct(a.enr,a.gt2m):'—';
+      const gt2mUniq=a.phonesGt2m?a.phonesGt2m.size:0;
+      const convPct=gt2mUniq>0&&a.enr>0?pct(a.enr,gt2mUniq):'—';
       const shortCls=a.shortPct>55?'bad':'';
       const isOpener=OPENERS.has(a.name.toLowerCase());
       const rowId='agent-hr-'+i;
