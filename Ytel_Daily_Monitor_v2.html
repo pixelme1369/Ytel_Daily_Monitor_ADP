@@ -2498,9 +2498,11 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         <div class="issue-title">${iss.title}</div>
         <div class="issue-detail">${iss.detail.replace(/\n/g,'<br>')}</div>
       </div>
-      ${iss.exportDnc?`<button onclick="exportDncPhones()" style="margin-left:8px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
-      ${iss.afterDnc?`<button onclick="showAfterDncPhones()" style="margin-left:8px;padding:4px 10px;font-size:11px;background:#c0392b;border:1px solid #c0392b;color:#fff;border-radius:4px;cursor:pointer;white-space:nowrap">View Numbers</button><button onclick="exportAfterDncPhones()" style="margin-left:6px;padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
-      <div class="issue-badge ${iss.sev}">${iss.sev==='crit'?'Critical':iss.sev==='high'?'High':'Good'}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        ${iss.exportDnc?`<button onclick="exportDncPhones()" style="padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
+        ${iss.afterDnc?`<button onclick="showAfterDncPhones()" style="padding:4px 10px;font-size:11px;background:#c0392b;border:1px solid #c0392b;color:#fff;border-radius:4px;cursor:pointer;white-space:nowrap">View Numbers</button><button onclick="exportAfterDncPhones()" style="padding:4px 10px;font-size:11px;background:#fff;border:1px solid #c0392b;color:#c0392b;border-radius:4px;cursor:pointer;white-space:nowrap">Export CSV</button>`:''}
+        <div class="issue-badge ${iss.sev}">${iss.sev==='crit'?'Critical':iss.sev==='high'?'High':'Good'}</div>
+      </div>
     </div>`).join('');
 
   // ── Hour chart ──
