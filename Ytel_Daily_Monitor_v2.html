@@ -2638,7 +2638,18 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       if(!last) return;
       const lastDir=last.dir==='inbound'?'inbound':'outbound';
       const maps=[[agentHourMap,agentName],[agentHourDirMap[lastDir],agentName]];
-      if(last.camp&&agentHourCampMap[last.camp]) maps.push([agentHourCampMap[last.camp],agentName]);
+      const attribCamp=enrolledFirstCallRow[phone]&&enrolledFirstCallRow[phone]._campaign;
+      if(attribCamp){
+        // Credit the campaign that actually gets enrollment attribution (first call of the
+        // enrollment day, same rule the Campaign/Queue Breakdown card uses) -- not the campaign
+        // of the agent's own last touch to this phone, which can differ (e.g. lead came in on
+        // TransferK, closer's last touch was an outbound call on 1000). Bucket is created on
+        // demand since the agent may have no personal calls tagged with attribCamp.
+        if(!agentHourCampMap[attribCamp]) agentHourCampMap[attribCamp]={};
+        if(!agentHourCampMap[attribCamp][agentName]) agentHourCampMap[attribCamp][agentName]={};
+        if(!agentHourCampMap[attribCamp][agentName][last.hk]) agentHourCampMap[attribCamp][agentName][last.hk]={calls:0,short:0,lt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0};
+        maps.push([agentHourCampMap[attribCamp],agentName]);
+      }
       maps.forEach(([m,n])=>{
         if(!m[n]||!m[n][last.hk]) return;
         m[n][last.hk].enrHour=(m[n][last.hk].enrHour||0)+1;

@@ -224,7 +224,11 @@ Two `CRM Status` situations mean a lead has effectively already closed even thou
 ## Hourly Breakdown Logic
 
 - **Unique #s per hour** — phone counted in the hour of its **first call of the day**
-- **Enrolled per hour** — credited to the hour of the agent's **last call to that enrolled phone**
+- **Enrolled per hour** — credited to the **hour** of the agent's **last call to that enrolled phone** (hour placement is agent-scoped)
+- **Enrolled per hour — which campaign bucket** — uses `enrolledFirstCallRow[phone]._campaign` (the same first-call-of-enrollment-day campaign attribution as the Campaign/Queue Breakdown card's `_enrolled` flag), **not** the campaign of the agent's own last call. This keeps the Agent Performance campaign filter consistent with the Campaign Breakdown card for the same phone.
+  - **Bug fixed (July 2026)**: previously the hour AND the campaign bucket both came from the agent's own last call to the phone (`agentPhoneLastCall[agent][phone].camp`). Since an agent's own last touch to a phone can be on a different campaign than the one that gets true attribution credit (e.g. lead came in on TransferK, closer's last touch was an outbound call on `1000`), the Agent Performance campaign filter could disagree with the Campaign Breakdown card for the same phone/agent.
+  - Implementation: in the `agentEnrollPhones` hourly-crediting loop (`buildDashboard`), `attribCamp=enrolledFirstCallRow[phone]&&enrolledFirstCallRow[phone]._campaign` replaces `last.camp` when deciding which `agentHourCampMap` bucket to credit; the `(campaign, agent, hour)` entry is created on demand if the agent has no personal calls tagged with that campaign.
+  - Known remaining gap: the Agent Performance summary row's top-level `Enrolled`/`Debt`/phone-list still use the agent's **global** `agentEnrollCredit` (all campaigns) even when a campaign filter is active, so the summary row can still show a higher total than the sum of its own hourly sub-rows. Not yet fixed — flagged for a follow-up change.
 
 ## Missed Callbacks Logic
 
