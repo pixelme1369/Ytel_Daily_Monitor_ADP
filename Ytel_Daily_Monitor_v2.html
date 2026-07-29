@@ -590,9 +590,9 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
           <div class="card-title" style="color:var(--red);margin:0">⚠ DPC — Dropped Calls Never Called Back</div>
           <div id="dpcSecFilter" style="display:flex;gap:4px;font-size:11px">
-            <button onclick="setDpcSec('all')" id="dpcSec-all" style="padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer">All</button>
+            <button onclick="setDpcSec('all')" id="dpcSec-all" style="padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--white);cursor:pointer">All</button>
             <button onclick="setDpcSec('lt1')" id="dpcSec-lt1" style="padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--white);cursor:pointer">&lt;1 min</button>
-            <button onclick="setDpcSec('1to2')" id="dpcSec-1to2" style="padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--white);cursor:pointer">1–2 min</button>
+            <button onclick="setDpcSec('1to2')" id="dpcSec-1to2" style="padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer">1–2 min</button>
             <button onclick="setDpcSec('gt2')" id="dpcSec-gt2" style="padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--white);cursor:pointer">&gt;2 min</button>
           </div>
           <div class="ms-wrap" id="dpcCampFilter" style="margin-left:auto">
@@ -1678,7 +1678,7 @@ function setDpcSec(val){
 }
 function renderDpcDrops(){
   const camps=getMsValues('dpcCampFilter');
-  const secF=window._dpcSecFilter||'all';
+  const secF=window._dpcSecFilter||'1to2';
   const data=(window._dpcData||[]).filter(d=>{
     if(camps.length&&!d.camps.some(c=>camps.includes(c))) return false;
     if(secF==='lt1'&&d.sec>=60) return false;
