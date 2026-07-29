@@ -271,7 +271,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 
   <!-- OVERVIEW -->
   <section id="sec-overview">
-    <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">Overview</span></div>
+    <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">Overview</span><span class="card-title-sub" id="lastUpdated" style="margin-left:10px"></span></div>
     <div class="sec-body">
       <div>
         <div class="section-label">At a glance</div>
@@ -2099,6 +2099,7 @@ async function runAnalysis(){
   if(badDateRows) showToast('⚠ '+badDateRows.toLocaleString()+' row'+(badDateRows>1?'s':'')+' with an unreadable call_date skipped');
 
   buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent, toStr);
+  document.getElementById('lastUpdated').textContent='Data as of '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
 }
 
 function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPhones, totalEnrolledCount, totalDebtSum, dateStr, enrolledPhoneAgent, toStr){
