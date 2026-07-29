@@ -2067,7 +2067,9 @@ async function runAnalysis(){
     // CA + CRM Status "Approved" = in escrow, enrolls in 3 days — counts as a deal now, dated by the call itself
     const isEscrow=phoneIsCA.has(phone)&&crmStatus==='approved';
     // CRM Status "Waiting for First Payment" = deal already closed, just waiting on payment to process
-    const isWaitingPayment=crmStatus==='waiting_for_first_payment';
+    // Normalize underscores to spaces — the CRM has been seen sending this status as both
+    // "waiting_for_first_payment" (snake_case) and "waiting for first payment" (spaced)
+    const isWaitingPayment=crmStatus.replace(/_/g,' ').replace(/\s+/g,' ').trim()==='waiting for first payment';
     const isPendingDeal=(isEscrow||isWaitingPayment)&&!realEnrolledPhones.has(phone);
     if(!ds||ds<fromStr||ds>toStr){
       if(!isPendingDeal) return;
@@ -2202,7 +2204,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     const crmStatus=r._crmStatus.toLowerCase();
     const isEscrow=phoneIsCA.has(r._phone)&&crmStatus==='approved';
-    const isWaitingPayment=crmStatus==='waiting_for_first_payment';
+    const isWaitingPayment=crmStatus.replace(/_/g,' ').replace(/\s+/g,' ').trim()==='waiting for first payment';
     if(r['Cordoba Enrolled Date']||r['Enrolled Date']||isEscrow||isWaitingPayment) anyEnrolledPhone.add(r._phone);
   });
   const saleDiscrepancyPhones=new Set();
