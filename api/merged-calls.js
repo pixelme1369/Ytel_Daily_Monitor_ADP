@@ -101,14 +101,16 @@ module.exports = async (req, res) => {
   // Ytel call to any of a lead's numbers finds the same CRM data.
   const crmByPhone = {};
   if (phones.length) {
+    // VW_SAMAN's phone columns are FLOAT64, not STRING -- go through INT64 before
+    // stringifying so no stray decimal point ends up in the digit comparison.
     const crmQuery = `
       SELECT assigned_to, phone, phone2, phone3, phone4, status, enrolled_debt,
              cordoba_enrolled_date, state
       FROM \`${CRM_TABLE}\`
-      WHERE SUBSTR(REGEXP_REPLACE(IFNULL(phone,''),  r'[^0-9]', ''), -10) IN UNNEST(@phones)
-         OR SUBSTR(REGEXP_REPLACE(IFNULL(phone2,''), r'[^0-9]', ''), -10) IN UNNEST(@phones)
-         OR SUBSTR(REGEXP_REPLACE(IFNULL(phone3,''), r'[^0-9]', ''), -10) IN UNNEST(@phones)
-         OR SUBSTR(REGEXP_REPLACE(IFNULL(phone4,''), r'[^0-9]', ''), -10) IN UNNEST(@phones)
+      WHERE SUBSTR(IFNULL(CAST(SAFE_CAST(phone  AS INT64) AS STRING), ''), -10) IN UNNEST(@phones)
+         OR SUBSTR(IFNULL(CAST(SAFE_CAST(phone2 AS INT64) AS STRING), ''), -10) IN UNNEST(@phones)
+         OR SUBSTR(IFNULL(CAST(SAFE_CAST(phone3 AS INT64) AS STRING), ''), -10) IN UNNEST(@phones)
+         OR SUBSTR(IFNULL(CAST(SAFE_CAST(phone4 AS INT64) AS STRING), ''), -10) IN UNNEST(@phones)
     `;
     try {
       const [crmRows] = await bigquery.query({
