@@ -3313,7 +3313,8 @@ renderThresholdEditor();
 initCollapse();
 initNav();
 initSidebarAutoHide();
-loadSharedData(true);
+// Not auto-loaded on startup (unlike before BigQuery existed) — it would silently override the new
+// live-BigQuery default with a stale manually-uploaded file. "Load Shared Data" still works on click.
 </script>
 </body>
 </html>
