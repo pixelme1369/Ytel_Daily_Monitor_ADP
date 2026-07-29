@@ -701,7 +701,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
         <table style="table-layout:fixed">
           <thead id="transferLbHead"><tr>
             <th data-col="0" style="width:34%;text-align:left">Agent</th>
-            <th data-col="1" style="width:22%">Inbound <span style="font-weight:400;font-size:10px;color:var(--text-muted)">(unique)</span></th>
+            <th data-col="1" style="width:22%">Inbound <span style="font-weight:400;font-size:10px;color:var(--text-muted)">(all calls)</span></th>
             <th data-col="2" style="width:22%">Conv% (enr/&gt;2m)</th>
             <th data-col="3" style="width:22%">Transfers Received</th>
           </tr></thead>
@@ -1838,7 +1838,7 @@ function renderTransferLeaderboard(){
     const a=byName[t.agent.toLowerCase()]||{};
     return {
       agent:t.agent,
-      inboundUniq:a.inboundUniq||0,
+      inboundUniq:a.inboundTotal||0,
       inboundPhones:a.inboundPhones||[],
       convPct:(a.gt2m>0&&a.enr>0)?pct(a.enr,a.gt2m):'—',
       count:t.count,
@@ -2747,7 +2747,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         if(fd&&fd.dir==='inbound'){ inboundUniq++; inboundPhones.push(entry); }
         else{ outboundUniq++; outboundPhones.push(entry); }
       });
-      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,inboundPhones,outboundPhones,funnelRecords:d.funnelRecords,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
+      const inboundTotal=(agentDirMap.inbound[name]&&agentDirMap.inbound[name].calls)||0;
+      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,inboundTotal,inboundPhones,outboundPhones,funnelRecords:d.funnelRecords,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
     }).sort((a,b)=>b.calls-a.calls);
 
   window._agentAllRows=agentRows;
