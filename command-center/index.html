@@ -442,6 +442,8 @@ function buildDashboard(fromStr, toStr){
   const outboundCalls = calls.filter(r=>r._direction==='outbound');
   const dialedUnique = new Set(outboundCalls.map(r=>r._phone).filter(Boolean));
   const contactedUnique = new Set(outboundCalls.filter(r=>r._sec>30).map(r=>r._phone).filter(Boolean));
+  const inboundCalls = calls.filter(r=>r._direction==='inbound');
+  const receivedUnique = new Set(inboundCalls.map(r=>r._phone).filter(Boolean));
   const totalCalls = calls.length;
   const dropRows = calls.filter(r=>r._status==='DROP');
   const dncRows = calls.filter(r=>r._status==='DNC');
@@ -621,7 +623,7 @@ function buildDashboard(fromStr, toStr){
   if(!issues.length) issues.push({sev:'ok', text:'No issues detected for this range.'});
 
   // ================= RENDER =================
-  renderKpis({totalCalls, dialedUnique, contactedUnique, avgTalk, dropRows, dncRows, dialedAfterDncPhones});
+  renderKpis({totalCalls, dialedUnique, contactedUnique, receivedUnique, avgTalk, dropRows, dncRows, dialedAfterDncPhones});
   renderIssues(issues);
   renderHourCharts(hourCounts, dncHourCounts, dropHourCounts);
   renderDispo(dispoCounts, dispoNames, totalCalls);
@@ -655,8 +657,8 @@ function renderKpis(d){
   const contactRate = d.dialedUnique.size? (d.contactedUnique.size/d.dialedUnique.size*100) : 0;
   const tiles = [
     {v:d.totalCalls.toLocaleString(), l:'Total Calls'},
-    {v:d.dialedUnique.size.toLocaleString(), l:'Unique Numbers Dialed'},
-    {v:contactRate.toFixed(1)+'%', l:'Contact Rate', cls: contactRate<30?'warn':'ok'},
+    {v:d.receivedUnique.size.toLocaleString(), l:'Unique Numbers Received'},
+    {v:contactRate.toFixed(1)+'%', l:'Contact Rate (outbound)', cls: contactRate<30?'warn':'ok'},
     {v:fmtDur(d.avgTalk), l:'Avg Talk Time'},
     {v:d.dropRows.length.toLocaleString(), l:'Drops'},
     {v:d.dncRows.length.toLocaleString(), l:'DNC Calls'},
