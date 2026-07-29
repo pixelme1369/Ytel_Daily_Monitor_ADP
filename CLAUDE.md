@@ -265,6 +265,10 @@ Two `CRM Status` situations mean a lead has effectively already closed even thou
   - Implementation: in the `agentEnrollPhones` hourly-crediting loop (`buildDashboard`), `attribCamp=enrolledFirstCallRow[phone]&&enrolledFirstCallRow[phone]._campaign` replaces `last.camp` when deciding which `agentHourCampMap` bucket to credit; the `(campaign, agent, hour)` entry is created on demand if the agent has no personal calls tagged with that campaign.
   - Known remaining gap: the Agent Performance summary row's top-level `Enrolled`/`Debt`/phone-list still use the agent's **global** `agentEnrollCredit` (all campaigns) even when a campaign filter is active, so the summary row can still show a higher total than the sum of its own hourly sub-rows. Not yet fixed — flagged for a follow-up change.
 
+## PLR Campaign Excluded from Missed / DPC Section (temporary, July 2026)
+
+Per user request ("I don't care about PLR now"), the `PLR` campaign is excluded from the three flagged-event lists in the **Missed / DPC** section (`sec-alerts`): Missed Callbacks, DPC Drops, and Incomplete Transfers. A call on `PLR` simply never becomes a flagged event in the first place — the exclusion is a single `&&r._campaign!=='PLR'` guard added where each event type is captured in `buildDashboard()` (the `TIMEOT`/`DPC`/`CLtrns` `calls.forEach` loops feeding `window._missedData`/`window._dpcData`/`window._badTransferData`), not a display-time filter, so it's one line per event type to revert if PLR needs to come back. Scoped to this section only — PLR calls still count fully everywhere else (overall KPIs, the existing "PLR campaign producing N VDCL drops" Issues Detected alert, Campaign Breakdown, Correct Transfers Received, Unassigned Agents).
+
 ## Missed Callbacks Logic
 
 - Tracks inbound `TIMEOT` calls and checks for any follow-up call (inbound OR outbound, non-TIMEOT) after the last timeout
