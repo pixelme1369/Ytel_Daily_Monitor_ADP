@@ -1721,6 +1721,7 @@ function showPhoneCrmList(records, label){
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="display:flex;align-items:center;gap:8px">
           <b style="font-size:13px;font-family:monospace">${r.phone}</b>
+          ${r.dir?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:${r.dir==='inbound'?'var(--blue-lt)':'var(--amber-lt)'};border-radius:10px;padding:1px 8px;color:${r.dir==='inbound'?'var(--blue-dk)':'var(--amber-dk)'}" title="Call direction">${r.dir==='inbound'?'Inbound':'Outbound'}</span>`:''}
           ${r.ytelStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--blue)" title="Ytel status">${r.ytelStatus}</span>`:''}
           ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)" title="CRM status">${r.crmStatus}</span>`:''}
         </span>
@@ -2608,14 +2609,14 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{},funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
-    if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     if(r._sec>=60&&r._sec<120) d.r1to2m++;
     if(r._sec>=120) d.gt2m++;
-    if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
-    else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
-    else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
-    else if(r._sec>=1200&&r._sec<1800){ d.r20to30++; if(r._phone) d.funnelRecords.r20to30.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
-    else if(r._sec>=1800){ d.gt30m++; if(r._phone) d.funnelRecords.gt30m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=1200&&r._sec<1800){ d.r20to30++; if(r._phone) d.funnelRecords.r20to30.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=1800){ d.gt30m++; if(r._phone) d.funnelRecords.gt30m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     if(r._phone) d.phones.add(r._phone);
     if(r._phone){
       if(!agentPhoneDetail[r._name]) agentPhoneDetail[r._name]={};
@@ -2627,7 +2628,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       if(!d.phoneRecordings[r._phone]) d.phoneRecordings[r._phone]=[];
       d.phoneRecordings[r._phone].push({sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||''});
     }
-    const funnelRec=()=>({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec});
+    const funnelRec=()=>({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:0,recording:r._recording||'',sec:r._sec});
     const dkey=r._dir==='inbound'?'inbound':'outbound';
     if(!agentDirMap[dkey][r._name]) agentDirMap[dkey][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enr:0,debt:0,funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
     const dd=agentDirMap[dkey][r._name]; dd.calls++; dd.sec+=r._sec;
