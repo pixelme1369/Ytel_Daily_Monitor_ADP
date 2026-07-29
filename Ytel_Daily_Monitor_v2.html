@@ -410,11 +410,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
         <div class="card-title">
           <span>Agent call funnel — % of total calls <span class="card-title-sub">Each % = bucket count ÷ agent's total calls. Click column to sort.</span></span>
           <div id="funnelFilterBtns" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <button onclick="filterFunnel('all')"    id="ff-all"    class="af-btn af-active">All</button>
-            <button onclick="filterFunnel('closer')" id="ff-closer" class="af-btn">Closers</button>
+            <button onclick="filterFunnel('all')"    id="ff-all"    class="af-btn">All</button>
+            <button onclick="filterFunnel('closer')" id="ff-closer" class="af-btn af-active">Closers</button>
             <button onclick="filterFunnel('opener')" id="ff-opener" class="af-btn">Openers</button>
             <select id="ff-camp" onchange="filterFunnel()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)"><option value="">All Campaigns</option></select>
-            <select id="ff-dir" onchange="filterFunnel()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)"><option value="">All Directions</option><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select>
+            <select id="ff-dir" onchange="filterFunnel()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)"><option value="">All Directions</option><option value="inbound" selected>Inbound</option><option value="outbound">Outbound</option></select>
           </div>
         </div>
         <div class="tbl-wrap">
@@ -1170,7 +1170,7 @@ function resetThresholds(){
 }
 
 // ══ FILTERS ═════════════════════════════════════════════════════════════════
-let _agentRoleFilter='all', _funnelRoleFilter='all';
+let _agentRoleFilter='all', _funnelRoleFilter='closer';
 function filterAgents(type){
   if(type){
     _agentRoleFilter=type;
@@ -2605,17 +2605,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const agentCampsMap={};
   const agentCampDataMap={};
   calls.filter(r=>!['VDCL','VDAD'].includes(r._user)&&!TERMINATED.has((r._name||'').toLowerCase())&&!INACTIVE_RECENT.has((r._name||'').toLowerCase())).forEach(r=>{
-    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{}};
+    if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{},funnelRecords:{lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
     if(r._sec<=30) d.short++;
-    if(r._sec<120) d.lt2m++;
+    if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     if(r._sec>=60&&r._sec<120) d.r1to2m++;
     if(r._sec>=120) d.gt2m++;
-    if(r._sec>=300&&r._sec<600) d.r5to10++;
-    else if(r._sec>=600&&r._sec<900) d.r10to15++;
-    else if(r._sec>=900&&r._sec<1200) d.r15to20++;
-    else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
-    else if(r._sec>=1800) d.gt30m++;
+    if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=1200&&r._sec<1800){ d.r20to30++; if(r._phone) d.funnelRecords.r20to30.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
+    else if(r._sec>=1800){ d.gt30m++; if(r._phone) d.funnelRecords.gt30m.push({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',debt:0,recording:r._recording||'',sec:r._sec}); }
     if(r._phone) d.phones.add(r._phone);
     if(r._phone){
       if(!agentPhoneDetail[r._name]) agentPhoneDetail[r._name]={};
@@ -2743,7 +2743,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         if(fd&&fd.dir==='inbound'){ inboundUniq++; inboundPhones.push(entry); }
         else{ outboundUniq++; outboundPhones.push(entry); }
       });
-      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,inboundPhones,outboundPhones,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
+      return {...d,name,uniqueCalls,enr,debt,inboundUniq,outboundUniq,inboundPhones,outboundPhones,funnelRecords:d.funnelRecords,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
     }).sort((a,b)=>b.calls-a.calls);
 
   window._agentAllRows=agentRows;
@@ -2882,24 +2882,28 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   })();
 
   // ── Agent funnel ratio table ──
-  const fcell=(n,d,color)=>{
+  const fcell=(n,d,color,records,label)=>{
     const pct=d>0?((n/d)*100).toFixed(1)+'%':'0%';
-    return `<span style="color:${color||'inherit'}">${pct}</span> <span style="font-size:10px;color:var(--text-muted)">(${n})</span>`;
+    const inner=`<span style="color:${color||'inherit'}">${pct}</span> <span style="font-size:10px;color:var(--text-muted)">(${n})</span>`;
+    if(!records||records.length===0) return inner;
+    return `<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(records)},${attrJson(label)})'>${inner}</span>`;
   };
   window.renderFunnelBody=function(rows){
     document.getElementById('funnelBody').innerHTML=rows.map(a=>`
       <tr>
         <td style="text-align:left;font-weight:600;color:var(--text)">${a.name}${RETENTION.has(a.name.toLowerCase())?'<span class="tag-retention">Retention</span>':OPENERS.has(a.name.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
         <td>${a.calls}</td>
-        <td>${fcell(a.lt2m,a.calls,'var(--red)')}</td>
-        <td>${fcell(a.r5to10,a.calls,null)}</td>
-        <td>${fcell(a.r10to15,a.calls,null)}</td>
-        <td>${fcell(a.r15to20,a.calls,null)}</td>
-        <td>${fcell(a.r20to30,a.calls,'var(--green-dk)')}</td>
-        <td>${fcell(a.gt30m,a.calls,'var(--green-dk)')}</td>
+        <td>${fcell(a.lt2m,a.calls,'var(--red)',a.funnelRecords?.lt2m,a.name+' — <2 min')}</td>
+        <td>${fcell(a.r5to10,a.calls,null,a.funnelRecords?.r5to10,a.name+' — 5–10 min')}</td>
+        <td>${fcell(a.r10to15,a.calls,null,a.funnelRecords?.r10to15,a.name+' — 10–15 min')}</td>
+        <td>${fcell(a.r15to20,a.calls,null,a.funnelRecords?.r15to20,a.name+' — 15–20 min')}</td>
+        <td>${fcell(a.r20to30,a.calls,'var(--green-dk)',a.funnelRecords?.r20to30,a.name+' — 20–30 min')}</td>
+        <td>${fcell(a.gt30m,a.calls,'var(--green-dk)',a.funnelRecords?.gt30m,a.name+' — 30+ min')}</td>
       </tr>`).join('');
   };
-  renderFunnelBody(agentRows);
+  filterFunnel('closer');
+  document.getElementById('ff-dir').value='inbound';
+  filterFunnel();
 
   const ffCampSel=document.getElementById('ff-camp');
   if(ffCampSel){ ffCampSel.innerHTML='<option value="">All Campaigns</option>'+allCamps.map(c=>`<option value="${c}">${c}</option>`).join(''); }
