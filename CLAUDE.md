@@ -97,7 +97,9 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 Note: the `emptyStats()`/`accumulate(d,r)` factory pattern only exists in `Agent_Performance_Range.html` — v2 still uses inline per-map bucketing blocks (earlier versions of this doc claimed v2 had this refactor; it does not).
 
 ### Sections Preserved
-KPIs · Issues Detected · Hour Chart · Dispo list · Agent Performance (incl. 1–2min bracket, hourly sub-rows) · Agent Funnel · Agent Rankings · Campaign Breakdown · Top 5 Numbers · VDCL Analysis · Drops by Hour · Missed Callbacks · DPC Drops (incl. sec filter) · Openers Transfer Breakdown
+KPIs · Issues Detected · Hour Chart · Dispo list · Agent Performance (incl. 1–2min bracket, hourly sub-rows) · Agent Funnel · Campaign Breakdown · Top 5 Numbers · VDCL Analysis · Drops by Hour · Missed Callbacks · DPC Drops (incl. sec filter) · Openers Transfer Breakdown
+
+**Removed (July 2026)**: the "Best openers"/"Best closers" Agent Rankings cards (`rankOpenerList`/`rankCloserList`, the `rankList()` helper that rendered them) — deleted entirely per user request, not just hidden. The **Settings** section (Agent role editor + Alert thresholds) is hidden (`#sec-settings{display:none}`, nav link removed) rather than deleted — the underlying role/threshold JS (`saveRoles()`, `saveThresholds()`, `localStorage` persistence) is untouched and still runs; only the UI entry point is hidden, so it's easy to re-expose later if needed.
 
 ### Syntax Check (v2)
 ```
@@ -162,7 +164,7 @@ const TERMINATED = new Set(['anthony dimora']);
 ```
 
 - Defined right after `OPENERS` (line ~695); lowercase, same matching convention as the role sets
-- Excluded from all agent-specific views: Agent Performance table, Agent Rankings, Agent Call Funnel, Agent Outcomes scatter, Long Calls No Deal, Unassigned Agents, and the coaching-issue callouts in Issues Detected (high short-call rate, drop/timeout leaderboard, excessive redials)
+- Excluded from all agent-specific views: Agent Performance table, Agent Call Funnel, Agent Outcomes scatter, Long Calls No Deal, Unassigned Agents, and the coaching-issue callouts in Issues Detected (high short-call rate, drop/timeout leaderboard, excessive redials)
 - **Not** excluded from overall KPIs, campaign totals, or call-flagging views keyed by phone (DPC, Incomplete Transfers) — those calls actually happened and still count; only agent-level roll-ups hide the name
 - Implementation: every `calls.filter(...)` that builds `agentMap`/`agentMapIssue`/`agentPhoneFirstCall`/`unassignedCounts`/`agentPhoneOutCounts` (redials) also excludes `TERMINATED.has(r._name.toLowerCase())`
 - Not part of the Settings role editor — this is a hardcoded exclusion, not a role, and isn't persisted to `localStorage`
@@ -174,7 +176,7 @@ When a user runs a report over a date range longer than ~10 days, an agent who s
 - Window: `toStr` (the selected range's end date) minus 9 days through `toStr` inclusive = a 10-day window. An agent is flagged `INACTIVE_RECENT` if their latest call in the filtered `calls` set falls **before** that window, i.e. they have zero calls anywhere in the most recent 10 days of the selected range
 - If the selected range itself is 10 days or shorter, the cutoff falls before `fromDate`, so every agent's calls are inside the window and nothing is excluded — this only kicks in on longer ranges
 - Computed right after the field-normalization pass at the top of `buildDashboard()` (`agentLastCallDate` = per-agent latest call date via `getDateStr(new Date(r._ts))`, compared against `inactiveCutoffStr`)
-- Same scope as `TERMINATED`: excluded from Agent Performance table, Agent Rankings, Agent Call Funnel, Agent Outcomes scatter, Long Calls No Deal, Unassigned Agents, and the coaching-issue callouts in Issues Detected — **not** excluded from overall KPIs, campaign totals, or phone-keyed views (DPC, Incomplete Transfers)
+- Same scope as `TERMINATED`: excluded from Agent Performance table, Agent Call Funnel, Agent Outcomes scatter, Long Calls No Deal, Unassigned Agents, and the coaching-issue callouts in Issues Detected — **not** excluded from overall KPIs, campaign totals, or phone-keyed views (DPC, Incomplete Transfers)
 - Implementation: every same `calls.filter(...)` site listed under Terminated Agents above also excludes `INACTIVE_RECENT.has(r._name.toLowerCase())`
 - Not part of the Settings role editor and not persisted — recalculated from whatever file/range is currently loaded
 

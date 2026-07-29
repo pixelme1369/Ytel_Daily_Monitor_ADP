@@ -220,7 +220,6 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <a href="#sec-openers">Openers</a>
     <a href="#sec-campaigns">Campaign Breakdown</a>
     <a href="#sec-alerts">Missed / DPC</a>
-    <a href="#sec-settings">Settings</a>
     <a href="#sec-transfer-lb">Agent Management Board</a>
     <a href="#sec-report-cards">Agent Report Cards</a>
   </nav>
@@ -431,16 +430,6 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
         <div class="fc-chart-wrap"><canvas id="funnelScatterChart"></canvas></div>
       </div>
 
-      <div class="two-col">
-        <div class="card">
-          <div class="card-title">Best openers <span class="card-title-sub">calls that reached &gt;5 min ÷ total calls — top 10</span></div>
-          <div id="rankOpenerList"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">Best closers <span class="card-title-sub">calls that reached &gt;15 min ÷ total calls — top 10</span></div>
-          <div id="rankCloserList"></div>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -632,7 +621,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
   </section>
 
   <!-- SETTINGS -->
-  <section id="sec-settings">
+  <section id="sec-settings" style="display:none">
     <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">Settings</span></div>
     <div class="sec-body">
       <div class="card">
@@ -2926,33 +2915,6 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       });
     });
   })();
-
-  // ── Agent rankings ──
-  function rankList(rows, scoreFn, labelFn, containerId, goodColor, badColor){
-    const MIN_CALLS = 20;
-    const ranked = rows.filter(a=>a.calls>=MIN_CALLS)
-      .map(a=>({name:a.name, calls:a.calls, score:scoreFn(a)}))
-      .sort((a,b)=>b.score-a.score);
-    const top = ranked.slice(0,10);
-    const maxScore = top[0]?top[0].score:1;
-    document.getElementById(containerId).innerHTML = top.map((a,i)=>{
-      const color = i<3 ? goodColor : (i>=ranked.length-3 ? badColor : 'var(--blue)');
-      const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
-        <div style="width:22px;text-align:right;font-size:11px;color:var(--text-muted);flex-shrink:0">${medal||('#'+(i+1))}</div>
-        <div style="flex:1;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name}</div>
-        <div style="width:120px;flex-shrink:0">
-          <div style="background:var(--gray-200);border-radius:3px;height:6px;overflow:hidden">
-            <div style="background:${color};height:100%;width:${(a.score/maxScore*100).toFixed(0)}%;border-radius:3px"></div>
-          </div>
-        </div>
-        <div style="width:52px;text-align:right;font-size:12px;font-weight:700;color:${color};flex-shrink:0">${a.score.toFixed(1)}%</div>
-        <div style="width:38px;text-align:right;font-size:10px;color:var(--text-muted);flex-shrink:0">${a.calls}c</div>
-      </div>`;
-    }).join('')||'<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Not enough data (min 20 calls)</div>';
-  }
-  rankList(agentRows, a=>a.calls>0?(a.r5to10+a.r10to15+a.r15to20+a.r20to30+a.gt30m)/a.calls*100:0, null, 'rankOpenerList', 'var(--blue)',    'var(--red)');
-  rankList(agentRows, a=>a.calls>0?(a.r15to20+a.r20to30+a.gt30m)/a.calls*100:0,                    null, 'rankCloserList', 'var(--green-dk)','var(--red)');
 
   // ── Campaign table ──
   const campMap={};
