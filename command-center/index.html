@@ -65,6 +65,24 @@ a{color:var(--cyan)}
 .kpi.click{cursor:pointer}
 .kpi.click:hover{border-color:var(--cyan)}
 
+/* ---------- agent scorecard ---------- */
+.scorecard-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.sc-card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.sc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sc-name{font-size:13.5px;font-weight:700}
+.sc-stats{display:flex;gap:14px;margin-bottom:10px}
+.sc-stat .v{font-size:17px;font-weight:800}
+.sc-stat .l{font-size:9.5px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.sc-bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:#0B1220;margin-bottom:6px}
+.sc-bar span{height:100%}
+.sc-bar-legend{display:flex;gap:9px;flex-wrap:wrap;font-size:9.5px;color:var(--text-mute);margin-bottom:10px}
+.sc-bar-legend i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:3px;vertical-align:middle}
+.sc-badge{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:6px;display:inline-block}
+.sc-badge.green{background:rgba(52,211,153,.15);color:var(--green)}
+.sc-badge.amber{background:rgba(251,191,36,.15);color:var(--amber)}
+.sc-badge.red{background:rgba(248,113,113,.15);color:var(--red)}
+.sc-badge.neutral{background:var(--panel);color:var(--text-dim);border:1px solid var(--border)}
+
 /* ---------- issues ---------- */
 .issue-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:8px;background:var(--panel2);border-left:3px solid var(--text-mute)}
 .issue-row.crit{border-left-color:var(--red)}
@@ -167,6 +185,7 @@ tr.total-row td{font-weight:700;background:var(--panel2);border-top:1px solid va
     <a href="#sec-dispo">Dispositions</a>
     <a href="#sec-agent">Agent Performance</a>
     <a href="#sec-rank">Agent Rankings</a>
+    <a href="#sec-scorecard">Agent Scorecard</a>
     <a href="#sec-camp">Campaign Breakdown</a>
     <a href="#sec-top">Top Numbers</a>
     <a href="#sec-vdcl">VDCL Analysis</a>
@@ -218,6 +237,18 @@ tr.total-row td{font-weight:700;background:var(--panel2);border-top:1px solid va
             <button class="af-btn" data-r="drop" onclick="setRankMode('drop',this)">By Drop Rate</button>
           </div>
           <div class="tbl-wrap"><table id="rankTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-scorecard"><div class="card-head" onclick="toggleCard(this)"><h2>Agent Scorecard <span class="meta">talk-time mix &amp; performance signal, per agent</span></h2><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="sc-bar-legend">
+            <span><i style="background:var(--text-mute)"></i>≤30s dead</span>
+            <span><i style="background:var(--cyan)"></i>30s–5min</span>
+            <span><i style="background:var(--amber)"></i>5–20min</span>
+            <span><i style="background:var(--purple)"></i>20min+</span>
+          </div>
+          <div class="scorecard-grid" id="scorecardGrid"></div>
         </div>
       </div>
 
@@ -442,6 +473,8 @@ function buildDashboard(fromStr, toStr){
   const outboundCalls = calls.filter(r=>r._direction==='outbound');
   const dialedUnique = new Set(outboundCalls.map(r=>r._phone).filter(Boolean));
   const contactedUnique = new Set(outboundCalls.filter(r=>r._sec>30).map(r=>r._phone).filter(Boolean));
+  const inboundCalls = calls.filter(r=>r._direction==='inbound');
+  const receivedUnique = new Set(inboundCalls.map(r=>r._phone).filter(Boolean));
   const totalCalls = calls.length;
   const dropRows = calls.filter(r=>r._status==='DROP');
   const dncRows = calls.filter(r=>r._status==='DNC');
@@ -492,7 +525,7 @@ function buildDashboard(fromStr, toStr){
   const isTagged = name=>{ const n=name.toLowerCase(); return CLOSERS.has(n)||OPENERS.has(n)||RETENTION.has(n); };
   const agentEligible = calls.filter(r=>r._name!=='Unknown' && r._user!=='VDCL' && r._user!=='VDAD');
   const agentMap = {};
-  function agentBucket(name){ if(!agentMap[name]) agentMap[name]={ total:0, inbound:0, outbound:0, sec:0, short:0, r2m:0, r5to10:0, r10to15:0, r15to20:0, r20to30:0, gt30:0, drops:0, phoneOutCounts:{}, phoneMaxSec:{}, phoneRecordings:{}, lastCallTs:{}, outboundPhones:new Set(), contactedPhones:new Set() }; return agentMap[name]; }
+  function agentBucket(name){ if(!agentMap[name]) agentMap[name]={ total:0, inbound:0, outbound:0, sec:0, short:0, r2m:0, r2to5:0, r5to10:0, r10to15:0, r15to20:0, r20to30:0, gt30:0, drops:0, phoneOutCounts:{}, phoneMaxSec:{}, phoneRecordings:{}, lastCallTs:{}, outboundPhones:new Set(), contactedPhones:new Set() }; return agentMap[name]; }
   agentEligible.forEach(r=>{
     const b = agentBucket(r._name);
     b.total++;
@@ -500,7 +533,7 @@ function buildDashboard(fromStr, toStr){
     b.sec += r._sec;
     if(r._sec<=30) b.short++;
     else if(r._sec<120) b.r2m++;
-    else if(r._sec<300){} // 2-5min not separately tracked at top level
+    else if(r._sec<300) b.r2to5++;
     else if(r._sec<600) b.r5to10++;
     else if(r._sec<900) b.r10to15++;
     else if(r._sec<1200) b.r15to20++;
@@ -621,7 +654,7 @@ function buildDashboard(fromStr, toStr){
   if(!issues.length) issues.push({sev:'ok', text:'No issues detected for this range.'});
 
   // ================= RENDER =================
-  renderKpis({totalCalls, dialedUnique, contactedUnique, avgTalk, dropRows, dncRows, dialedAfterDncPhones});
+  renderKpis({totalCalls, dialedUnique, contactedUnique, receivedUnique, avgTalk, dropRows, dncRows, dialedAfterDncPhones});
   renderIssues(issues);
   renderHourCharts(hourCounts, dncHourCounts, dropHourCounts);
   renderDispo(dispoCounts, dispoNames, totalCalls);
@@ -645,6 +678,7 @@ function buildDashboard(fromStr, toStr){
   renderOpenerRates(openerByAgent, brackets);
   window._agentMapForLong = agentMap;
   renderLongNoFollow(agentMap);
+  renderAgentScorecard(agentMap, openerByAgent);
 
   window._summary = {totalCalls, contactRate: pct(contactedUnique.size, dialedUnique.size), drops:dropRows.length, dnc:dncRows.length, afterDnc:dialedAfterDncPhones.size, issues};
 }
@@ -655,8 +689,8 @@ function renderKpis(d){
   const contactRate = d.dialedUnique.size? (d.contactedUnique.size/d.dialedUnique.size*100) : 0;
   const tiles = [
     {v:d.totalCalls.toLocaleString(), l:'Total Calls'},
-    {v:d.dialedUnique.size.toLocaleString(), l:'Unique Numbers Dialed'},
-    {v:contactRate.toFixed(1)+'%', l:'Contact Rate', cls: contactRate<30?'warn':'ok'},
+    {v:d.receivedUnique.size.toLocaleString(), l:'Unique Numbers Received'},
+    {v:contactRate.toFixed(1)+'%', l:'Contact Rate (outbound)', cls: contactRate<30?'warn':'ok'},
     {v:fmtDur(d.avgTalk), l:'Avg Talk Time'},
     {v:d.dropRows.length.toLocaleString(), l:'Drops'},
     {v:d.dncRows.length.toLocaleString(), l:'DNC Calls'},
@@ -864,27 +898,82 @@ function renderOpenerRates(openerByAgent, brackets){
 
 /* ================= RENDER: Long Calls No Follow-up ================= */
 function setLongThreshold(){ renderLongNoFollow(window._agentMapForLong); }
+function computeLongNoFollow(name, b, thresh){
+  const phoneAllCalls = window._phoneAllCalls||{};
+  const qualifying = Object.entries(b.phoneRecordings).flatMap(([p,recs])=>recs.filter(rec=>rec.sec>=thresh).map(rec=>({phone:p, ...rec})));
+  if(!qualifying.length) return {longCalls:0, noFollow:0, records:[]};
+  const records = qualifying.filter(rec=>{
+    const timeline = phoneAllCalls[rec.phone]||[];
+    return !timeline.some(c=>c._ts>rec.ts);
+  });
+  const longCalls = new Set(qualifying.map(q=>q.phone)).size;
+  const noFollow = new Set(records.map(r=>r.phone)).size;
+  return {longCalls, noFollow, records};
+}
+
 function renderLongNoFollow(agentMap){
   if(!agentMap) return;
   const thresh = Number(document.getElementById('longThreshold').value);
-  const phoneAllCalls = window._phoneAllCalls||{};
   const closers = Object.entries(agentMap).filter(([name])=>!OPENERS.has(name.toLowerCase()) && !RETENTION.has(name.toLowerCase()));
   const flagged = [];
   closers.forEach(([name,b])=>{
-    const qualifying = Object.entries(b.phoneRecordings).flatMap(([p,recs])=>recs.filter(rec=>rec.sec>=thresh).map(rec=>({phone:p, ...rec})));
-    if(!qualifying.length) return;
-    const records = qualifying.filter(rec=>{
-      const timeline = phoneAllCalls[rec.phone]||[];
-      return !timeline.some(c=>c._ts>rec.ts);
-    });
-    const longCalls = new Set(qualifying.map(q=>q.phone)).size;
-    const noFollow = new Set(records.map(r=>r.phone)).size;
+    const {longCalls, noFollow, records} = computeLongNoFollow(name, b, thresh);
     if(noFollow) flagged.push({name, longCalls, noFollow, records});
   });
   window._longNoFollowFlagged = flagged;
   document.querySelector('#longTable tbody').innerHTML = flagged.length ? flagged.sort((a,b)=>b.noFollow-a.noFollow).map(f=>
     '<tr><td>'+esc(f.name)+roleTag(f.name)+'</td><td>'+f.longCalls+'</td><td class="click-num" onclick=\'showPhoneRecs('+attrJson(f.records)+', "'+esc(f.name)+' — Long Calls, No Follow-up")\'>'+f.noFollow+'</td><td></td></tr>').join('')
     : '<tr><td colspan="4" class="empty-note">None at this threshold.</td></tr>';
+}
+
+/* ================= RENDER: Agent Scorecard ================= */
+const SC_LONG_THRESH = 1200; // fixed 20-min baseline, independent of the Long Calls card's selector
+function scorecardVerdict(name, b, openerByAgent){
+  const n = name.toLowerCase();
+  if(OPENERS.has(n)){
+    const row = openerByAgent[name];
+    if(!row) return {label:'No activity', cls:'neutral'};
+    const over2minKeys = ['b2_5','b5_10','b10_15','b15_20','b20_30','b30p'];
+    let calls=0, trns=0;
+    over2minKeys.forEach(k=>{ calls+=row[k].total; trns+=row[k].trns; });
+    if(!calls) return {label:'No calls >2min', cls:'neutral'};
+    const rate = trns/calls*100;
+    if(rate<15) return {label:'Struggling to transfer', cls:'red'};
+    if(rate>=30) return {label:'Strong opener', cls:'green'};
+    return {label:'Average transfer rate', cls:'amber'};
+  }
+  const {longCalls, noFollow} = computeLongNoFollow(name, b, SC_LONG_THRESH);
+  if(longCalls>=2){
+    const rate = noFollow/longCalls*100;
+    if(rate<25) return {label:'Efficient — long calls land', cls:'green'};
+    if(rate>60) return {label:'Long calls, low follow-up', cls:'red'};
+    return {label:'Average follow-up rate', cls:'amber'};
+  }
+  const dropPct = b.total? b.drops/b.total*100 : 0;
+  if(dropPct>TH.dropPct*1.5) return {label:'High drop rate', cls:'red'};
+  return {label:'Not enough long calls to score', cls:'neutral'};
+}
+function renderAgentScorecard(agentMap, openerByAgent){
+  const rows = Object.entries(agentMap).sort((a,b)=>b[1].total-a[1].total);
+  const grid = document.getElementById('scorecardGrid');
+  if(!rows.length){ grid.innerHTML = '<div class="empty-note">No agent activity in this range.</div>'; return; }
+  grid.innerHTML = rows.map(([name,b])=>{
+    const dead=b.short, shortMid=b.r2m+b.r2to5, mid=b.r5to10+b.r10to15+b.r15to20, long=b.r20to30+b.gt30;
+    const total = dead+shortMid+mid+long || 1;
+    const seg=(n,color)=> n>0 ? '<span style="flex-basis:'+(n/total*100)+'%;background:'+color+'"></span>' : '';
+    const dropPct = b.total? (b.drops/b.total*100) : 0;
+    const v = scorecardVerdict(name, b, openerByAgent);
+    return '<div class="sc-card">'+
+      '<div class="sc-head"><span class="sc-name">'+esc(name)+roleTag(name)+'</span></div>'+
+      '<div class="sc-stats">'+
+        '<div class="sc-stat"><div class="v">'+b.total+'</div><div class="l">Calls</div></div>'+
+        '<div class="sc-stat"><div class="v">'+fmtDur(b.total?b.sec/b.total:0)+'</div><div class="l">Avg Talk</div></div>'+
+        '<div class="sc-stat"><div class="v">'+dropPct.toFixed(1)+'%</div><div class="l">Drop Rate</div></div>'+
+      '</div>'+
+      '<div class="sc-bar">'+seg(dead,'var(--text-mute)')+seg(shortMid,'var(--cyan)')+seg(mid,'var(--amber)')+seg(long,'var(--purple)')+'</div>'+
+      '<span class="sc-badge '+v.cls+'">'+v.label+'</span>'+
+    '</div>';
+  }).join('');
 }
 
 /* ================= MULTI-SELECT FILTER ================= */
