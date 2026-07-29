@@ -380,6 +380,9 @@ Implemented. Card shown directly below the Agent Performance table (hidden when 
 
 - Columns show % of agent's total calls in each time bracket
 - **Sorting sorts by raw count (the number in parentheses), not percentage**
+- **Default filter**: Closers + Inbound direction (user can change via role/direction dropdowns)
+- **Clickable cells** (July 2026): each bracket column is clickable — clicking opens a modal showing all phone numbers in that bracket for that agent, with CRM Status and Ytel Status badges next to each phone. Inline audio player + download recording link available if recording exists (requires `recording_location` column in data)
+- `agentMap[name].funnelRecords` — built during accumulation, keyed by bracket name (`lt2m`, `r5to10`, `r10to15`, `r15to20`, `r20to30`, `gt30m`), each entry is `{phone, crmStatus, ytelStatus, debt, recording, sec}`, passed to shared `showPhoneCrmList()` modal on click
 - Filterable by role (All / Closers / Openers) and campaign/direction dropdowns
 
 ## Agent Outcomes (scatter chart, replaces the old "Agent Funnel Visual")
