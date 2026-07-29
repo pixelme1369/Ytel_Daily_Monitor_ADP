@@ -196,7 +196,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <input type="file" accept=".csv,.xlsx,.xls" id="mergedFile" onchange="handleMerged(this)">
       <div class="sb-drop-icon">📂</div>
       <div class="sb-drop-name" id="mergedName">Click or drag merged file</div>
-      <div class="sb-drop-sub">Ytel + CRM · XLSX or CSV</div>
+      <div class="sb-drop-sub">Ytel + CRM · XLSX or CSV (optional — overrides live BigQuery)</div>
       <div class="sb-status" id="mergedStatus"></div>
     </div>
     <div class="sb-field">
@@ -207,11 +207,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <label>To</label>
       <input type="date" id="toDate" value="">
     </div>
-    <button class="sb-btn" onclick="runAnalysis()">&#9654; Run Analysis</button>
+    <button class="sb-btn" id="runAnalysisBtn" onclick="runAnalysis()">&#9654; Run Analysis</button>
     <button class="sb-btn ghost" onclick="copySummary()">&#128203; Copy Summary</button>
     <button class="sb-btn ghost" onclick="clearAll()">Clear</button>
     <button class="sb-btn ghost" id="loadSharedBtn" onclick="loadSharedData()">&#8635; Load Shared Data</button>
-    <div class="sb-hint" id="filterHint">Upload the merged file, pick a date, then click Run Analysis.</div>
+    <div class="sb-hint" id="filterHint">Pick a date range and click Run Analysis to pull live Ytel + CRM data from BigQuery — or upload a merged file to override.</div>
     <div class="sb-hint" id="hdrDate" style="color:#34D399;font-weight:700">No date selected</div>
   </div>
   <nav class="sb-nav" id="sbNav">
@@ -721,6 +721,8 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 <script>
 // ══ CONFIG ══════════════════════════════════════════════════════════════════
 let mergedRaw = null, hourChart = null, vdclChart = null, dropHourChart = null, dncHourChart = null;
+// Live BigQuery mode (default) vs. an uploaded file (fallback/override) — see fetchMergedCalls()/runAnalysis().
+let usingUploadedFile = false, lastLiveFromStr = null, lastLiveToStr = null;
 
 const CMAP = {'LenderPr':'LenderProcessing','USAbrigh':'USAbright','PLIinbou':'PLIinbound','AGENTDIR':'AGENTDIRECT'};
 const MKT = new Set(['LenderProcessing','USAbright','PLIinbound','BlueSuccess']);
@@ -1886,6 +1888,7 @@ function handleMerged(input){
   document.getElementById('mergedStatus').textContent='Reading...';
   readFile(file, data=>{
     mergedRaw=data;
+    usingUploadedFile=true;
     const n=data.length;
     document.getElementById('mergedCard').classList.add('loaded');
     document.getElementById('mergedStatus').className='sb-status ok';
@@ -1921,6 +1924,7 @@ function loadSharedData(auto){
     const ws=wb.Sheets[wb.SheetNames[0]];
     const data=XLSX.utils.sheet_to_json(ws,{defval:''});
     mergedRaw=data;
+    usingUploadedFile=true;
     document.getElementById('mergedCard').classList.add('loaded');
     document.getElementById('mergedName').textContent='Shared data (auto-loaded)';
     document.getElementById('mergedStatus').className='sb-status ok';
@@ -1936,6 +1940,7 @@ function loadSharedData(auto){
 }
 function clearAll(){
   mergedRaw=null;
+  usingUploadedFile=false; lastLiveFromStr=null; lastLiveToStr=null;
   document.getElementById('mergedFile').value='';
   document.getElementById('mergedCard').classList.remove('loaded');
   document.getElementById('mergedName').textContent='Click or drag merged file';
@@ -1950,12 +1955,37 @@ function clearAll(){
 }
 
 // ══ ANALYSIS ════════════════════════════════════════════════════════════════
-function runAnalysis(){
-  if(!mergedRaw){ showToast('Upload the merged file first'); return; }
+async function fetchMergedCalls(fromStr, toStr){
+  const resp=await fetch('/api/merged-calls?from='+encodeURIComponent(fromStr)+'&to='+encodeURIComponent(toStr));
+  const data=await resp.json().catch(()=>({}));
+  if(!resp.ok) throw new Error(data.error||('Request failed ('+resp.status+')'));
+  return data.rows||[];
+}
+async function runAnalysis(){
   const fromStr=document.getElementById('fromDate').value;
   const toStr=document.getElementById('toDate').value;
   if(!fromStr||!toStr){ showToast('Pick a date range'); return; }
   if(fromStr>toStr){ showToast('From date must be ≤ To date'); return; }
+
+  // No uploaded file → pull live from BigQuery (Ytel + CRM already merged server-side).
+  // Skipped if the last live fetch already covers this exact range, so Settings-triggered
+  // re-runs (saveRoles/saveThresholds) rebuild from cached data instead of re-querying.
+  if(!usingUploadedFile && (!mergedRaw || lastLiveFromStr!==fromStr || lastLiveToStr!==toStr)){
+    const btn=document.getElementById('runAnalysisBtn');
+    if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
+    document.getElementById('filterHint').textContent='Querying BigQuery…';
+    try{
+      mergedRaw=await fetchMergedCalls(fromStr, toStr);
+      lastLiveFromStr=fromStr; lastLiveToStr=toStr;
+    }catch(err){
+      showToast('Failed to load from BigQuery: '+err.message);
+      document.getElementById('filterHint').textContent='Pick a date range and click Run Analysis to pull live Ytel + CRM data from BigQuery — or upload a merged file to override.';
+      if(btn){ btn.disabled=false; btn.innerHTML='&#9654; Run Analysis'; }
+      return;
+    }
+    if(btn){ btn.disabled=false; btn.innerHTML='&#9654; Run Analysis'; }
+  }
+  if(!mergedRaw){ showToast('Upload the merged file first'); return; }
 
   let badDateRows=0;
   const calls=mergedRaw.filter(r=>{
