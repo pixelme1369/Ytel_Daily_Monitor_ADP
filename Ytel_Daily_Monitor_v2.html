@@ -2643,7 +2643,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     // conversion opportunity -- exclude it from the >2min unique-phone denominator so a retention/follow-up
     // call to an already-closed lead can't drag down Conv% with zero chance of a matching numerator credit.
     const alreadyEnrolledElsewhere=r._phone&&anyEnrolledPhone.has(r._phone)&&!enrolledPhoneAgent[r._phone];
-    const rowDebt=(r._phone&&enrolledPhoneAgent[r._phone]&&enrolledPhoneAgent[r._phone].debt)||0;
+    const rowDebt=(r._phone&&enrolledPhoneAgent[r._phone]&&enrolledPhoneAgent[r._phone].debt)||phoneDebt[r._phone]||0;
     const mkFunnelRec=()=>({phone:r._phone,crmStatus:resolveCrm(r),ytelStatus:r._status||'',dir:r._dir||'',debt:rowDebt,recording:r._recording||'',sec:r._sec});
     if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{},funnelRecords:{short:[],lt2m:[],r1to2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
     const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
@@ -2778,7 +2778,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         const fd=agentPhoneFirstDir[name+'||'+phone];
         if(fd&&fd.dir==='inbound') inboundUniq++; else outboundUniq++;
         const enrInfo=enrolledPhoneAgent[phone];
-        const debt=(enrInfo&&enrInfo.debt)||0;
+        const debt=(enrInfo&&enrInfo.debt)||phoneDebt[phone]||0;
         const enrolledDate=(enrInfo&&enrInfo.enrolledDate)||'';
         const callLog=agentPhoneCallLog[name+'||'+phone]||[];
         callLog.forEach(c=>{
