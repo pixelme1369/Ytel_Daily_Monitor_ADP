@@ -811,16 +811,6 @@ function funnelCellClick(val,denom,color,records,label){
   if(!records||!records.length) return inner;
   return `<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(records)},${attrJson(label)})'>${inner}</span>`;
 }
-function buildPhoneRecordsFromSet(phoneSet,phoneLog,enrolledMap){
-  const em=enrolledMap||window._enrolledPhoneAgent||{};
-  const log=phoneLog||window._phoneCallLog||{};
-  return [...phoneSet].map(phone=>{
-    const enrInfo=em[phone];
-    const calls=log[phone]||[];
-    const match=calls.find(c=>enrInfo&&c.ts===enrInfo.ts)||calls[calls.length-1]||{};
-    return {phone,crmStatus:match.crmStatus||'',ytelStatus:match.ytelStatus||'',dir:match.dir||'',debt:(enrInfo&&enrInfo.debt)||0,enrolledDate:(enrInfo&&enrInfo.enrolledDate)||'',recording:match.recording||'',sec:match.sec||0};
-  });
-}
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
 // JSON for use inside single-quoted onclick attributes — apostrophes in agent/campaign names would otherwise truncate the attribute
 function attrJson(v){ return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
@@ -1440,36 +1430,32 @@ function filterCampTable(role){
   });
   const map={};
   const agMap={};
-  const enrolledMapRef=window._enrolledPhoneAgent||{};
-  const emptyFR=()=>({short:[],lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]});
   filtered.forEach(r=>{
     const c=r._campaign;
-    const rowDebt=(r._phone&&enrolledMapRef[r._phone]&&enrolledMapRef[r._phone].debt)||0;
-    const mkRec=()=>({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:rowDebt,recording:r._recording||'',sec:r._sec});
-    if(!map[c]) map[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set(),funnelRecords:emptyFR()};
+    if(!map[c]) map[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
     const d=map[c]; d.calls++; d.sec+=r._sec;
     if(r._phone){d.phones.add(r._phone); if(r._sec>30) d.phonesContacted.add(r._phone);}
-    if(r._sec<=30){ d.short++; if(r._phone) d.funnelRecords.short.push(mkRec()); }
-    if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push(mkRec()); }
+    if(r._sec<=30) d.short++;
+    if(r._sec<120) d.lt2m++;
     if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
-    if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push(mkRec()); }
-    else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push(mkRec()); }
-    else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push(mkRec()); }
-    else if(r._sec>=1200&&r._sec<1800){ d.r20to30++; if(r._phone) d.funnelRecords.r20to30.push(mkRec()); }
-    else if(r._sec>=1800){ d.gt30m++; if(r._phone) d.funnelRecords.gt30m.push(mkRec()); }
+    if(r._sec>=300&&r._sec<600) d.r5to10++;
+    else if(r._sec>=600&&r._sec<900) d.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) d.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
+    else if(r._sec>=1800) d.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
     if(r._enrolled){ d.enroll++; if(r._phone) d.enrolledPhones.add(r._phone); }
     const ag=r._name||'Unknown';
     if(!agMap[c]) agMap[c]={};
-    if(!agMap[c][ag]) agMap[c][ag]={calls:0,short:0,sec:0,lt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,enrolledPhones:new Set(),funnelRecords:emptyFR()};
+    if(!agMap[c][ag]) agMap[c][ag]={calls:0,short:0,sec:0,lt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,enrolledPhones:new Set()};
     const da=agMap[c][ag]; da.calls++; da.sec+=r._sec;
-    if(r._sec<=30){ da.short++; if(r._phone) da.funnelRecords.short.push(mkRec()); }
-    if(r._sec<120){ da.lt2m++; if(r._phone) da.funnelRecords.lt2m.push(mkRec()); }
-    if(r._sec>=300&&r._sec<600){ da.r5to10++; if(r._phone) da.funnelRecords.r5to10.push(mkRec()); }
-    else if(r._sec>=600&&r._sec<900){ da.r10to15++; if(r._phone) da.funnelRecords.r10to15.push(mkRec()); }
-    else if(r._sec>=900&&r._sec<1200){ da.r15to20++; if(r._phone) da.funnelRecords.r15to20.push(mkRec()); }
-    else if(r._sec>=1200&&r._sec<1800){ da.r20to30++; if(r._phone) da.funnelRecords.r20to30.push(mkRec()); }
-    else if(r._sec>=1800){ da.gt30m++; if(r._phone) da.funnelRecords.gt30m.push(mkRec()); }
+    if(r._sec<=30) da.short++;
+    if(r._sec<120) da.lt2m++;
+    if(r._sec>=300&&r._sec<600) da.r5to10++;
+    else if(r._sec>=600&&r._sec<900) da.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) da.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) da.r20to30++;
+    else if(r._sec>=1800) da.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) da.drops++;
     if(r._enrolled){ da.enroll++; if(r._phone) da.enrolledPhones.add(r._phone); }
   });
@@ -1490,14 +1476,14 @@ function renderOpenerTable(){
     return true;
   });
   const emptyS=()=>({calls:0,short:0,sec:0,drops:0,enroll:0,enrolledPhones:new Set(),
-    enroll_short:0, enrRecs_short:[],
-    r30to2m:0, cltrns_30to2m:0, enroll_30to2m:0, enroll_all_30to2m:0, recs_30to2m:[], enrRecs_30to2m:[],
-    r2to5m:0,  cltrns_2to5m:0,  enroll_2to5m:0,  enroll_all_2to5m:0,  recs_2to5m:[], enrRecs_2to5m:[],
-    r5to10:0,  cltrns_5to10:0,  enroll_5to10:0,  enroll_all_5to10:0,  recs_5to10:[], enrRecs_5to10:[],
-    r10to15:0, cltrns_10to15:0, enroll_10to15:0, enroll_all_10to15:0, recs_10to15:[], enrRecs_10to15:[],
-    r15to20:0, cltrns_15to20:0, enroll_15to20:0, enroll_all_15to20:0, recs_15to20:[], enrRecs_15to20:[],
-    r20to30:0, cltrns_20to30:0, enroll_20to30:0, enroll_all_20to30:0, recs_20to30:[], enrRecs_20to30:[],
-    gt30m:0,   cltrns_gt30:0,   enroll_gt30:0,   enroll_all_gt30:0,   recs_gt30:[], enrRecs_gt30:[]
+    enroll_short:0,
+    r30to2m:0, cltrns_30to2m:0, enroll_30to2m:0, enroll_all_30to2m:0, recs_30to2m:[],
+    r2to5m:0,  cltrns_2to5m:0,  enroll_2to5m:0,  enroll_all_2to5m:0,  recs_2to5m:[],
+    r5to10:0,  cltrns_5to10:0,  enroll_5to10:0,  enroll_all_5to10:0,  recs_5to10:[],
+    r10to15:0, cltrns_10to15:0, enroll_10to15:0, enroll_all_10to15:0, recs_10to15:[],
+    r15to20:0, cltrns_15to20:0, enroll_15to20:0, enroll_all_15to20:0, recs_15to20:[],
+    r20to30:0, cltrns_20to30:0, enroll_20to30:0, enroll_all_20to30:0, recs_20to30:[],
+    gt30m:0,   cltrns_gt30:0,   enroll_gt30:0,   enroll_all_gt30:0,   recs_gt30:[]
   });
   const agCampMap={};
   filtered.forEach(r=>{
@@ -1513,29 +1499,27 @@ function renderOpenerTable(){
     if(isEnr){ s.enroll++; if(r._phone) s.enrolledPhones.add(r._phone); }
     const sec=r._sec;
     if(sec<=30){
-      if(isEnr){ s.enroll_short++; if(r._phone) s.enrRecs_short.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); }
+      if(isEnr) s.enroll_short++;
     } else if(sec<120){
-      s.r30to2m++; if(isEnr){ s.enroll_all_30to2m++; if(r._phone) s.enrRecs_30to2m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); } if(isCL){ s.cltrns_30to2m++; if(r._phone) s.recs_30to2m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_30to2m++; }
+      s.r30to2m++; if(isEnr) s.enroll_all_30to2m++; if(isCL){ s.cltrns_30to2m++; if(r._phone) s.recs_30to2m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_30to2m++; }
     } else if(sec<300){
-      s.r2to5m++;  if(isEnr){ s.enroll_all_2to5m++; if(r._phone) s.enrRecs_2to5m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); } if(isCL){ s.cltrns_2to5m++;  if(r._phone) s.recs_2to5m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''});  if(isEnr) s.enroll_2to5m++; }
+      s.r2to5m++;  if(isEnr) s.enroll_all_2to5m++;  if(isCL){ s.cltrns_2to5m++;  if(r._phone) s.recs_2to5m.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''});  if(isEnr) s.enroll_2to5m++; }
     } else if(sec<600){
-      s.r5to10++;  if(isEnr){ s.enroll_all_5to10++; if(r._phone) s.enrRecs_5to10.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); } if(isCL){ s.cltrns_5to10++;  if(r._phone) s.recs_5to10.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''});  if(isEnr) s.enroll_5to10++; }
+      s.r5to10++;  if(isEnr) s.enroll_all_5to10++;  if(isCL){ s.cltrns_5to10++;  if(r._phone) s.recs_5to10.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''});  if(isEnr) s.enroll_5to10++; }
     } else if(sec<900){
-      s.r10to15++; if(isEnr){ s.enroll_all_10to15++; if(r._phone) s.enrRecs_10to15.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); } if(isCL){ s.cltrns_10to15++; if(r._phone) s.recs_10to15.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_10to15++; }
+      s.r10to15++; if(isEnr) s.enroll_all_10to15++; if(isCL){ s.cltrns_10to15++; if(r._phone) s.recs_10to15.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_10to15++; }
     } else if(sec<1200){
-      s.r15to20++; if(isEnr){ s.enroll_all_15to20++; if(r._phone) s.enrRecs_15to20.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); } if(isCL){ s.cltrns_15to20++; if(r._phone) s.recs_15to20.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_15to20++; }
+      s.r15to20++; if(isEnr) s.enroll_all_15to20++; if(isCL){ s.cltrns_15to20++; if(r._phone) s.recs_15to20.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_15to20++; }
     } else if(sec<1800){
-      s.r20to30++; if(isEnr){ s.enroll_all_20to30++; if(r._phone) s.enrRecs_20to30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); } if(isCL){ s.cltrns_20to30++; if(r._phone) s.recs_20to30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_20to30++; }
+      s.r20to30++; if(isEnr) s.enroll_all_20to30++; if(isCL){ s.cltrns_20to30++; if(r._phone) s.recs_20to30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); if(isEnr) s.enroll_20to30++; }
     } else {
-      s.gt30m++;   if(isEnr){ s.enroll_all_gt30++; if(r._phone) s.enrRecs_gt30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''}); }   if(isCL){ s.cltrns_gt30++;   if(r._phone) s.recs_gt30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''});   if(isEnr) s.enroll_gt30++; }
+      s.gt30m++;   if(isEnr) s.enroll_all_gt30++;   if(isCL){ s.cltrns_gt30++;   if(r._phone) s.recs_gt30.push({phone:r._phone,sec:r._sec,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||''});   if(isEnr) s.enroll_gt30++; }
     }
   });
-  const rangeEm=window._enrolledPhoneAgent||{};
   const rangeCell=(cl,enr,total,recs,label)=>{
     if(total===0) return '—';
-    const debtRecs=(recs||[]).map(r=>({...r,debt:(rangeEm[r.phone]&&rangeEm[r.phone].debt)||0,enrolledDate:(rangeEm[r.phone]&&rangeEm[r.phone].enrolledDate)||''}));
     const clPart=cl>0
-      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(debtRecs)},${attrJson((label||'')+' — Transfers')})'>${cl} Transfer</span>`
+      ?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='event.stopPropagation();showFlaggedPhones(${attrJson(recs||[])},${attrJson((label||'')+' — Transfers')})'>${cl} Transfer</span>`
       :`<span style="color:var(--text-muted);font-size:11px">0 Transfer</span>`;
     const enrPart=enr>0?`<div style="font-size:9px;color:var(--green-dk);font-weight:600">${enr} enrolled</div>`:'';
     const totPart=`<div style="font-size:9px;color:var(--text-muted);margin-top:1px">${total} calls</div>`;
@@ -1543,28 +1527,28 @@ function renderOpenerTable(){
   };
   const addS=(t,s)=>({
     calls:t.calls+s.calls,short:t.short+s.short,sec:t.sec+s.sec,drops:t.drops+s.drops,enroll:t.enroll+s.enroll,
-    enroll_short:t.enroll_short+s.enroll_short, enrRecs_short:[...t.enrRecs_short,...s.enrRecs_short],
-    r30to2m:t.r30to2m+s.r30to2m,  cltrns_30to2m:t.cltrns_30to2m+s.cltrns_30to2m, enroll_30to2m:t.enroll_30to2m+s.enroll_30to2m, enroll_all_30to2m:t.enroll_all_30to2m+s.enroll_all_30to2m, recs_30to2m:[...t.recs_30to2m,...s.recs_30to2m], enrRecs_30to2m:[...t.enrRecs_30to2m,...s.enrRecs_30to2m],
-    r2to5m:t.r2to5m+s.r2to5m,     cltrns_2to5m:t.cltrns_2to5m+s.cltrns_2to5m,     enroll_2to5m:t.enroll_2to5m+s.enroll_2to5m,   enroll_all_2to5m:t.enroll_all_2to5m+s.enroll_all_2to5m,   recs_2to5m:[...t.recs_2to5m,...s.recs_2to5m], enrRecs_2to5m:[...t.enrRecs_2to5m,...s.enrRecs_2to5m],
-    r5to10:t.r5to10+s.r5to10,     cltrns_5to10:t.cltrns_5to10+s.cltrns_5to10,     enroll_5to10:t.enroll_5to10+s.enroll_5to10,   enroll_all_5to10:t.enroll_all_5to10+s.enroll_all_5to10,   recs_5to10:[...t.recs_5to10,...s.recs_5to10], enrRecs_5to10:[...t.enrRecs_5to10,...s.enrRecs_5to10],
-    r10to15:t.r10to15+s.r10to15,  cltrns_10to15:t.cltrns_10to15+s.cltrns_10to15,  enroll_10to15:t.enroll_10to15+s.enroll_10to15, enroll_all_10to15:t.enroll_all_10to15+s.enroll_all_10to15, recs_10to15:[...t.recs_10to15,...s.recs_10to15], enrRecs_10to15:[...t.enrRecs_10to15,...s.enrRecs_10to15],
-    r15to20:t.r15to20+s.r15to20,  cltrns_15to20:t.cltrns_15to20+s.cltrns_15to20,  enroll_15to20:t.enroll_15to20+s.enroll_15to20, enroll_all_15to20:t.enroll_all_15to20+s.enroll_all_15to20, recs_15to20:[...t.recs_15to20,...s.recs_15to20], enrRecs_15to20:[...t.enrRecs_15to20,...s.enrRecs_15to20],
-    r20to30:t.r20to30+s.r20to30,  cltrns_20to30:t.cltrns_20to30+s.cltrns_20to30,  enroll_20to30:t.enroll_20to30+s.enroll_20to30, enroll_all_20to30:t.enroll_all_20to30+s.enroll_all_20to30, recs_20to30:[...t.recs_20to30,...s.recs_20to30], enrRecs_20to30:[...t.enrRecs_20to30,...s.enrRecs_20to30],
-    gt30m:t.gt30m+s.gt30m,        cltrns_gt30:t.cltrns_gt30+s.cltrns_gt30,         enroll_gt30:t.enroll_gt30+s.enroll_gt30,       enroll_all_gt30:t.enroll_all_gt30+s.enroll_all_gt30,       recs_gt30:[...t.recs_gt30,...s.recs_gt30], enrRecs_gt30:[...t.enrRecs_gt30,...s.enrRecs_gt30],
+    enroll_short:t.enroll_short+s.enroll_short,
+    r30to2m:t.r30to2m+s.r30to2m,  cltrns_30to2m:t.cltrns_30to2m+s.cltrns_30to2m, enroll_30to2m:t.enroll_30to2m+s.enroll_30to2m, enroll_all_30to2m:t.enroll_all_30to2m+s.enroll_all_30to2m, recs_30to2m:[...t.recs_30to2m,...s.recs_30to2m],
+    r2to5m:t.r2to5m+s.r2to5m,     cltrns_2to5m:t.cltrns_2to5m+s.cltrns_2to5m,     enroll_2to5m:t.enroll_2to5m+s.enroll_2to5m,   enroll_all_2to5m:t.enroll_all_2to5m+s.enroll_all_2to5m,   recs_2to5m:[...t.recs_2to5m,...s.recs_2to5m],
+    r5to10:t.r5to10+s.r5to10,     cltrns_5to10:t.cltrns_5to10+s.cltrns_5to10,     enroll_5to10:t.enroll_5to10+s.enroll_5to10,   enroll_all_5to10:t.enroll_all_5to10+s.enroll_all_5to10,   recs_5to10:[...t.recs_5to10,...s.recs_5to10],
+    r10to15:t.r10to15+s.r10to15,  cltrns_10to15:t.cltrns_10to15+s.cltrns_10to15,  enroll_10to15:t.enroll_10to15+s.enroll_10to15, enroll_all_10to15:t.enroll_all_10to15+s.enroll_all_10to15, recs_10to15:[...t.recs_10to15,...s.recs_10to15],
+    r15to20:t.r15to20+s.r15to20,  cltrns_15to20:t.cltrns_15to20+s.cltrns_15to20,  enroll_15to20:t.enroll_15to20+s.enroll_15to20, enroll_all_15to20:t.enroll_all_15to20+s.enroll_all_15to20, recs_15to20:[...t.recs_15to20,...s.recs_15to20],
+    r20to30:t.r20to30+s.r20to30,  cltrns_20to30:t.cltrns_20to30+s.cltrns_20to30,  enroll_20to30:t.enroll_20to30+s.enroll_20to30, enroll_all_20to30:t.enroll_all_20to30+s.enroll_all_20to30, recs_20to30:[...t.recs_20to30,...s.recs_20to30],
+    gt30m:t.gt30m+s.gt30m,        cltrns_gt30:t.cltrns_gt30+s.cltrns_gt30,         enroll_gt30:t.enroll_gt30+s.enroll_gt30,       enroll_all_gt30:t.enroll_all_gt30+s.enroll_all_gt30,       recs_gt30:[...t.recs_gt30,...s.recs_gt30],
     enrolledPhones:new Set([...t.enrolledPhones,...s.enrolledPhones])
   });
-  const zeroTot=()=>({calls:0,short:0,sec:0,drops:0,enroll:0,enroll_short:0,enrRecs_short:[],
-    r30to2m:0,cltrns_30to2m:0,enroll_30to2m:0,enroll_all_30to2m:0,recs_30to2m:[],enrRecs_30to2m:[],
-    r2to5m:0,cltrns_2to5m:0,enroll_2to5m:0,enroll_all_2to5m:0,recs_2to5m:[],enrRecs_2to5m:[],
-    r5to10:0,cltrns_5to10:0,enroll_5to10:0,enroll_all_5to10:0,recs_5to10:[],enrRecs_5to10:[],
-    r10to15:0,cltrns_10to15:0,enroll_10to15:0,enroll_all_10to15:0,recs_10to15:[],enrRecs_10to15:[],
-    r15to20:0,cltrns_15to20:0,enroll_15to20:0,enroll_all_15to20:0,recs_15to20:[],enrRecs_15to20:[],
-    r20to30:0,cltrns_20to30:0,enroll_20to30:0,enroll_all_20to30:0,recs_20to30:[],enrRecs_20to30:[],
-    gt30m:0,cltrns_gt30:0,enroll_gt30:0,enroll_all_gt30:0,recs_gt30:[],enrRecs_gt30:[],
+  const zeroTot=()=>({calls:0,short:0,sec:0,drops:0,enroll:0,enroll_short:0,
+    r30to2m:0,cltrns_30to2m:0,enroll_30to2m:0,enroll_all_30to2m:0,recs_30to2m:[],
+    r2to5m:0,cltrns_2to5m:0,enroll_2to5m:0,enroll_all_2to5m:0,recs_2to5m:[],
+    r5to10:0,cltrns_5to10:0,enroll_5to10:0,enroll_all_5to10:0,recs_5to10:[],
+    r10to15:0,cltrns_10to15:0,enroll_10to15:0,enroll_all_10to15:0,recs_10to15:[],
+    r15to20:0,cltrns_15to20:0,enroll_15to20:0,enroll_all_15to20:0,recs_15to20:[],
+    r20to30:0,cltrns_20to30:0,enroll_20to30:0,enroll_all_20to30:0,recs_20to30:[],
+    gt30m:0,cltrns_gt30:0,enroll_gt30:0,enroll_all_gt30:0,recs_gt30:[],
     enrolledPhones:new Set()});
   const renderRow=(s,ag,camp,style,agId)=>{
     const enrollCell=s.enroll>0
-      ?`<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(buildPhoneRecordsFromSet(s.enrolledPhones))},${attrJson(ag+(camp?' · '+camp:''))})'>${s.enroll}</span>`:'—';
+      ?`<span class="enroll-click" onclick='event.stopPropagation();showEnrolledPhones(${attrJson([...s.enrolledPhones])},${attrJson(ag+(camp?' · '+camp:''))})'>${s.enroll}</span>`:'—';
     const isTot=style==='total'; const isAgent=style==='agent';
     let firstCols,trAttrs;
     if(isAgent){
@@ -1608,35 +1592,31 @@ function renderOpenerTable(){
   }).join('');
   document.getElementById('openerTransferBody').innerHTML=rows+renderRow(grandTot,'','','total','');
 
-  const _emRef=window._enrolledPhoneAgent||{};
-  const enrichEnr=arr=>(arr||[]).map(r=>({...r,debt:(_emRef[r.phone]&&_emRef[r.phone].debt)||0,enrolledDate:(_emRef[r.phone]&&_emRef[r.phone].enrolledDate)||''}));
   const brackets=[
-    {label:'Dead ≤30s',    calls:grandTot.short,   trns:0,                      recs:[],                    enr:grandTot.enroll_short,     enrRecs:enrichEnr(grandTot.enrRecs_short)},
-    {label:'30s–2 min',    calls:grandTot.r30to2m, trns:grandTot.cltrns_30to2m, recs:grandTot.recs_30to2m,  enr:grandTot.enroll_all_30to2m, enrRecs:enrichEnr(grandTot.enrRecs_30to2m)},
-    {label:'2–5 min',      calls:grandTot.r2to5m,  trns:grandTot.cltrns_2to5m,  recs:grandTot.recs_2to5m,   enr:grandTot.enroll_all_2to5m,  enrRecs:enrichEnr(grandTot.enrRecs_2to5m)},
-    {label:'5–10 min',     calls:grandTot.r5to10,  trns:grandTot.cltrns_5to10,  recs:grandTot.recs_5to10,   enr:grandTot.enroll_all_5to10,  enrRecs:enrichEnr(grandTot.enrRecs_5to10)},
-    {label:'10–15 min',    calls:grandTot.r10to15, trns:grandTot.cltrns_10to15, recs:grandTot.recs_10to15,  enr:grandTot.enroll_all_10to15, enrRecs:enrichEnr(grandTot.enrRecs_10to15)},
-    {label:'15–20 min',    calls:grandTot.r15to20, trns:grandTot.cltrns_15to20, recs:grandTot.recs_15to20,  enr:grandTot.enroll_all_15to20, enrRecs:enrichEnr(grandTot.enrRecs_15to20)},
-    {label:'20–30 min',    calls:grandTot.r20to30, trns:grandTot.cltrns_20to30, recs:grandTot.recs_20to30,  enr:grandTot.enroll_all_20to30, enrRecs:enrichEnr(grandTot.enrRecs_20to30)},
-    {label:'30+ min',      calls:grandTot.gt30m,   trns:grandTot.cltrns_gt30,   recs:grandTot.recs_gt30,    enr:grandTot.enroll_all_gt30,   enrRecs:enrichEnr(grandTot.enrRecs_gt30)},
+    {label:'Dead ≤30s',    calls:grandTot.short,   trns:0,                      enr:grandTot.enroll_short},
+    {label:'30s–2 min',    calls:grandTot.r30to2m, trns:grandTot.cltrns_30to2m, enr:grandTot.enroll_all_30to2m},
+    {label:'2–5 min',      calls:grandTot.r2to5m,  trns:grandTot.cltrns_2to5m,  enr:grandTot.enroll_all_2to5m},
+    {label:'5–10 min',     calls:grandTot.r5to10,  trns:grandTot.cltrns_5to10,  enr:grandTot.enroll_all_5to10},
+    {label:'10–15 min',    calls:grandTot.r10to15, trns:grandTot.cltrns_10to15, enr:grandTot.enroll_all_10to15},
+    {label:'15–20 min',    calls:grandTot.r15to20, trns:grandTot.cltrns_15to20, enr:grandTot.enroll_all_15to20},
+    {label:'20–30 min',    calls:grandTot.r20to30, trns:grandTot.cltrns_20to30, enr:grandTot.enroll_all_20to30},
+    {label:'30+ min',      calls:grandTot.gt30m,   trns:grandTot.cltrns_gt30,   enr:grandTot.enroll_all_gt30},
   ];
   const totCalls=brackets.reduce((s,b)=>s+b.calls,0);
   const totTrns=brackets.reduce((s,b)=>s+b.trns,0);
   const totEnr=brackets.reduce((s,b)=>s+b.enr,0);
-  const totTrnsRecs=brackets.flatMap(b=>b.recs);
-  const totEnrRecs=brackets.flatMap(b=>b.enrRecs);
   document.getElementById('openerSummaryBody').innerHTML=
     brackets.map(b=>`<tr>
       <td style="text-align:left;font-weight:600">${b.label}</td>
       <td>${b.calls}</td>
-      <td>${b.trns>0?`<span class="enroll-click" style="font-weight:700;color:var(--blue)" onclick='showPhoneCrmList(${attrJson(b.recs)},${attrJson(b.label+' — Transfers')})'>${b.trns}</span>`:'—'}</td>
-      <td>${b.enr>0?`<span class="enroll-click" style="font-weight:700;color:var(--green-dk)" onclick='showPhoneCrmList(${attrJson(b.enrRecs)},${attrJson(b.label+' — Enrolled')})'>${b.enr}</span>`:'—'}</td>
+      <td>${b.trns>0?'<span style="font-weight:700;color:var(--blue)">'+b.trns+'</span>':'—'}</td>
+      <td>${b.enr>0?'<span style="font-weight:700;color:var(--green-dk)">'+b.enr+'</span>':'—'}</td>
     </tr>`).join('')+
     `<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
       <td style="text-align:left">TOTAL</td>
       <td>${totCalls}</td>
-      <td>${totTrns>0?`<span class="enroll-click" style="color:var(--blue)" onclick='showPhoneCrmList(${attrJson(totTrnsRecs)},${attrJson('All Brackets — Transfers')})'>${totTrns}</span>`:'—'}</td>
-      <td>${totEnr>0?`<span class="enroll-click" style="color:var(--green-dk)" onclick='showPhoneCrmList(${attrJson(totEnrRecs)},${attrJson('All Brackets — Enrolled')})'>${totEnr}</span>`:'—'}</td>
+      <td>${totTrns>0?'<span style="color:var(--blue)">'+totTrns+'</span>':'—'}</td>
+      <td>${totEnr>0?'<span style="color:var(--green-dk)">'+totEnr+'</span>':'—'}</td>
     </tr>`;
   document.getElementById('openerSummaryCard').style.display='';
 
@@ -1730,6 +1710,11 @@ function renderBadTransfers(){
   document.getElementById('badTransferEnrolledList').innerHTML=rowHtml(enrolled);
   document.getElementById('badTransferOtherCount').textContent='('+other.length+')';
   document.getElementById('badTransferOtherList').innerHTML=rowHtml(other);
+}
+function showEnrolledPhones(phones, label){
+  document.getElementById('enrollModalTitle').textContent=(label||'Campaign')+' — Enrolled Phones ('+phones.length+')';
+  document.getElementById('enrollModalList').innerHTML=phones.map(p=>`<span>${p}</span>`).join('');
+  document.getElementById('enrollModal').classList.add('open');
 }
 function closeEnrolledPhones(){
   document.getElementById('enrollModal').classList.remove('open');
@@ -1872,7 +1857,7 @@ function renderTransferLeaderboard(){
     <td style="text-align:left;font-weight:600">${r.agent}</td>
     <td style="color:var(--blue)">${r.inboundUniq>0?`<span style="cursor:pointer;text-decoration:underline dotted" onclick='showPhoneCrmList(${attrJson(r.inboundPhones)},${attrJson(r.agent+' — Inbound Numbers')})'>${r.inboundUniq}</span>`:'—'}</td>
     <td>${r.convPct}</td>
-    <td class="enroll-num"><span class="enroll-click" onclick='showPhoneCrmList(${attrJson(r.records)},${attrJson(r.agent+' — Transfers Received')})'>${r.count}</span></td>
+    <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${attrJson(r.records)},${attrJson(r.agent+' — Transfers Received')})'>${r.count}</span></td>
   </tr>`).join('');
   const thead=document.getElementById('transferLbHead');
   const tbody=document.getElementById('transferLbBody');
@@ -2404,19 +2389,6 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   if(badTransferPhones.length){ badTransferCard.style.display=''; renderBadTransfers(); }
   else badTransferCard.style.display='none';
 
-  // Phone-level call log (every call to a phone, any agent) — used to look up the
-  // recording/CRM status/Ytel status of a specific call (e.g. the one that enrolled a
-  // phone) when only the phone number and a rough Set membership are known, not the
-  // agent who made that particular call.
-  const phoneCallLog={};
-  calls.forEach(r=>{
-    if(!r._phone) return;
-    if(!phoneCallLog[r._phone]) phoneCallLog[r._phone]=[];
-    phoneCallLog[r._phone].push({dir:r._dir,recording:r._recording||'',sec:r._sec||0,ts:r._ts,crmStatus:r._crmStatus||'',ytelStatus:r._status||''});
-  });
-  window._phoneCallLog=phoneCallLog;
-  window._enrolledPhoneAgent=enrolledPhoneAgent;
-
   // ── Correct transfers received by agent ──────────────────────────────────────
   // For each CLtrns event that DID land (has a later inbound call), credit the agent
   // on the first inbound call after it — that's the agent who actually received the transfer.
@@ -2427,30 +2399,29 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       inboundCalls[r._phone].push({ts:r._ts,agent:r._name,camp:r._campaign,sec:r._sec||0,recording:r._recording||'',crmStatus:r._crmStatus||'',ytelStatus:r._status||''});
     }
   });
-  const receivedTransfers={};  // agent → {count, records:[{phone,sec,recording,debt}], enrolledPhones:Set}
+  const receivedTransfers={};  // agent → {count, records:[{phone,sec,recording}], enrolledPhones:Set}
   Object.entries(cltrnsEvents).forEach(([phone,events])=>{
     const followUps=(inboundCalls[phone]||[]).slice().sort((a,b)=>a.ts-b.ts);
-    const rowDebt=(enrolledPhoneAgent[phone]&&enrolledPhoneAgent[phone].debt)||0;
     events.forEach(ev=>{
       const next=followUps.find(f=>f.ts>ev.ts);
       if(next&&next.agent){
         if(!receivedTransfers[next.agent]) receivedTransfers[next.agent]={count:0,records:[],enrolledPhones:new Set()};
         receivedTransfers[next.agent].count++;
-        receivedTransfers[next.agent].records.push({phone,sec:next.sec,recording:next.recording,crmStatus:next.crmStatus||'',ytelStatus:next.ytelStatus||'',dir:'inbound',debt:rowDebt});
+        receivedTransfers[next.agent].records.push({phone,sec:next.sec,recording:next.recording,crmStatus:next.crmStatus||'',ytelStatus:next.ytelStatus||'',dir:'inbound'});
         if(anyEnrolledPhone.has(phone)) receivedTransfers[next.agent].enrolledPhones.add(phone);
       }
     });
   });
-  const receivedTransferRows=Object.entries(receivedTransfers).map(([agent,d])=>({agent,count:d.count,records:d.records,enrolledPhones:d.enrolledPhones,enrolledRecords:buildPhoneRecordsFromSet(d.enrolledPhones,phoneCallLog,enrolledPhoneAgent),notEnrolledRecords:d.records.filter(rec=>!d.enrolledPhones.has(rec.phone))})).sort((a,b)=>b.count-a.count);
+  const receivedTransferRows=Object.entries(receivedTransfers).map(([agent,d])=>({agent,count:d.count,records:d.records,enrolledPhones:d.enrolledPhones,notEnrolledRecords:d.records.filter(rec=>!d.enrolledPhones.has(rec.phone))})).sort((a,b)=>b.count-a.count);
   window._receivedTransferRows=receivedTransferRows;
   const receivedTransferCard=document.getElementById('receivedTransferCard');
   if(receivedTransferRows.length){
     receivedTransferCard.style.display='';
     document.getElementById('receivedTransferBody').innerHTML=receivedTransferRows.map(r=>`<tr>
       <td>${r.agent}</td>
-      <td class="enroll-num"><span class="enroll-click" onclick='showPhoneCrmList(${attrJson(r.records)},${attrJson(r.agent+" — Transfers Received")})'>${r.count}</span></td>
-      <td class="${r.enrolledPhones.size>0?'enroll-num':'enroll-zero'}">${r.enrolledPhones.size>0?`<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(r.enrolledRecords)},${attrJson(r.agent+" — Enrolled from Transfers")})'>${r.enrolledPhones.size}</span>`:'—'}</td>
-      <td class="${r.notEnrolledRecords.length>0?'enroll-num':'enroll-zero'}">${r.notEnrolledRecords.length>0?`<span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showPhoneCrmList(${attrJson(r.notEnrolledRecords)},${attrJson(r.agent+" — Transfers Received, Not Enrolled")})'>${r.notEnrolledRecords.length}</span>`:'—'}</td>
+      <td class="enroll-num"><span class="enroll-click" onclick='showFlaggedPhones(${attrJson(r.records)},${attrJson(r.agent+" — Transfers Received")})'>${r.count}</span></td>
+      <td class="${r.enrolledPhones.size>0?'enroll-num':'enroll-zero'}">${r.enrolledPhones.size>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...r.enrolledPhones])},${attrJson(r.agent+" — Enrolled from Transfers")})'>${r.enrolledPhones.size}</span>`:'—'}</td>
+      <td class="${r.notEnrolledRecords.length>0?'enroll-num':'enroll-zero'}">${r.notEnrolledRecords.length>0?`<span class="enroll-click" style="color:var(--red);font-weight:700" onclick='showFlaggedPhones(${attrJson(r.notEnrolledRecords)},${attrJson(r.agent+" — Transfers Received, Not Enrolled")})'>${r.notEnrolledRecords.length}</span>`:'—'}</td>
       <td>${pct(r.enrolledPhones.size,r.count)}</td>
     </tr>`).join('');
   } else {
@@ -2718,7 +2689,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       const hk=String(hr).padStart(2,'0')+':00';
       const addHourEntry=(m,name)=>{
         if(!m[name]) m[name]={};
-        if(!m[name][hk]) m[name][hk]={calls:0,short:0,lt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0,funnelRecords:{short:[],lt2m:[],r1to2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
+        if(!m[name][hk]) m[name][hk]={calls:0,short:0,lt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0};
         return m[name][hk];
       };
       const h=addHourEntry(agentHourMap,r._name);
@@ -2729,14 +2700,14 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       const hc=r._campaign?addHourEntry(agentHourCampMap[r._campaign],r._name):null;
       [h,hd,...(hc?[hc]:[])].forEach(x=>{
         x.calls++; x.sec+=r._sec;
-        if(r._sec<=30){ x.short++; if(r._phone) x.funnelRecords.short.push(mkFunnelRec()); }
-        if(r._sec<120){ x.lt2m++; if(r._phone) x.funnelRecords.lt2m.push(mkFunnelRec()); }
-        if(r._sec>=60&&r._sec<120){ x.r1to2m++; if(r._phone) x.funnelRecords.r1to2m.push(mkFunnelRec()); }
-        if(r._sec>=300&&r._sec<600){ x.r5to10++; if(r._phone) x.funnelRecords.r5to10.push(mkFunnelRec()); }
-        else if(r._sec>=600&&r._sec<900){ x.r10to15++; if(r._phone) x.funnelRecords.r10to15.push(mkFunnelRec()); }
-        else if(r._sec>=900&&r._sec<1200){ x.r15to20++; if(r._phone) x.funnelRecords.r15to20.push(mkFunnelRec()); }
-        else if(r._sec>=1200&&r._sec<1800){ x.r20to30++; if(r._phone) x.funnelRecords.r20to30.push(mkFunnelRec()); }
-        else if(r._sec>=1800){ x.gt30m++; if(r._phone) x.funnelRecords.gt30m.push(mkFunnelRec()); }
+        if(r._sec<=30) x.short++;
+        if(r._sec<120) x.lt2m++;
+        if(r._sec>=60&&r._sec<120) x.r1to2m++;
+        if(r._sec>=300&&r._sec<600) x.r5to10++;
+        else if(r._sec>=600&&r._sec<900) x.r10to15++;
+        else if(r._sec>=900&&r._sec<1200) x.r15to20++;
+        else if(r._sec>=1200&&r._sec<1800) x.r20to30++;
+        else if(r._sec>=1800) x.gt30m++;
       });
     }
   });
@@ -2771,18 +2742,12 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         // demand since the agent may have no personal calls tagged with attribCamp.
         if(!agentHourCampMap[attribCamp]) agentHourCampMap[attribCamp]={};
         if(!agentHourCampMap[attribCamp][agentName]) agentHourCampMap[attribCamp][agentName]={};
-        if(!agentHourCampMap[attribCamp][agentName][last.hk]) agentHourCampMap[attribCamp][agentName][last.hk]={calls:0,short:0,lt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0,funnelRecords:{short:[],lt2m:[],r1to2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
+        if(!agentHourCampMap[attribCamp][agentName][last.hk]) agentHourCampMap[attribCamp][agentName][last.hk]={calls:0,short:0,lt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,sec:0};
         maps.push([agentHourCampMap[attribCamp],agentName]);
       }
-      const enrInfo=enrolledPhoneAgent[phone];
-      const callLog=agentPhoneCallLog[agentName+'||'+phone]||[];
-      const enrMatch=callLog.find(c=>enrInfo&&c.ts===enrInfo.ts)||callLog[callLog.length-1]||{};
-      const enrHourRec={phone,crmStatus:enrMatch.crmStatus||'',ytelStatus:enrMatch.ytelStatus||'',dir:enrMatch.dir||'',debt:(enrInfo&&enrInfo.debt)||0,enrolledDate:(enrInfo&&enrInfo.enrolledDate)||'',recording:enrMatch.recording||'',sec:enrMatch.sec||0};
       maps.forEach(([m,n])=>{
         if(!m[n]||!m[n][last.hk]) return;
         m[n][last.hk].enrHour=(m[n][last.hk].enrHour||0)+1;
-        if(!m[n][last.hk].enrHourRecords) m[n][last.hk].enrHourRecords=[];
-        m[n][last.hk].enrHourRecords.push(enrHourRec);
       });
     });
   });
@@ -2857,17 +2822,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
           <td>${Object.keys(h.uniqueFirstDir||{}).length||'—'}</td>
           <td style="color:var(--blue)">${Object.values(h.uniqueFirstDir||{}).filter(v=>v==='inbound').length||'—'}</td>
           <td>${Object.values(h.uniqueFirstDir||{}).filter(v=>v!=='inbound').length||'—'}</td>
-          <td>${h.funnelRecords?.short?.length?`<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(h.funnelRecords.short)},${attrJson(a.name+' — '+hk+' — Short (≤30s)')})'>${hShortPct}%</span>`:hShortPct+'%'}</td>
-          <td>${funnelCellClick(h.lt2m,h.calls,"var(--red)",h.funnelRecords?.lt2m,a.name+' — '+hk+' — <2 min')}</td>
-          <td>${funnelCellClick(h.r1to2m,h.calls,"#f97316",h.funnelRecords?.r1to2m,a.name+' — '+hk+' — 1–2 min')}</td>
-          <td>${funnelCellClick(h.r5to10,h.calls,"var(--text-muted)",h.funnelRecords?.r5to10,a.name+' — '+hk+' — 5–10 min')}</td>
-          <td>${funnelCellClick(h.r10to15,h.calls,"var(--text-muted)",h.funnelRecords?.r10to15,a.name+' — '+hk+' — 10–15 min')}</td>
-          <td>${funnelCellClick(h.r15to20,h.calls,"var(--text-muted)",h.funnelRecords?.r15to20,a.name+' — '+hk+' — 15–20 min')}</td>
-          <td>${funnelCellClick(h.r20to30,h.calls,"var(--green-dk)",h.funnelRecords?.r20to30,a.name+' — '+hk+' — 20–30 min')}</td>
-          <td>${funnelCellClick(h.gt30m,h.calls,"var(--green-dk)",h.funnelRecords?.gt30m,a.name+' — '+hk+' — 30+ min')}</td>
+          <td>${hShortPct}%</td>
+          <td>${funnelCell(h.lt2m,h.calls,"var(--red)")}</td>
+          <td>${funnelCell(h.r1to2m,h.calls,"#f97316")}</td>
+          <td>${funnelCell(h.r5to10,h.calls,"var(--text-muted)")}</td>
+          <td>${funnelCell(h.r10to15,h.calls,"var(--text-muted)")}</td>
+          <td>${funnelCell(h.r15to20,h.calls,"var(--text-muted)")}</td>
+          <td>${funnelCell(h.r20to30,h.calls,"var(--green-dk)")}</td>
+          <td>${funnelCell(h.gt30m,h.calls,"var(--green-dk)")}</td>
           <td>${fmtDur(h.calls?Math.round(h.sec/h.calls):0)}</td>
           <td>${fmtDur(h.sec)}</td>
-          <td class="${(h.enrHour||0)>0?'enroll-num':'enroll-zero'}">${h.enrHour>0?`<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(h.enrHourRecords||[])},${attrJson(a.name+' — '+hk+' — Enrolled')})'>${h.enrHour}</span>`:'—'}</td>
+          <td class="${(h.enrHour||0)>0?'enroll-num':'enroll-zero'}">${h.enrHour||'—'}</td>
           <td>—</td><td>—</td>
         </tr>`;
       }).join('');
@@ -3049,54 +3014,51 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const campDirMap={inbound:{},outbound:{}};
   const campAgentMap={};
   const campAgentDirMap={inbound:{},outbound:{}};
-  const emptyCampFunnelRecords=()=>({short:[],lt2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]});
   calls.forEach(r=>{
-    const rowDebt=(r._phone&&enrolledPhoneAgent[r._phone]&&enrolledPhoneAgent[r._phone].debt)||0;
-    const mkCampRec=()=>({phone:r._phone,crmStatus:r._crmStatus||'',ytelStatus:r._status||'',dir:r._dir||'',debt:rowDebt,recording:r._recording||'',sec:r._sec});
-    const c=r._campaign; if(!campMap[c]) campMap[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set(),funnelRecords:emptyCampFunnelRecords()};
+    const c=r._campaign; if(!campMap[c]) campMap[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
     const d=campMap[c]; d.calls++; d.sec+=r._sec;
     if(r._phone){d.phones.add(r._phone); if(r._sec>30) d.phonesContacted.add(r._phone);}
-    if(r._sec<=30){ d.short++; if(r._phone) d.funnelRecords.short.push(mkCampRec()); }
-    if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push(mkCampRec()); }
+    if(r._sec<=30) d.short++;
+    if(r._sec<120) d.lt2m++;
     if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
-    if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push(mkCampRec()); }
-    else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push(mkCampRec()); }
-    else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push(mkCampRec()); }
-    else if(r._sec>=1200&&r._sec<1800){ d.r20to30++; if(r._phone) d.funnelRecords.r20to30.push(mkCampRec()); }
-    else if(r._sec>=1800){ d.gt30m++; if(r._phone) d.funnelRecords.gt30m.push(mkCampRec()); }
+    if(r._sec>=300&&r._sec<600) d.r5to10++;
+    else if(r._sec>=600&&r._sec<900) d.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) d.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
+    else if(r._sec>=1800) d.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
     if(r._enrolled){ d.enroll++; if(r._phone) d.enrolledPhones.add(r._phone); }
     const dir=r._dir==='inbound'?'inbound':'outbound';
-    if(!campDirMap[dir][c]) campDirMap[dir][c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set(),funnelRecords:emptyCampFunnelRecords()};
+    if(!campDirMap[dir][c]) campDirMap[dir][c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
     const dd=campDirMap[dir][c]; dd.calls++; dd.sec+=r._sec;
     if(r._phone){dd.phones.add(r._phone); if(r._sec>30) dd.phonesContacted.add(r._phone);}
-    if(r._sec<=30){ dd.short++; if(r._phone) dd.funnelRecords.short.push(mkCampRec()); }
-    if(r._sec<120){ dd.lt2m++; if(r._phone) dd.funnelRecords.lt2m.push(mkCampRec()); }
+    if(r._sec<=30) dd.short++;
+    if(r._sec<120) dd.lt2m++;
     if(r._sec>=120){ dd.gt2m++; if(r._phone) dd.phonesGt2m.add(r._phone); }
-    if(r._sec>=300&&r._sec<600){ dd.r5to10++; if(r._phone) dd.funnelRecords.r5to10.push(mkCampRec()); }
-    else if(r._sec>=600&&r._sec<900){ dd.r10to15++; if(r._phone) dd.funnelRecords.r10to15.push(mkCampRec()); }
-    else if(r._sec>=900&&r._sec<1200){ dd.r15to20++; if(r._phone) dd.funnelRecords.r15to20.push(mkCampRec()); }
-    else if(r._sec>=1200&&r._sec<1800){ dd.r20to30++; if(r._phone) dd.funnelRecords.r20to30.push(mkCampRec()); }
-    else if(r._sec>=1800){ dd.gt30m++; if(r._phone) dd.funnelRecords.gt30m.push(mkCampRec()); }
+    if(r._sec>=300&&r._sec<600) dd.r5to10++;
+    else if(r._sec>=600&&r._sec<900) dd.r10to15++;
+    else if(r._sec>=900&&r._sec<1200) dd.r15to20++;
+    else if(r._sec>=1200&&r._sec<1800) dd.r20to30++;
+    else if(r._sec>=1800) dd.gt30m++;
     if(['DROP','TIMEOT'].includes(r._status)) dd.drops++;
     if(r._enrolled){ dd.enroll++; if(r._phone) dd.enrolledPhones.add(r._phone); }
     if(!campAgentMap[c]) campAgentMap[c]={};
     const ag=r._name||'Unknown';
     const addAgEntry=(m,camp,agent)=>{
       if(!m[camp]) m[camp]={};
-      if(!m[camp][agent]) m[camp][agent]={calls:0,short:0,sec:0,lt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,enrolledPhones:new Set(),funnelRecords:emptyCampFunnelRecords()};
+      if(!m[camp][agent]) m[camp][agent]={calls:0,short:0,sec:0,lt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,enrolledPhones:new Set()};
       return m[camp][agent];
     };
     const da=addAgEntry(campAgentMap,c,ag); da.calls++; da.sec+=r._sec;
     const dda=addAgEntry(campAgentDirMap[dir],c,ag); dda.calls++; dda.sec+=r._sec;
     [da,dda].forEach(x=>{
-      if(r._sec<=30){ x.short++; if(r._phone) x.funnelRecords.short.push(mkCampRec()); }
-      if(r._sec<120){ x.lt2m++; if(r._phone) x.funnelRecords.lt2m.push(mkCampRec()); }
-      if(r._sec>=300&&r._sec<600){ x.r5to10++; if(r._phone) x.funnelRecords.r5to10.push(mkCampRec()); }
-      else if(r._sec>=600&&r._sec<900){ x.r10to15++; if(r._phone) x.funnelRecords.r10to15.push(mkCampRec()); }
-      else if(r._sec>=900&&r._sec<1200){ x.r15to20++; if(r._phone) x.funnelRecords.r15to20.push(mkCampRec()); }
-      else if(r._sec>=1200&&r._sec<1800){ x.r20to30++; if(r._phone) x.funnelRecords.r20to30.push(mkCampRec()); }
-      else if(r._sec>=1800){ x.gt30m++; if(r._phone) x.funnelRecords.gt30m.push(mkCampRec()); }
+      if(r._sec<=30) x.short++;
+      if(r._sec<120) x.lt2m++;
+      if(r._sec>=300&&r._sec<600) x.r5to10++;
+      else if(r._sec>=600&&r._sec<900) x.r10to15++;
+      else if(r._sec>=900&&r._sec<1200) x.r15to20++;
+      else if(r._sec>=1200&&r._sec<1800) x.r20to30++;
+      else if(r._sec>=1800) x.gt30m++;
       if(['DROP','TIMEOT'].includes(r._status)) x.drops++;
       if(r._enrolled){ x.enroll++; if(r._phone) x.enrolledPhones.add(r._phone); }
     });
@@ -3128,31 +3090,31 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <tr class="camp-agent-row" style="display:none" data-parent="${rowId}">
         <td style="text-align:left;padding-left:32px;color:var(--text-muted);font-size:11px">↳ ${ag}${RETENTION.has(ag.toLowerCase())?'<span class="tag-retention">Retention</span>':OPENERS.has(ag.toLowerCase())?'<span class="tag-opener">Opener</span>':''}</td>
         <td>${a.calls}</td>
-        <td>${a.funnelRecords?.short?.length?`<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(a.funnelRecords.short)},${attrJson(ag+' — Short (≤30s)')})'>${a.short}</span>`:a.short} <span style="color:var(--text-muted);font-size:11px">${pct(a.short,a.calls)}</span></td>
-        <td>${funnelCellClick(a.lt2m,a.calls,"var(--red)",a.funnelRecords?.lt2m,ag+' — <2 min')}</td>
-        <td>${funnelCellClick(a.r5to10,a.calls,"var(--text-muted)",a.funnelRecords?.r5to10,ag+' — 5–10 min')}</td>
-        <td>${funnelCellClick(a.r10to15,a.calls,"var(--text-muted)",a.funnelRecords?.r10to15,ag+' — 10–15 min')}</td>
-        <td>${funnelCellClick(a.r15to20,a.calls,"var(--text-muted)",a.funnelRecords?.r15to20,ag+' — 15–20 min')}</td>
-        <td>${funnelCellClick(a.r20to30,a.calls,"var(--green-dk)",a.funnelRecords?.r20to30,ag+' — 20–30 min')}</td>
-        <td>${funnelCellClick(a.gt30m,a.calls,"var(--green-dk)",a.funnelRecords?.gt30m,ag+' — 30+ min')}</td>
+        <td>${a.short} <span style="color:var(--text-muted);font-size:11px">${pct(a.short,a.calls)}</span></td>
+        <td>${funnelCell(a.lt2m,a.calls,"var(--red)")}</td>
+        <td>${funnelCell(a.r5to10,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r10to15,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r15to20,a.calls,"var(--text-muted)")}</td>
+        <td>${funnelCell(a.r20to30,a.calls,"var(--green-dk)")}</td>
+        <td>${funnelCell(a.gt30m,a.calls,"var(--green-dk)")}</td>
         <td>${a.drops>0?'<span style="color:var(--red);font-weight:600">'+a.drops+'</span>':'—'}</td>
         <td>${fmtDur(a.calls?Math.round(a.sec/a.calls):0)}</td>
-        <td class="${a.enroll>0?'enroll-num':'enroll-zero'}">${a.enroll>0?`<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(buildPhoneRecordsFromSet(a.enrolledPhones,phoneCallLog,enrolledPhoneAgent))},${attrJson(ag+" — Enrolled")})'>${a.enroll}</span>`:'—'}</td>
+        <td class="${a.enroll>0?'enroll-num':'enroll-zero'}">${a.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...a.enrolledPhones])},${attrJson(ag)})'>${a.enroll}</span>`:'—'}</td>
         <td>—</td><td>—</td><td>—</td>
       </tr>`).join('');
     return `<tr id="${rowId}" style="cursor:pointer" onclick="toggleCampAgents('${rowId}')">
       <td style="text-align:left"><span class="agent-toggle" id="tog-${rowId}">▶</span> ${camp} ${typeTag[d.type]||''}</td>
       <td>${d.calls}</td>
-      <td>${d.funnelRecords?.short?.length?`<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(d.funnelRecords.short)},${attrJson(camp+' — Short (≤30s)')})'>${d.short}</span>`:d.short} <span style="color:var(--text-muted);font-size:11px">${pct(d.short,d.calls)}</span></td>
-      <td>${funnelCellClick(d.lt2m,d.calls,"var(--red)",d.funnelRecords?.lt2m,camp+' — <2 min')}</td>
-      <td>${funnelCellClick(d.r5to10,d.calls,"var(--text-muted)",d.funnelRecords?.r5to10,camp+' — 5–10 min')}</td>
-      <td>${funnelCellClick(d.r10to15,d.calls,"var(--text-muted)",d.funnelRecords?.r10to15,camp+' — 10–15 min')}</td>
-      <td>${funnelCellClick(d.r15to20,d.calls,"var(--text-muted)",d.funnelRecords?.r15to20,camp+' — 15–20 min')}</td>
-      <td>${funnelCellClick(d.r20to30,d.calls,"var(--green-dk)",d.funnelRecords?.r20to30,camp+' — 20–30 min')}</td>
-      <td>${funnelCellClick(d.gt30m,d.calls,"var(--green-dk)",d.funnelRecords?.gt30m,camp+' — 30+ min')}</td>
+      <td>${d.short} <span style="color:var(--text-muted);font-size:11px">${pct(d.short,d.calls)}</span></td>
+      <td>${funnelCell(d.lt2m,d.calls,"var(--red)")}</td>
+      <td>${funnelCell(d.r5to10,d.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(d.r10to15,d.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(d.r15to20,d.calls,"var(--text-muted)")}</td>
+      <td>${funnelCell(d.r20to30,d.calls,"var(--green-dk)")}</td>
+      <td>${funnelCell(d.gt30m,d.calls,"var(--green-dk)")}</td>
       <td>${d.drops>0?'<span style="color:var(--red);font-weight:600">'+d.drops+'</span>':'—'}</td>
       <td>${fmtDur(d.calls?Math.round(d.sec/d.calls):0)}</td>
-      <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll>0?`<span class="enroll-click" onclick='event.stopPropagation();showPhoneCrmList(${attrJson(buildPhoneRecordsFromSet(d.enrolledPhones,phoneCallLog,enrolledPhoneAgent))},${attrJson(camp+" — Enrolled")})'>${d.enroll}</span>`:'—'}</td>
+      <td class="${d.enroll>0?'enroll-num':'enroll-zero'}">${d.enroll>0?`<span class="enroll-click" onclick='showEnrolledPhones(${attrJson([...d.enrolledPhones])},${attrJson(camp)})'>${d.enroll}</span>`:'—'}</td>
       <td>${d.calls>0&&d.enroll>0?pct(d.enroll,d.calls):'—'}</td>
       <td>${d.phonesGt2m.size>0&&d.enroll>0?pct(d.enroll,d.phonesGt2m.size):'—'}</td>
       <td>${d.phones&&d.phones.size?pct(d.phonesContacted.size,d.phones.size):'—'}</td>
@@ -3165,23 +3127,21 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r15to20:t.r15to20+d.r15to20, r20to30:t.r20to30+d.r20to30, gt30m:t.gt30m+d.gt30m,
     drops:t.drops+d.drops, sec:t.sec+d.sec, enroll:t.enroll+d.enroll
   }),{calls:0,short:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,sec:0,enroll:0});
-  const cTotPhones=new Set(), cTotContacted=new Set(), cTotEnrolledPhones=new Set();
-  campRows.forEach(([,d])=>{ if(d.phones){ d.phones.forEach(v=>cTotPhones.add(v)); d.phonesContacted.forEach(v=>cTotContacted.add(v)); } d.enrolledPhones.forEach(v=>cTotEnrolledPhones.add(v)); });
-  const cAggRecords=key=>campRows.flatMap(([,d])=>d.funnelRecords?.[key]||[]);
-  const cAggShort=cAggRecords('short');
+  const cTotPhones=new Set(), cTotContacted=new Set();
+  campRows.forEach(([,d])=>{ if(d.phones){ d.phones.forEach(v=>cTotPhones.add(v)); d.phonesContacted.forEach(v=>cTotContacted.add(v)); } });
   document.getElementById('campBody').innerHTML=campRowsHtml+`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
     <td style="text-align:left">TOTAL</td>
     <td>${cTot.calls}</td>
-    <td>${cAggShort.length?`<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(cAggShort)},${attrJson('All Campaigns — Short (≤30s)')})'>${cTot.short}</span>`:cTot.short} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.short,cTot.calls)}</span></td>
-    <td>${funnelCellClick(cTot.lt2m,cTot.calls,"var(--red)",cAggRecords('lt2m'),'All Campaigns — <2 min')}</td>
-    <td>${funnelCellClick(cTot.r5to10,cTot.calls,"var(--text-muted)",cAggRecords('r5to10'),'All Campaigns — 5–10 min')}</td>
-    <td>${funnelCellClick(cTot.r10to15,cTot.calls,"var(--text-muted)",cAggRecords('r10to15'),'All Campaigns — 10–15 min')}</td>
-    <td>${funnelCellClick(cTot.r15to20,cTot.calls,"var(--text-muted)",cAggRecords('r15to20'),'All Campaigns — 15–20 min')}</td>
-    <td>${funnelCellClick(cTot.r20to30,cTot.calls,"var(--green-dk)",cAggRecords('r20to30'),'All Campaigns — 20–30 min')}</td>
-    <td>${funnelCellClick(cTot.gt30m,cTot.calls,"var(--green-dk)",cAggRecords('gt30m'),'All Campaigns — 30+ min')}</td>
+    <td>${cTot.short} <span style="color:var(--text-muted);font-size:11px">${pct(cTot.short,cTot.calls)}</span></td>
+    <td>${funnelCell(cTot.lt2m,cTot.calls,"var(--red)")}</td>
+    <td>${funnelCell(cTot.r5to10,cTot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(cTot.r10to15,cTot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(cTot.r15to20,cTot.calls,"var(--text-muted)")}</td>
+    <td>${funnelCell(cTot.r20to30,cTot.calls,"var(--green-dk)")}</td>
+    <td>${funnelCell(cTot.gt30m,cTot.calls,"var(--green-dk)")}</td>
     <td>${cTot.drops>0?'<span style="color:var(--red);font-weight:600">'+cTot.drops+'</span>':'—'}</td>
     <td>${fmtDur(cTot.calls?Math.round(cTot.sec/cTot.calls):0)}</td>
-    <td class="${cTot.enroll>0?'enroll-num':'enroll-zero'}">${cTot.enroll>0?`<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(buildPhoneRecordsFromSet(cTotEnrolledPhones,phoneCallLog,enrolledPhoneAgent))},${attrJson('All Campaigns — Enrolled')})'>${cTot.enroll}</span>`:'—'}</td>
+    <td class="${cTot.enroll>0?'enroll-num':'enroll-zero'}">${cTot.enroll||'—'}</td>
     <td>${cTot.calls>0&&cTot.enroll>0?pct(cTot.enroll,cTot.calls):'—'}</td>
     <td>—</td>
     <td>${cTotPhones.size?pct(cTotContacted.size,cTotPhones.size):'—'}</td>
