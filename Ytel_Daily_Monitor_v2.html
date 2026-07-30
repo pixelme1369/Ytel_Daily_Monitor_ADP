@@ -232,7 +232,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <label>To</label>
       <input type="date" id="toDate" value="">
     </div>
-    <button class="sb-btn" id="runAnalysisBtn" onclick="runAnalysis()">&#9654; Run Analysis</button>
+    <button class="sb-btn" id="runAnalysisBtn" onclick="runAnalysis(true)">&#9654; Run Analysis</button>
     <button class="sb-btn ghost" onclick="clearAll()">Clear</button>
     <div class="sb-hint" id="filterHint">Pick a date range and click Run Analysis to pull live Ytel + CRM data from BigQuery — or upload a merged file to override.</div>
     <div class="sb-hint" id="hdrDate" style="color:#34D399;font-weight:700">No date selected</div>
@@ -1995,7 +1995,7 @@ function setQuickRange(kind){
   document.querySelectorAll('.qd-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById('qd-'+kind);
   if(btn) btn.classList.add('active');
-  runAnalysis();
+  runAnalysis(true);
 }
 async function fetchMergedCalls(fromStr, toStr){
   const resp=await fetch('/api/merged-calls?from='+encodeURIComponent(fromStr)+'&to='+encodeURIComponent(toStr));
@@ -2003,16 +2003,19 @@ async function fetchMergedCalls(fromStr, toStr){
   if(!resp.ok) throw new Error(data.error||('Request failed ('+resp.status+')'));
   return data.rows||[];
 }
-async function runAnalysis(){
+async function runAnalysis(force){
   const fromStr=document.getElementById('fromDate').value;
   const toStr=document.getElementById('toDate').value;
   if(!fromStr||!toStr){ showToast('Pick a date range'); return; }
   if(fromStr>toStr){ showToast('From date must be ≤ To date'); return; }
 
   // No uploaded file → pull live from BigQuery (Ytel + CRM already merged server-side).
-  // Skipped if the last live fetch already covers this exact range, so Settings-triggered
-  // re-runs (saveRoles/saveThresholds) rebuild from cached data instead of re-querying.
-  if(!usingUploadedFile && (!mergedRaw || lastLiveFromStr!==fromStr || lastLiveToStr!==toStr)){
+  // Skipped if the last live fetch already covers this exact range AND this isn't an explicit
+  // re-run (force=true, from the Run Analysis button or a quick-range pill) — so Settings-triggered
+  // re-runs (saveRoles/saveThresholds) rebuild from cached data instead of re-querying, but a user
+  // deliberately re-running the same range still gets fresh data (e.g. a recording_location that
+  // populates in BigQuery shortly after the call ends, or CRM Status catching up).
+  if(!usingUploadedFile && (force || !mergedRaw || lastLiveFromStr!==fromStr || lastLiveToStr!==toStr)){
     const btn=document.getElementById('runAnalysisBtn');
     if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
     document.getElementById('filterHint').textContent='Querying BigQuery…';
