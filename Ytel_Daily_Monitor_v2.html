@@ -1725,6 +1725,7 @@ function showPhoneCrmList(records, label){
           ${r.dir?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:${r.dir==='inbound'?'var(--blue-lt)':'var(--amber-lt)'};border-radius:10px;padding:1px 8px;color:${r.dir==='inbound'?'var(--blue-dk)':'var(--amber-dk)'}" title="Call direction">${r.dir==='inbound'?'Inbound':'Outbound'}</span>`:''}
           ${r.ytelStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--blue)" title="Ytel status">${r.ytelStatus}</span>`:''}
           ${r.crmStatus?`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;background:var(--gray-200);border-radius:10px;padding:1px 8px;color:var(--text-muted)" title="CRM status">${r.crmStatus}</span>`:''}
+          ${r.enrolledDate?`<span style="font-size:10px;font-weight:600;letter-spacing:.03em;background:var(--green-lt);border-radius:10px;padding:1px 8px;color:var(--green-dk)" title="Cordoba Enrolled Date">Enrolled ${r.enrolledDate}</span>`:''}
         </span>
         <span style="display:flex;align-items:center;gap:8px">
           <span style="font-size:11px;font-weight:700;color:var(--green-dk)">${r.debt>0?fmt$(r.debt):'—'}</span>
@@ -2081,7 +2082,7 @@ async function runAnalysis(){
     const assignedTo=(r['Assigned To']||'').trim();
     const agent=assignedTo||(r['full_name']||r['user']||'Unknown').trim();
     if(!enrolledPhoneAgent[phone]||ts>enrolledPhoneAgent[phone].ts){
-      enrolledPhoneAgent[phone]={agent,ts,debt,escrow:isPendingDeal};
+      enrolledPhoneAgent[phone]={agent,ts,debt,escrow:isPendingDeal,enrolledDate:ds};
     }
   });
   const enrolledPhones=new Set(Object.keys(enrolledPhoneAgent));
@@ -2755,9 +2756,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
         if(fd&&fd.dir==='inbound') inboundUniq++; else outboundUniq++;
         const enrInfo=enrolledPhoneAgent[phone];
         const debt=(enrInfo&&enrInfo.debt)||0;
+        const enrolledDate=(enrInfo&&enrInfo.enrolledDate)||'';
         const callLog=agentPhoneCallLog[name+'||'+phone]||[];
         callLog.forEach(c=>{
-          const entry={phone,crmStatus:c.crmStatus,ytelStatus:c.ytelStatus,debt,recording:c.recording,sec:c.sec};
+          const entry={phone,crmStatus:c.crmStatus,ytelStatus:c.ytelStatus,debt,enrolledDate,recording:c.recording,sec:c.sec};
           if(c.dir==='inbound') inboundPhones.push(entry); else outboundPhones.push(entry);
         });
       });
