@@ -1210,7 +1210,8 @@ function filterAgents(type){
       Object.values(d.phoneCallLog||{}).forEach(entries=>{
         entries.forEach(e=>{ (e.dir==='inbound'?inboundPhones:outboundPhones).push(e); });
       });
-      return {...d,name,uniqueCalls,enr:credit.count,debt:credit.debt,inboundUniq,outboundUniq,inboundPhones,outboundPhones,
+      const enrolledRecords=(window._agentEnrolledRecords||{})[name.toLowerCase()]||[];
+      return {...d,name,uniqueCalls,enr:credit.count,debt:credit.debt,inboundUniq,outboundUniq,inboundPhones,outboundPhones,enrolledRecords,
         avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
     }).sort((a,b)=>b.calls-a.calls);
   }
@@ -2805,6 +2806,8 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }).sort((a,b)=>b.calls-a.calls);
 
   window._agentAllRows=agentRows;
+  window._agentEnrolledRecords={};
+  agentRows.forEach(a=>{ window._agentEnrolledRecords[a.name.toLowerCase()]=a.enrolledRecords; });
   window._agentCampDataMap=agentCampDataMap;
   window._agentDirMap=agentDirMap;
   window._agentEnrollCredit=agentEnrollCredit;
