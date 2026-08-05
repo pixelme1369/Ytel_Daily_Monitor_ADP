@@ -2180,6 +2180,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const phoneBest={};
   calls.forEach(r=>{if(r._phone&&r._sec>(phoneBest[r._phone]||0)) phoneBest[r._phone]=r._sec;});
   const contactedUnique=Object.values(phoneBest).filter(s=>s>30).length;
+  const gt2mUnique=Object.values(phoneBest).filter(s=>s>120).length;
   const gt15mUnique=Object.values(phoneBest).filter(s=>s>900).length;
   const gt30mUnique=Object.values(phoneBest).filter(s=>s>1800).length;
   const gt45mUnique=Object.values(phoneBest).filter(s=>s>2700).length;
@@ -2246,6 +2247,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'Total Calls',val:total.toLocaleString(),sub:'all dispositions',cls:'blue'},
     {label:'Unique Calls',val:uniquePhones.toLocaleString(),sub:'distinct phone numbers',cls:'blue'},
     {label:'Contact Rate',val:pct(contactedUnique,uniquePhones),sub:contactedUnique.toLocaleString()+' unique #s reached >30s',cls:'blue'},
+    {label:'Unique Calls >2 Min',val:gt2mUnique.toLocaleString(),sub:pct(gt2mUnique,uniquePhones)+' of unique calls',cls:'blue'},
     {label:'Total Enrolled',val:totalEnrolled,sub:pendingEnrolledCount?('incl. '+pendingEnrolledCount+' pending (CA escrow / waiting for payment)'):'with Cordoba Enrolled Date',cls:'green'},
     {label:'Conv Rate',val:pct(totalEnrolled,calls.filter(r=>r._sec>=300).length),sub:'enrolled / calls >5 min',cls:'green'},
     {label:'Total Debt Enrolled',val:totalDebt>0?fmt$(totalDebt):'—',sub:'sum of Enrolled Debt',cls:'green'},
