@@ -1723,7 +1723,11 @@ function renderLongNoDeal(rows){
   if(!card||!body) return;
   const thresholdSec=window._longDealThresholdSec||1200;
   const enrollPhones=window._agentEnrollPhones||{};
-  const pendingPhones=window._pendingDealPhones||new Set();
+  // Union of both pending-deal signals: _pendingDealPhones (credit-attribution-scoped, from
+  // enrolledPhoneAgent) and _currentlyPendingPhone (credit-independent — just "is this phone's current
+  // known CRM Status a pending deal right now"). The second one is what actually matters for this card;
+  // the first is kept too since it's a strict subset in practice, cheap to also include.
+  const pendingPhones=new Set([...(window._pendingDealPhones||[]),...(window._currentlyPendingPhone||[])]);
   const flagged=list.filter(a=>{
     const nameLC=a.name.toLowerCase();
     return !OPENERS.has(nameLC)&&!RETENTION.has(nameLC);
@@ -2168,6 +2172,23 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
   });
   window._phoneLatestCrmStatus=phoneLatestCrmStatus;
+  // Phones whose MOST RECENT known CRM Status (within the current range) currently reads as a pending deal
+  // (CA escrow "Approved" or "Waiting for First Payment") — independent of enrollment credit entirely. Used
+  // only by Long Calls, No Deal below, NOT by enrolledPhoneAgent/agent credit (that stays exactly as before:
+  // credit goes wherever the real Cordoba Enrolled Date's Assigned To/latest-touch says it goes, even if
+  // that's a different agent than the one who made the long call). This exists because a phone can have an
+  // old, unrelated real enrollment on file (blocking runAnalysis()'s isPendingDeal via realEnrolledPhones)
+  // while its CURRENT status genuinely reads "Waiting for First Payment" from a later agent's call — that
+  // phone shouldn't show as "not converted" in the coaching view just because credit landed elsewhere or
+  // didn't land at all.
+  const currentlyPendingPhone=new Set();
+  Object.entries(phoneLatestCrmStatus).forEach(([phone,status])=>{
+    const s=status.toLowerCase();
+    const isEscrowNow=phoneIsCA.has(phone)&&s==='approved';
+    const isWaitingNow=normWaitingPayment(s)==='waiting for first payment';
+    if(isEscrowNow||isWaitingNow) currentlyPendingPhone.add(phone);
+  });
+  window._currentlyPendingPhone=currentlyPendingPhone;
   const anyEnrolledPhone=new Set();
   calls.forEach(r=>{
     const crmStatus=r._crmStatus.toLowerCase();
