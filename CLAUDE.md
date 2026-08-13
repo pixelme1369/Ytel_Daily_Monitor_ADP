@@ -103,7 +103,9 @@ Left sidebar (220px fixed) + main content area. Sidebar contains: logo, file upl
 ### Script Regions (in order)
 `CONFIG` → `UTILS` → `STATS` → `FILE I/O` → `NORMALIZATION` → `ENROLLMENT` → `ACCUMULATION` → `ANALYSIS` → `RENDER AGENTS` → `RENDER CAMPAIGNS` → `RENDER OPENERS` → `RENDER ALERTS` → `RENDER KPI` → `CHARTS` → `FILTERS` → `EXPORT` → `ROLE EDITOR` → `UI EVENTS` → `INIT`
 
-Note: the `emptyStats()`/`accumulate(d,r)` factory pattern only exists in `Agent_Performance_Range.html` — v2 still uses inline per-map bucketing blocks (earlier versions of this doc claimed v2 had this refactor; it does not).
+Note: `Agent_Performance_Range.html` has its own small `emptyStats()`/`accumulate(d,r)` factory (that file's whole accumulation model is simpler — one shape, no funnelRecords/phonesGt2m/CRM attribution). v2's ANALYSIS section does **not** use that pattern wholesale (earlier versions of this doc claimed v2 had this refactor; it does not) — but as of August 2026, v2's specific *historically duplicated* bucketing blocks were deduplicated into two shared top-level UTILS functions (not a full rewrite to Agent_Performance_Range's shape): `bumpBracket(d,r,mkFunnelRec,excludeFromGt2m)` — used by all three of `agentMap`/`agentDirMap`/`agentCampDataMap`'s per-row accumulation (previously three hand-copied ~11-line bracket chains, the exact root cause of the July 2026 "funnelRecords debt hardcoded to 0" bug) — and `bumpCampBracket(d,r)` — used by `campMap`/`campDirMap` (previously a second hand-copied pair). Both live next to `resolveCrm()` in UTILS (~line 818). Zero behavior change; each caller still owns its own map-specific extras (agentMap's `phoneMaxSec`/`phoneRecordings`, agentDirMap/agentCampDataMap's `phoneCallLog`, agentCampDataMap's `enr`/`debt`) outside the shared call. The hour-map accumulation (`agentHourMap`/`agentHourDirMap`/`agentHourCampMap`, a different smaller shape) and `filterCampTable()`'s separate rebuild map were left untouched — already reasonably deduplicated via array iteration, or out of scope for this pass.
+
+Two other small business-rule fragments were extracted alongside the same pass, for the same reason (each was previously duplicated verbatim at 2 call sites and was the exact site of a real production bug): `stateOf(row)` — `row['State']||row['CRM_State']` with trim, the CA-escrow column-name fallback (July 2026 bug: only `State` was read) — and `normWaitingPayment(crmStatus)` — the snake_case/spaced CRM Status normalization (July 2026 bug: only the spaced form matched). Both also live in UTILS. `isAlreadyEnrolledElsewhere(phone, anyEnrolledPhone, enrolledPhoneAgent)` was likewise named (was previously an inline expression, not duplicated, but is the exact rule behind the July 2026 Conv%-denominator bug, and naming it makes it independently testable).
 
 ### Sections Preserved
 KPIs · Issues Detected · Hour Chart · Dispo list · Agent Performance (incl. 1–2min bracket, hourly sub-rows) · Agent Funnel · Campaign Breakdown · Top 5 Numbers · VDCL Analysis · Drops by Hour · Missed Callbacks · DPC Drops (incl. sec filter) · Openers Transfer Breakdown
@@ -114,6 +116,10 @@ KPIs · Issues Detected · Hour Chart · Dispo list · Agent Performance (incl. 
 ```
 node -e "const fs=require('fs');const h=fs.readFileSync('Ytel_Daily_Monitor_v2.html','utf8');const s=h.match(/<script>([\s\S]*?)<\/script>/g);s.forEach((b,i)=>{try{new Function(b.replace(/<\/?script>/g,''));console.log('OK',i);}catch(e){console.log('ERR',i,e.message);}});"
 ```
+
+### Regression Tests (v2) — added August 2026
+
+`test/business-logic.test.js` (plain Node, no framework/deps, `node test/business-logic.test.js`) extracts `stateOf`, `normWaitingPayment`, `isAlreadyEnrolledElsewhere`, `bumpBracket`, `bumpCampBracket` **directly out of the live HTML** via a balanced-brace scan (not copy-pasted — so it can't silently drift from the real source) and asserts them against fixtures encoding the three costliest documented bugs above (CA escrow `CRM_State` fallback, waiting-for-payment snake_case normalization, Conv%-denominator already-enrolled-elsewhere exclusion), plus basic coverage of the two new shared accumulators. This is the first automated correctness check in the repo beyond the syntax check — everything else in the enrollment-attribution changelog was caught by a human spotting a wrong number in a live report, never by tooling. Only these 5 pure, DOM-free functions are covered; `buildDashboard()`/`runAnalysis()` themselves are far too DOM/global-state-entangled to unit test without a much bigger harness (not attempted here — see the "known risk" note this addresses was scoped deliberately narrow). Run this alongside the syntax check after any edit that touches these 5 functions or their call sites.
 
 ---
 
@@ -150,6 +156,7 @@ All 4 campaign `<select>` filters have been replaced with a custom `.ms-wrap` mu
 - Keep explanations under 5 sentences.
 - Ask before changing business logic.
 - Run JS syntax check after edits: `node -e "const fs=require('fs');const h=fs.readFileSync('Ytel_Daily_Monitor_v2.html','utf8');const s=h.match(/<script>([\s\S]*?)<\/script>/g);s.forEach((b,i)=>{try{new Function(b.replace(/<\/?script>/g,''));console.log('OK',i);}catch(e){console.log('ERR',i,e.message);}});"`
+- Also run `node test/business-logic.test.js` after any edit touching `stateOf`, `normWaitingPayment`, `isAlreadyEnrolledElsewhere`, `bumpBracket`, `bumpCampBracket`, or their call sites.
 - Always push to branch `claude/blissful-curie-pvg620` on `pixelme1369/Ytel_Daily_Monitor_ADP`, then merge to `main` when asked.
 - **Always update CLAUDE.md after every code change** to keep it current.
 
