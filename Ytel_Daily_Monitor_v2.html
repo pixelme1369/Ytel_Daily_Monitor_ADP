@@ -90,6 +90,16 @@ section{scroll-margin-top:16px}
 .kpi-val{font-size:24px;font-weight:700;color:var(--text);line-height:1;letter-spacing:-0.02em}
 .kpi-sub{font-size:11px;color:var(--text-muted);margin-top:3px}
 .kpi.red{--c:var(--red)}.kpi.amber{--c:var(--amber)}.kpi.green{--c:var(--green)}.kpi.blue{--c:var(--blue)}.kpi.purple{--c:var(--purple)}
+/* Headline KPI tier (added August 2026, design review) -- same tile markup/classes as the regular
+   .kpi-grid, just bigger, so the 4 "is today okay" numbers (Enrolled, Dialed After DNC, Contact
+   Rate, Drop/Timeout) read before the other 12 diagnostic tiles instead of competing equally with
+   them in one flat grid. No data removed or recomputed -- these are the same kpiData objects,
+   just rendered into a separate, larger-styled container above the regular grid. */
+.kpi-headline-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px}
+.kpi-headline{padding:20px 22px;border-top-width:4px}
+.kpi-headline .kpi-label{font-size:12px}
+.kpi-headline .kpi-val{font-size:34px}
+.kpi-headline .kpi-sub{font-size:12px}
 .kpi.red .kpi-val{color:var(--red)}
 .kpi.amber .kpi-val{color:var(--amber)}
 .kpi.green .kpi-val{color:var(--green-dk)}
@@ -124,6 +134,35 @@ tbody tr{border-bottom:1px solid var(--border)}
 tbody tr:hover{background:var(--gray-50)}
 tbody td{padding:7px 10px;text-align:center;color:var(--text-muted);white-space:nowrap}
 tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
+/* Agent Performance table only: sticky header row + sticky agent-name column, so scrolling a
+   long/wide agent list doesn't lose sight of both the column labels and which agent's row you're
+   on. #agentTblWrap gets its own boxed scroll area (max-height+overflow:auto) instead of the
+   shared .tbl-wrap's overflow-x-only behavior -- position:sticky sticks within whichever ancestor
+   actually scrolls, and an ancestor with only overflow-x set never scrolls vertically, so a plain
+   sticky header would silently do nothing. Scoped to this one table; every other table keeps its
+   existing page-level scroll. */
+#agentTblWrap{max-height:70vh;overflow:auto}
+#agentTable thead th{position:sticky;top:0;z-index:3}
+#agentTable thead th:first-child{left:0;z-index:4}
+#agentTable tbody td:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
+#agentTable tbody tr:hover td:first-child{background:var(--gray-50)}
+#agentTable tbody tr.agent-hour-row td:first-child{background:var(--gray-50)}
+/* Compact/Full column view (added August 2026, design review). Compact hides the secondary
+   time-bracket/Inbound/Outbound/Total-Talk columns, keeping only the 7 a manager scans daily
+   (Calls, Unique #s, Short%, Avg Talk, Enrolled, Debt, Conv%) plus Agent -- same underlying data,
+   same CSV export (exportTable() reads all td/th via querySelectorAll regardless of display:none),
+   just fewer columns on screen by default. Full (unchanged from before this change) shows every
+   column. Column positions: 1=Agent 2=Calls 3=Unique#s 4=Inbound 5=Outbound 6=Short% 7=<2min
+   8=1-2min 9=5-10min 10=10-15min 11=15-20min 12=20-30min 13=30+min 14=AvgTalk 15=TotalTalk
+   16=Enrolled 17=Debt 18=Conv% -- hidden in compact view: 4,5 (Inbound/Outbound), 7-13 (all
+   time brackets except Short%), 15 (Total Talk). Hour sub-rows and the TOTAL row share this exact
+   column order, so the same nth-child rule hides the right cell in every row type. */
+#agentTable.compact-cols th:nth-child(n+4):nth-child(-n+5),
+#agentTable.compact-cols th:nth-child(n+7):nth-child(-n+13),
+#agentTable.compact-cols th:nth-child(15),
+#agentTable.compact-cols td:nth-child(n+4):nth-child(-n+5),
+#agentTable.compact-cols td:nth-child(n+7):nth-child(-n+13),
+#agentTable.compact-cols td:nth-child(15){display:none}
 .enroll-num{font-weight:700;color:var(--green-dk)}
 .enroll-zero{color:var(--gray-300)}
 .agent-main-row:hover{background:var(--gray-100)}
@@ -275,6 +314,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <div class="sec-body">
       <div>
         <div class="section-label">At a glance</div>
+        <div class="kpi-headline-grid" id="kpiHeadline"></div>
         <div class="kpi-grid" id="kpiGrid"></div>
       </div>
       <div>
@@ -346,11 +386,13 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <select id="af-camp" onchange="filterAgents()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)"><option value="">All Campaigns</option></select>
             <select id="af-dir" onchange="filterAgents()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)"><option value="">All Directions</option><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select>
             <input id="af-name" type="text" oninput="filterAgents()" placeholder="Search agent…" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text);font-family:var(--font);outline:none;width:130px">
+            <button onclick="setAgentColView('compact')" id="acv-compact" class="af-btn af-active" title="Show the 7 columns managers scan daily">Compact</button>
+            <button onclick="setAgentColView('full')" id="acv-full" class="af-btn" title="Show every column">Full</button>
             <button class="af-btn" onclick="exportTable('agentTable','agent_performance')">⬇ CSV</button>
           </div>
         </div>
-        <div class="tbl-wrap">
-          <table id="agentTable">
+        <div class="tbl-wrap" id="agentTblWrap">
+          <table id="agentTable" class="compact-cols">
             <thead id="agentHead">
               <tr>
                 <th style="text-align:left;min-width:160px" data-col="0">Agent</th>
@@ -816,6 +858,59 @@ function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
 function attrJson(v){ return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
 // CRM Status isn't always stamped on the same row a recording/duration comes from — fall back to the phone's latest known value (window._phoneLatestCrmStatus, built once per buildDashboard() run) so status pills don't go blank on rows the CRM merge didn't touch
 function resolveCrm(r){ return r._crmStatus||(window._phoneLatestCrmStatus&&window._phoneLatestCrmStatus[r._phone])||''; }
+// Lead's state text, checked under either export column name — some exports carry it as "State", some as
+// "CRM_State". Reading only "State" was a real bug (July 2026): it silently zeroed out every CA escrow deal.
+// Extracted here (was duplicated inline in runAnalysis's phoneIsCA loop and buildDashboard's r._state assignment)
+// so both call sites can never drift out of sync again, and so it's directly unit-testable — see test/business-logic.test.js.
+function stateOf(row){ return (row['State']||row['CRM_State']||'').trim(); }
+// Normalizes CRM Status "waiting_for_first_payment" (snake_case) and "waiting for first payment" (spaced) to the
+// same comparable form. Wrong format matching was a real bug (July 2026): it silently zeroed out every
+// waiting-for-first-payment pending deal. Extracted here (was duplicated inline in runAnalysis's isPendingDeal
+// check and buildDashboard's anyEnrolledPhone check) — see test/business-logic.test.js.
+function normWaitingPayment(crmStatus){ return (crmStatus||'').replace(/_/g,' ').replace(/\s+/g,' ').trim().toLowerCase(); }
+// A phone with a real enrollment signal (Cordoba Enrolled Date or a pending-deal CRM Status, anywhere in the
+// file) that did NOT get enrollment credit for the currently selected range belongs to a different report
+// window — exclude it from the >2min Conv% denominator so a retention/follow-up call to an already-closed lead
+// can't drag Conv% down with zero chance of a matching numerator credit. See test/business-logic.test.js.
+function isAlreadyEnrolledElsewhere(phone, anyEnrolledPhone, enrolledPhoneAgent){
+  return !!phone && anyEnrolledPhone.has(phone) && !enrolledPhoneAgent[phone];
+}
+// Shared per-call time-bracket accounting for agentMap/agentDirMap/agentCampDataMap — these three maps used to
+// carry three separately-hand-duplicated copies of this exact bracket chain (the root cause of the July 2026 bug
+// where every funnelRecords entry's debt was hardcoded to 0 in one of the three copies and quietly diverged from
+// the others). d = the stats object being accumulated into (must already have calls/short/sec/lt2m/gt2m/r1to2m/
+// r5to10/r10to15/r15to20/r20to30/gt30m/phones/phonesGt2m/funnelRecords). mkFunnelRec = closure supplied by the
+// caller that builds this row's record for whichever bracket it lands in. excludeFromGt2m = the caller's
+// isAlreadyEnrolledElsewhere() result for this row, so gt2m still counts the call but phonesGt2m doesn't.
+function bumpBracket(d, r, mkFunnelRec, excludeFromGt2m){
+  d.calls++; d.sec+=r._sec;
+  if(r._sec<=30){ d.short++; if(r._phone) d.funnelRecords.short.push(mkFunnelRec()); }
+  if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push(mkFunnelRec()); }
+  if(r._sec>=60&&r._sec<120){ d.r1to2m++; if(r._phone) d.funnelRecords.r1to2m.push(mkFunnelRec()); }
+  if(r._sec>=120){ d.gt2m++; if(r._phone&&!excludeFromGt2m) d.phonesGt2m.add(r._phone); }
+  if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push(mkFunnelRec()); }
+  else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push(mkFunnelRec()); }
+  else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push(mkFunnelRec()); }
+  else if(r._sec>=1200&&r._sec<1800){ d.r20to30++; if(r._phone) d.funnelRecords.r20to30.push(mkFunnelRec()); }
+  else if(r._sec>=1800){ d.gt30m++; if(r._phone) d.funnelRecords.gt30m.push(mkFunnelRec()); }
+  if(r._phone) d.phones.add(r._phone);
+}
+// Same idea as bumpBracket() but for the simpler campMap/campDirMap shape (no r1to2m, no funnelRecords, tracks
+// phonesContacted/drops/enroll instead) — was hand-duplicated between campMap and campDirMap.
+function bumpCampBracket(d, r){
+  d.calls++; d.sec+=r._sec;
+  if(r._phone){ d.phones.add(r._phone); if(r._sec>30) d.phonesContacted.add(r._phone); }
+  if(r._sec<=30) d.short++;
+  if(r._sec<120) d.lt2m++;
+  if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
+  if(r._sec>=300&&r._sec<600) d.r5to10++;
+  else if(r._sec>=600&&r._sec<900) d.r10to15++;
+  else if(r._sec>=900&&r._sec<1200) d.r15to20++;
+  else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
+  else if(r._sec>=1800) d.gt30m++;
+  if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
+  if(r._enrolled){ d.enroll++; if(r._phone) d.enrolledPhones.add(r._phone); }
+}
 function showToast(msg,dur=2500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -920,6 +1015,16 @@ function exportTable(tableId, filename){
   a.download=filename+'.csv';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+// Agent Performance table Compact/Full column view toggle (see .compact-cols CSS note). Pure
+// display state -- doesn't touch agentMap/agentRows or re-run any analysis, so switching views is
+// instant and doesn't affect the CSV export (which reads all cells regardless of display:none).
+function setAgentColView(mode){
+  const table=document.getElementById('agentTable');
+  if(table) table.classList.toggle('compact-cols', mode==='compact');
+  const compactBtn=document.getElementById('acv-compact'), fullBtn=document.getElementById('acv-full');
+  if(compactBtn) compactBtn.classList.toggle('af-active', mode==='compact');
+  if(fullBtn) fullBtn.classList.toggle('af-active', mode==='full');
 }
 function copySummary(){
   const m=window._summary;
@@ -2062,7 +2167,7 @@ async function runAnalysis(force){
   const phoneIsCA=new Set();
   calls.forEach(r=>{
     const phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
-    if(phone&&(r['State']||r['CRM_State']||'').trim().toUpperCase()==='CA') phoneIsCA.add(phone);
+    if(phone&&stateOf(r).toUpperCase()==='CA') phoneIsCA.add(phone);
   });
 
   // Phones that already have a real Cordoba Enrolled Date somewhere in the WHOLE uploaded file (not just this
@@ -2085,9 +2190,7 @@ async function runAnalysis(force){
     // CA + CRM Status "Approved" = in escrow, enrolls in 3 days — counts as a deal now, dated by the call itself
     const isEscrow=phoneIsCA.has(phone)&&crmStatus==='approved';
     // CRM Status "Waiting for First Payment" = deal already closed, just waiting on payment to process
-    // Normalize underscores to spaces — the CRM has been seen sending this status as both
-    // "waiting_for_first_payment" (snake_case) and "waiting for first payment" (spaced)
-    const isWaitingPayment=crmStatus.replace(/_/g,' ').replace(/\s+/g,' ').trim()==='waiting for first payment';
+    const isWaitingPayment=normWaitingPayment(crmStatus)==='waiting for first payment';
     const isPendingDeal=(isEscrow||isWaitingPayment)&&!realEnrolledPhones.has(phone);
     if(!ds||ds<fromStr||ds>toStr){
       if(!isPendingDeal) return;
@@ -2145,7 +2248,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
-    r._state=(r['State']||r['CRM_State']||'').trim();
+    r._state=stateOf(r);
     r._recording=(r['recording_location']||r['Recording Location']||r['recording_url']||'').trim();
   });
 
@@ -2235,7 +2338,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   calls.forEach(r=>{
     const crmStatus=r._crmStatus.toLowerCase();
     const isEscrow=phoneIsCA.has(r._phone)&&crmStatus==='approved';
-    const isWaitingPayment=crmStatus.replace(/_/g,' ').replace(/\s+/g,' ').trim()==='waiting for first payment';
+    const isWaitingPayment=normWaitingPayment(crmStatus)==='waiting for first payment';
     if(r['Cordoba Enrolled Date']||r['Enrolled Date']||isEscrow||isWaitingPayment) anyEnrolledPhone.add(r._phone);
   });
   const saleDiscrepancyPhones=new Set();
@@ -2263,12 +2366,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'> 45 Min',val:gt45mUnique.toLocaleString(),sub:pct(gt45mUnique,uniquePhones)+' of unique calls',cls:'purple'},
     {label:'Ytel Discrepancy',val:saleDiscrepancyPhones.size,sub:saleDiscrepancyPhones.size?'SALE status, no Cordoba Enrolled Date':'no mismatches found',cls:'red',onclick:'showSaleDiscrepancyPhones()'},
   ];
-  document.getElementById('kpiGrid').innerHTML=kpiData.map(k=>`
-    <div class="kpi ${k.cls}"${k.onclick?` onclick="${k.onclick}" style="cursor:pointer"`:''}>
+  // Headline tier: the 4 "is today okay" tiles (revenue + compliance + core ops health), sized up
+  // and rendered above the rest -- same kpiData objects, no data removed. See CSS note above.
+  const kpiHeadlineLabels=new Set(['Total Enrolled','Dialed After DNC','Contact Rate','Drop / Timeout']);
+  const kpiCard=(k,headline)=>`
+    <div class="kpi ${k.cls}${headline?' kpi-headline':''}"${k.onclick?` onclick="${k.onclick}" style="cursor:pointer"`:''}>
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-val">${k.val}</div>
       <div class="kpi-sub">${k.sub}</div>
-    </div>`).join('');
+    </div>`;
+  document.getElementById('kpiHeadline').innerHTML=kpiData.filter(k=>kpiHeadlineLabels.has(k.label)).map(k=>kpiCard(k,true)).join('');
+  document.getElementById('kpiGrid').innerHTML=kpiData.filter(k=>!kpiHeadlineLabels.has(k.label)).map(k=>kpiCard(k,false)).join('');
 
   window._summary={dateStr,total,uniquePhones,
     contactRate:pct(contactedUnique,uniquePhones),
@@ -2651,23 +2759,14 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     // but the credit didn't land within the currently selected range) is a "current client" call, not a
     // conversion opportunity -- exclude it from the >2min unique-phone denominator so a retention/follow-up
     // call to an already-closed lead can't drag down Conv% with zero chance of a matching numerator credit.
-    const alreadyEnrolledElsewhere=r._phone&&anyEnrolledPhone.has(r._phone)&&!enrolledPhoneAgent[r._phone];
+    const alreadyEnrolledElsewhere=isAlreadyEnrolledElsewhere(r._phone, anyEnrolledPhone, enrolledPhoneAgent);
     const rowDebt=(r._phone&&enrolledPhoneAgent[r._phone]&&enrolledPhoneAgent[r._phone].debt)||phoneDebt[r._phone]||0;
     const rowEnrolledDate=(r._phone&&enrolledPhoneAgent[r._phone]&&enrolledPhoneAgent[r._phone].enrolledDate)||'';
     const mkFunnelRec=()=>({phone:r._phone,crmStatus:resolveCrm(r),ytelStatus:r._status||'',dir:r._dir||'',debt:rowDebt,recording:r._recording||'',sec:r._sec});
     const mkPhoneLogEntry=()=>({phone:r._phone,crmStatus:resolveCrm(r),ytelStatus:r._status||'',dir:r._dir||'',debt:rowDebt,enrolledDate:rowEnrolledDate,recording:r._recording||'',sec:r._sec});
     if(!agentMap[r._name]) agentMap[r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enrolledPhones:new Set(),phoneMaxSec:{},phoneRecordings:{},funnelRecords:{short:[],lt2m:[],r1to2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]}};
-    const d=agentMap[r._name]; d.calls++; d.sec+=r._sec;
-    if(r._sec<=30){ d.short++; if(r._phone) d.funnelRecords.short.push(mkFunnelRec()); }
-    if(r._sec<120){ d.lt2m++; if(r._phone) d.funnelRecords.lt2m.push(mkFunnelRec()); }
-    if(r._sec>=60&&r._sec<120){ d.r1to2m++; if(r._phone) d.funnelRecords.r1to2m.push(mkFunnelRec()); }
-    if(r._sec>=120){ d.gt2m++; if(r._phone&&!alreadyEnrolledElsewhere) d.phonesGt2m.add(r._phone); }
-    if(r._sec>=300&&r._sec<600){ d.r5to10++; if(r._phone) d.funnelRecords.r5to10.push(mkFunnelRec()); }
-    else if(r._sec>=600&&r._sec<900){ d.r10to15++; if(r._phone) d.funnelRecords.r10to15.push(mkFunnelRec()); }
-    else if(r._sec>=900&&r._sec<1200){ d.r15to20++; if(r._phone) d.funnelRecords.r15to20.push(mkFunnelRec()); }
-    else if(r._sec>=1200&&r._sec<1800){ d.r20to30++; if(r._phone) d.funnelRecords.r20to30.push(mkFunnelRec()); }
-    else if(r._sec>=1800){ d.gt30m++; if(r._phone) d.funnelRecords.gt30m.push(mkFunnelRec()); }
-    if(r._phone) d.phones.add(r._phone);
+    const d=agentMap[r._name];
+    bumpBracket(d, r, mkFunnelRec, alreadyEnrolledElsewhere);
     if(r._phone){
       if(!agentPhoneDetail[r._name]) agentPhoneDetail[r._name]={};
       const apd=agentPhoneDetail[r._name];
@@ -2680,34 +2779,16 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     }
     const dkey=r._dir==='inbound'?'inbound':'outbound';
     if(!agentDirMap[dkey][r._name]) agentDirMap[dkey][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enr:0,debt:0,funnelRecords:{short:[],lt2m:[],r1to2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]},phoneCallLog:{}};
-    const dd=agentDirMap[dkey][r._name]; dd.calls++; dd.sec+=r._sec;
-    if(r._sec<=30){ dd.short++; if(r._phone) dd.funnelRecords.short.push(mkFunnelRec()); }
-    if(r._sec<120){ dd.lt2m++; if(r._phone) dd.funnelRecords.lt2m.push(mkFunnelRec()); }
-    if(r._sec>=60&&r._sec<120){ dd.r1to2m++; if(r._phone) dd.funnelRecords.r1to2m.push(mkFunnelRec()); }
-    if(r._sec>=120){ dd.gt2m++; if(r._phone&&!alreadyEnrolledElsewhere) dd.phonesGt2m.add(r._phone); }
-    if(r._sec>=300&&r._sec<600){ dd.r5to10++; if(r._phone) dd.funnelRecords.r5to10.push(mkFunnelRec()); }
-    else if(r._sec>=600&&r._sec<900){ dd.r10to15++; if(r._phone) dd.funnelRecords.r10to15.push(mkFunnelRec()); }
-    else if(r._sec>=900&&r._sec<1200){ dd.r15to20++; if(r._phone) dd.funnelRecords.r15to20.push(mkFunnelRec()); }
-    else if(r._sec>=1200&&r._sec<1800){ dd.r20to30++; if(r._phone) dd.funnelRecords.r20to30.push(mkFunnelRec()); }
-    else if(r._sec>=1800){ dd.gt30m++; if(r._phone) dd.funnelRecords.gt30m.push(mkFunnelRec()); }
-    if(r._phone) dd.phones.add(r._phone);
+    const dd=agentDirMap[dkey][r._name];
+    bumpBracket(dd, r, mkFunnelRec, alreadyEnrolledElsewhere);
     if(r._phone){ if(!dd.phoneCallLog[r._phone]) dd.phoneCallLog[r._phone]=[]; dd.phoneCallLog[r._phone].push(mkPhoneLogEntry()); }
     if(r._campaign){
       if(!agentCampsMap[r._name]) agentCampsMap[r._name]=new Set();
       agentCampsMap[r._name].add(r._campaign);
       if(!agentCampDataMap[r._campaign]) agentCampDataMap[r._campaign]={};
       if(!agentCampDataMap[r._campaign][r._name]) agentCampDataMap[r._campaign][r._name]={calls:0,short:0,sec:0,lt2m:0,gt2m:0,r1to2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,phones:new Set(),phonesGt2m:new Set(),enr:0,debt:0,funnelRecords:{short:[],lt2m:[],r1to2m:[],r5to10:[],r10to15:[],r15to20:[],r20to30:[],gt30m:[]},phoneCallLog:{}};
-      const cd=agentCampDataMap[r._campaign][r._name]; cd.calls++; cd.sec+=r._sec;
-      if(r._sec<=30){ cd.short++; if(r._phone) cd.funnelRecords.short.push(mkFunnelRec()); }
-      if(r._sec<120){ cd.lt2m++; if(r._phone) cd.funnelRecords.lt2m.push(mkFunnelRec()); }
-      if(r._sec>=60&&r._sec<120){ cd.r1to2m++; if(r._phone) cd.funnelRecords.r1to2m.push(mkFunnelRec()); }
-      if(r._sec>=120){ cd.gt2m++; if(r._phone&&!alreadyEnrolledElsewhere) cd.phonesGt2m.add(r._phone); }
-      if(r._sec>=300&&r._sec<600){ cd.r5to10++; if(r._phone) cd.funnelRecords.r5to10.push(mkFunnelRec()); }
-      else if(r._sec>=600&&r._sec<900){ cd.r10to15++; if(r._phone) cd.funnelRecords.r10to15.push(mkFunnelRec()); }
-      else if(r._sec>=900&&r._sec<1200){ cd.r15to20++; if(r._phone) cd.funnelRecords.r15to20.push(mkFunnelRec()); }
-      else if(r._sec>=1200&&r._sec<1800){ cd.r20to30++; if(r._phone) cd.funnelRecords.r20to30.push(mkFunnelRec()); }
-      else if(r._sec>=1800){ cd.gt30m++; if(r._phone) cd.funnelRecords.gt30m.push(mkFunnelRec()); }
-      if(r._phone) cd.phones.add(r._phone);
+      const cd=agentCampDataMap[r._campaign][r._name];
+      bumpBracket(cd, r, mkFunnelRec, alreadyEnrolledElsewhere);
       if(r._phone){ if(!cd.phoneCallLog[r._phone]) cd.phoneCallLog[r._phone]=[]; cd.phoneCallLog[r._phone].push(mkPhoneLogEntry()); }
       if(r._enrolled){ cd.enr++; cd.debt+=(parseFloat(r['Enrolled Debt']||r['enrolled_debt']||0)||0); }
     }
@@ -2902,7 +2983,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const aggShort=aggRecords('short');
     const aggEnrolled=rows.flatMap(a=>a.enrolledRecords||[]);
     document.getElementById('agentBody').innerHTML=agentRowsHtml+`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
-      <td style="text-align:left">TOTAL</td>
+      <td style="text-align:left;background:var(--gray-100)">TOTAL</td>
       <td>${agTot.calls}</td><td>${agTot.uniqueCalls}</td><td>—</td><td>—</td>
       <td>${aggShort.length?`<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(aggShort)},${attrJson('All Agents — Short (≤30s)')})'>${agTotShortPct.toFixed(0)}%</span>`:agTotShortPct.toFixed(0)+'%'}</td>
       <td>${funnelCellClick(agTot.lt2m,agTot.calls,"var(--red)",aggRecords('lt2m'),'All Agents — <2 min')}</td>
@@ -3045,32 +3126,12 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const campAgentDirMap={inbound:{},outbound:{}};
   calls.forEach(r=>{
     const c=r._campaign; if(!campMap[c]) campMap[c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
-    const d=campMap[c]; d.calls++; d.sec+=r._sec;
-    if(r._phone){d.phones.add(r._phone); if(r._sec>30) d.phonesContacted.add(r._phone);}
-    if(r._sec<=30) d.short++;
-    if(r._sec<120) d.lt2m++;
-    if(r._sec>=120){ d.gt2m++; if(r._phone) d.phonesGt2m.add(r._phone); }
-    if(r._sec>=300&&r._sec<600) d.r5to10++;
-    else if(r._sec>=600&&r._sec<900) d.r10to15++;
-    else if(r._sec>=900&&r._sec<1200) d.r15to20++;
-    else if(r._sec>=1200&&r._sec<1800) d.r20to30++;
-    else if(r._sec>=1800) d.gt30m++;
-    if(['DROP','TIMEOT'].includes(r._status)) d.drops++;
-    if(r._enrolled){ d.enroll++; if(r._phone) d.enrolledPhones.add(r._phone); }
+    const d=campMap[c];
+    bumpCampBracket(d, r);
     const dir=r._dir==='inbound'?'inbound':'outbound';
     if(!campDirMap[dir][c]) campDirMap[dir][c]={type:r._type,calls:0,short:0,sec:0,lt2m:0,gt2m:0,r5to10:0,r10to15:0,r15to20:0,r20to30:0,gt30m:0,drops:0,enroll:0,phonesGt2m:new Set(),enrolledPhones:new Set(),phones:new Set(),phonesContacted:new Set()};
-    const dd=campDirMap[dir][c]; dd.calls++; dd.sec+=r._sec;
-    if(r._phone){dd.phones.add(r._phone); if(r._sec>30) dd.phonesContacted.add(r._phone);}
-    if(r._sec<=30) dd.short++;
-    if(r._sec<120) dd.lt2m++;
-    if(r._sec>=120){ dd.gt2m++; if(r._phone) dd.phonesGt2m.add(r._phone); }
-    if(r._sec>=300&&r._sec<600) dd.r5to10++;
-    else if(r._sec>=600&&r._sec<900) dd.r10to15++;
-    else if(r._sec>=900&&r._sec<1200) dd.r15to20++;
-    else if(r._sec>=1200&&r._sec<1800) dd.r20to30++;
-    else if(r._sec>=1800) dd.gt30m++;
-    if(['DROP','TIMEOT'].includes(r._status)) dd.drops++;
-    if(r._enrolled){ dd.enroll++; if(r._phone) dd.enrolledPhones.add(r._phone); }
+    const dd=campDirMap[dir][c];
+    bumpCampBracket(dd, r);
     if(!campAgentMap[c]) campAgentMap[c]={};
     const ag=r._name||'Unknown';
     const addAgEntry=(m,camp,agent)=>{
