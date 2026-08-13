@@ -90,6 +90,16 @@ section{scroll-margin-top:16px}
 .kpi-val{font-size:24px;font-weight:700;color:var(--text);line-height:1;letter-spacing:-0.02em}
 .kpi-sub{font-size:11px;color:var(--text-muted);margin-top:3px}
 .kpi.red{--c:var(--red)}.kpi.amber{--c:var(--amber)}.kpi.green{--c:var(--green)}.kpi.blue{--c:var(--blue)}.kpi.purple{--c:var(--purple)}
+/* Headline KPI tier (added August 2026, design review) -- same tile markup/classes as the regular
+   .kpi-grid, just bigger, so the 4 "is today okay" numbers (Enrolled, Dialed After DNC, Contact
+   Rate, Drop/Timeout) read before the other 12 diagnostic tiles instead of competing equally with
+   them in one flat grid. No data removed or recomputed -- these are the same kpiData objects,
+   just rendered into a separate, larger-styled container above the regular grid. */
+.kpi-headline-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px}
+.kpi-headline{padding:20px 22px;border-top-width:4px}
+.kpi-headline .kpi-label{font-size:12px}
+.kpi-headline .kpi-val{font-size:34px}
+.kpi-headline .kpi-sub{font-size:12px}
 .kpi.red .kpi-val{color:var(--red)}
 .kpi.amber .kpi-val{color:var(--amber)}
 .kpi.green .kpi-val{color:var(--green-dk)}
@@ -137,6 +147,22 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 #agentTable tbody td:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
 #agentTable tbody tr:hover td:first-child{background:var(--gray-50)}
 #agentTable tbody tr.agent-hour-row td:first-child{background:var(--gray-50)}
+/* Compact/Full column view (added August 2026, design review). Compact hides the secondary
+   time-bracket/Inbound/Outbound/Total-Talk columns, keeping only the 7 a manager scans daily
+   (Calls, Unique #s, Short%, Avg Talk, Enrolled, Debt, Conv%) plus Agent -- same underlying data,
+   same CSV export (exportTable() reads all td/th via querySelectorAll regardless of display:none),
+   just fewer columns on screen by default. Full (unchanged from before this change) shows every
+   column. Column positions: 1=Agent 2=Calls 3=Unique#s 4=Inbound 5=Outbound 6=Short% 7=<2min
+   8=1-2min 9=5-10min 10=10-15min 11=15-20min 12=20-30min 13=30+min 14=AvgTalk 15=TotalTalk
+   16=Enrolled 17=Debt 18=Conv% -- hidden in compact view: 4,5 (Inbound/Outbound), 7-13 (all
+   time brackets except Short%), 15 (Total Talk). Hour sub-rows and the TOTAL row share this exact
+   column order, so the same nth-child rule hides the right cell in every row type. */
+#agentTable.compact-cols th:nth-child(n+4):nth-child(-n+5),
+#agentTable.compact-cols th:nth-child(n+7):nth-child(-n+13),
+#agentTable.compact-cols th:nth-child(15),
+#agentTable.compact-cols td:nth-child(n+4):nth-child(-n+5),
+#agentTable.compact-cols td:nth-child(n+7):nth-child(-n+13),
+#agentTable.compact-cols td:nth-child(15){display:none}
 .enroll-num{font-weight:700;color:var(--green-dk)}
 .enroll-zero{color:var(--gray-300)}
 .agent-main-row:hover{background:var(--gray-100)}
@@ -288,6 +314,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <div class="sec-body">
       <div>
         <div class="section-label">At a glance</div>
+        <div class="kpi-headline-grid" id="kpiHeadline"></div>
         <div class="kpi-grid" id="kpiGrid"></div>
       </div>
       <div>
@@ -359,11 +386,13 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <select id="af-camp" onchange="filterAgents()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)"><option value="">All Campaigns</option></select>
             <select id="af-dir" onchange="filterAgents()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)"><option value="">All Directions</option><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select>
             <input id="af-name" type="text" oninput="filterAgents()" placeholder="Search agent…" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text);font-family:var(--font);outline:none;width:130px">
+            <button onclick="setAgentColView('compact')" id="acv-compact" class="af-btn af-active" title="Show the 7 columns managers scan daily">Compact</button>
+            <button onclick="setAgentColView('full')" id="acv-full" class="af-btn" title="Show every column">Full</button>
             <button class="af-btn" onclick="exportTable('agentTable','agent_performance')">⬇ CSV</button>
           </div>
         </div>
         <div class="tbl-wrap" id="agentTblWrap">
-          <table id="agentTable">
+          <table id="agentTable" class="compact-cols">
             <thead id="agentHead">
               <tr>
                 <th style="text-align:left;min-width:160px" data-col="0">Agent</th>
@@ -986,6 +1015,16 @@ function exportTable(tableId, filename){
   a.download=filename+'.csv';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+// Agent Performance table Compact/Full column view toggle (see .compact-cols CSS note). Pure
+// display state -- doesn't touch agentMap/agentRows or re-run any analysis, so switching views is
+// instant and doesn't affect the CSV export (which reads all cells regardless of display:none).
+function setAgentColView(mode){
+  const table=document.getElementById('agentTable');
+  if(table) table.classList.toggle('compact-cols', mode==='compact');
+  const compactBtn=document.getElementById('acv-compact'), fullBtn=document.getElementById('acv-full');
+  if(compactBtn) compactBtn.classList.toggle('af-active', mode==='compact');
+  if(fullBtn) fullBtn.classList.toggle('af-active', mode==='full');
 }
 function copySummary(){
   const m=window._summary;
@@ -2327,12 +2366,17 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     {label:'> 45 Min',val:gt45mUnique.toLocaleString(),sub:pct(gt45mUnique,uniquePhones)+' of unique calls',cls:'purple'},
     {label:'Ytel Discrepancy',val:saleDiscrepancyPhones.size,sub:saleDiscrepancyPhones.size?'SALE status, no Cordoba Enrolled Date':'no mismatches found',cls:'red',onclick:'showSaleDiscrepancyPhones()'},
   ];
-  document.getElementById('kpiGrid').innerHTML=kpiData.map(k=>`
-    <div class="kpi ${k.cls}"${k.onclick?` onclick="${k.onclick}" style="cursor:pointer"`:''}>
+  // Headline tier: the 4 "is today okay" tiles (revenue + compliance + core ops health), sized up
+  // and rendered above the rest -- same kpiData objects, no data removed. See CSS note above.
+  const kpiHeadlineLabels=new Set(['Total Enrolled','Dialed After DNC','Contact Rate','Drop / Timeout']);
+  const kpiCard=(k,headline)=>`
+    <div class="kpi ${k.cls}${headline?' kpi-headline':''}"${k.onclick?` onclick="${k.onclick}" style="cursor:pointer"`:''}>
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-val">${k.val}</div>
       <div class="kpi-sub">${k.sub}</div>
-    </div>`).join('');
+    </div>`;
+  document.getElementById('kpiHeadline').innerHTML=kpiData.filter(k=>kpiHeadlineLabels.has(k.label)).map(k=>kpiCard(k,true)).join('');
+  document.getElementById('kpiGrid').innerHTML=kpiData.filter(k=>!kpiHeadlineLabels.has(k.label)).map(k=>kpiCard(k,false)).join('');
 
   window._summary={dateStr,total,uniquePhones,
     contactRate:pct(contactedUnique,uniquePhones),
