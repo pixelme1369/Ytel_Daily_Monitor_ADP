@@ -124,6 +124,19 @@ tbody tr{border-bottom:1px solid var(--border)}
 tbody tr:hover{background:var(--gray-50)}
 tbody td{padding:7px 10px;text-align:center;color:var(--text-muted);white-space:nowrap}
 tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
+/* Agent Performance table only: sticky header row + sticky agent-name column, so scrolling a
+   long/wide agent list doesn't lose sight of both the column labels and which agent's row you're
+   on. #agentTblWrap gets its own boxed scroll area (max-height+overflow:auto) instead of the
+   shared .tbl-wrap's overflow-x-only behavior -- position:sticky sticks within whichever ancestor
+   actually scrolls, and an ancestor with only overflow-x set never scrolls vertically, so a plain
+   sticky header would silently do nothing. Scoped to this one table; every other table keeps its
+   existing page-level scroll. */
+#agentTblWrap{max-height:70vh;overflow:auto}
+#agentTable thead th{position:sticky;top:0;z-index:3}
+#agentTable thead th:first-child{left:0;z-index:4}
+#agentTable tbody td:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
+#agentTable tbody tr:hover td:first-child{background:var(--gray-50)}
+#agentTable tbody tr.agent-hour-row td:first-child{background:var(--gray-50)}
 .enroll-num{font-weight:700;color:var(--green-dk)}
 .enroll-zero{color:var(--gray-300)}
 .agent-main-row:hover{background:var(--gray-100)}
@@ -349,7 +362,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <button class="af-btn" onclick="exportTable('agentTable','agent_performance')">⬇ CSV</button>
           </div>
         </div>
-        <div class="tbl-wrap">
+        <div class="tbl-wrap" id="agentTblWrap">
           <table id="agentTable">
             <thead id="agentHead">
               <tr>
@@ -2926,7 +2939,7 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     const aggShort=aggRecords('short');
     const aggEnrolled=rows.flatMap(a=>a.enrolledRecords||[]);
     document.getElementById('agentBody').innerHTML=agentRowsHtml+`<tr style="font-weight:700;background:var(--gray-100);border-top:2px solid var(--border)">
-      <td style="text-align:left">TOTAL</td>
+      <td style="text-align:left;background:var(--gray-100)">TOTAL</td>
       <td>${agTot.calls}</td><td>${agTot.uniqueCalls}</td><td>—</td><td>—</td>
       <td>${aggShort.length?`<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(aggShort)},${attrJson('All Agents — Short (≤30s)')})'>${agTotShortPct.toFixed(0)}%</span>`:agTotShortPct.toFixed(0)+'%'}</td>
       <td>${funnelCellClick(agTot.lt2m,agTot.calls,"var(--red)",aggRecords('lt2m'),'All Agents — <2 min')}</td>
