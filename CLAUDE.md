@@ -13,6 +13,10 @@ SheetJS 0.18.5 + Chart.js 4.4.0 + jsPDF 2.5.1 + JSZip 3.10.1 via CDN.
 
 The original single-date dashboard (`Ytel_Daily_Monitor_ADP.html`) was removed in July 2026 — v2 is the only dashboard. Any older doc/commit references to "both dashboards" or "the original" refer to that deleted file.
 
+## Design System
+
+`DESIGN.md` (added August 2026 via `/design-consultation`) is a **proposed** redesign of `Ytel_Daily_Monitor_v2.html` — typography (Geist replacing Inter), a severity-tint addition to the existing color semantics, a workflow-choreographed navigation reorder, and a 9-card-to-3-card consolidation plan. **It has not been implemented.** The live dashboard still uses Inter and today's card ordering/count; do not assume anything in `DESIGN.md` is already true of the current code. Always read `DESIGN.md` before making any *new* visual or UI decision so proposal and implementation stay coherent as pieces of it land — do not deviate from it without explicit user approval, and do not silently apply it wholesale either; each piece (font swap, IA reorder, card consolidation, severity tint) is its own separate change per the "minimum necessary change" rule below.
+
 ---
 
 ## Dialer Command Center (`command-center/index.html`)
