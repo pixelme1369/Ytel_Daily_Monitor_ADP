@@ -13,9 +13,10 @@ Nine existing cards collapse into three tabbed/accordion cards — **no data, me
 
 | Today | Proposed |
 |---|---|
-| Agent Call Funnel · Agent Outcomes scatter · Agent Performance table's own bracket columns | One card, tabbed: Table / Funnel % / Scatter |
 | Missed Callbacks · DPC Drops · Incomplete Transfers | One "Follow-up Failures" card, 3 tabs |
 | Top 5 Numbers · VDCL Analysis · Drops & Timeouts by Hour | One "Diagnostics" accordion |
+
+~~Agent Call Funnel · Agent Outcomes scatter · Agent Performance table's own bracket columns → one tabbed card~~ — resolved a different way (August 2026): Agent Outcomes was removed outright rather than merged, per user request. Agent Call Funnel stands alone now; no consolidation needed there.
 
 Correct Transfers Received stays folded into the Agent Management Board (already consolidated in a prior pass — good precedent this works).
 
