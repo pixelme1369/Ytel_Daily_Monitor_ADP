@@ -174,7 +174,6 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
 .af-btn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;transition:all .15s}
 .af-btn:hover{background:var(--gray-200)}
 .af-btn.af-active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.fc-chart-wrap{position:relative;height:460px}
 .bar-mini{display:inline-flex;align-items:center;gap:5px}
 .bar-bg{background:var(--gray-200);border-radius:3px;height:6px;width:60px;overflow:hidden;display:inline-block;vertical-align:middle}
 .bar-fg{height:100%;border-radius:3px;background:var(--blue)}
@@ -476,31 +475,6 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <tbody id="funnelBody"></tbody>
           </table>
         </div>
-      </div>
-
-      <!-- AGENT FUNNEL VISUAL -->
-      <div class="card" id="funnelChartCard" style="display:none">
-        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <span>Agent Outcomes <span class="card-title-sub">Each dot = one agent · X = % of calls over 5 min · Y = conversion on those calls · size = call volume</span></span>
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <button onclick="filterFunnelChart('all')"    id="fc-all"    class="af-btn af-active">All</button>
-            <button onclick="filterFunnelChart('closer')" id="fc-closer" class="af-btn">Closers</button>
-            <button onclick="filterFunnelChart('opener')" id="fc-opener" class="af-btn">Openers</button>
-            <select id="fc-camp" onchange="filterFunnelChart()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
-              <option value="">All Campaigns</option>
-            </select>
-            <select id="fc-dir" onchange="filterFunnelChart()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;font-family:var(--font)">
-              <option value="">All Directions</option>
-              <option value="inbound">Inbound</option>
-              <option value="outbound">Outbound</option>
-            </select>
-            <input id="fc-name" type="text" oninput="filterFunnelChart()" placeholder="Search agent…" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text);font-family:var(--font);outline:none;width:120px">
-            <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px">Min calls:
-              <input id="fc-min" type="number" value="10" min="1" max="500" onchange="filterFunnelChart()" style="width:48px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);font-family:var(--font)">
-            </label>
-          </div>
-        </div>
-        <div class="fc-chart-wrap"><canvas id="funnelScatterChart"></canvas></div>
       </div>
 
     </div>
@@ -1377,146 +1351,6 @@ function filterFunnel(type){
   if(_funnelRoleFilter==='closer') rows=rows.filter(a=>CLOSERS.has(a.name.toLowerCase()));
   if(_funnelRoleFilter==='opener') rows=rows.filter(a=>OPENERS.has(a.name.toLowerCase()));
   window.renderFunnelBody(rows);
-}
-
-const FC_ROLE_COLOR={closer:'#1377bd',opener:'#D97706',retention:'#7C3AED',none:'#94A3B8'};
-const FC_ROLE_LABEL={closer:'Closer',opener:'Opener',retention:'Retention',none:'Unassigned'};
-function fcMedian(arr){
-  const s=[...arr].sort((a,b)=>a-b);
-  const mid=Math.floor(s.length/2);
-  return s.length%2?s[mid]:(s[mid-1]+s[mid])/2;
-}
-function renderFunnelChart(rows){
-  const card=document.getElementById('funnelChartCard');
-  if(!card) return;
-  const minCalls=parseInt(document.getElementById('fc-min')?.value||'10')||1;
-  const filtered=rows.filter(a=>a.calls>=minCalls);
-  card.style.display=filtered.length?'':'none';
-  if(!filtered.length){
-    if(window._funnelScatterChart){ window._funnelScatterChart.destroy(); window._funnelScatterChart=null; }
-    return;
-  }
-
-  const points=filtered.map(a=>{
-    const over5=(a.r5to10||0)+(a.r10to15||0)+(a.r15to20||0)+(a.r20to30||0)+(a.gt30m||0);
-    const nameLC=a.name.toLowerCase();
-    const role=CLOSERS.has(nameLC)?'closer':RETENTION.has(nameLC)?'retention':OPENERS.has(nameLC)?'opener':'none';
-    return {
-      name:a.name, role, calls:a.calls, over5, enr:a.enr||0,
-      x:a.calls?over5/a.calls*100:0,
-      y:over5?Math.min(100,(a.enr||0)/over5*100):0
-    };
-  });
-
-  const callsArr=points.map(p=>p.calls);
-  const minC=Math.min(...callsArr), maxC=Math.max(...callsArr);
-  const minR=6, maxR=26;
-  const radiusFor=calls=>maxC===minC?(minR+maxR)/2:minR+Math.sqrt((calls-minC)/(maxC-minC))*(maxR-minR);
-
-  const medianX=fcMedian(points.map(p=>p.x));
-  const medianY=fcMedian(points.map(p=>p.y));
-
-  const byRole={};
-  points.forEach(p=>{
-    (byRole[p.role]=byRole[p.role]||[]).push({x:p.x,y:p.y,r:radiusFor(p.calls),_point:p});
-  });
-  const datasets=Object.keys(FC_ROLE_COLOR).filter(role=>byRole[role]&&byRole[role].length).map(role=>({
-    label:FC_ROLE_LABEL[role],
-    data:byRole[role],
-    backgroundColor:FC_ROLE_COLOR[role]+'CC',
-    borderColor:'#fff',
-    borderWidth:2,
-    hitRadius:10
-  }));
-
-  const quadrantPlugin={
-    id:'fcQuadrantLines',
-    beforeDatasetsDraw(chart){
-      const {ctx,chartArea,scales}=chart;
-      if(!chartArea) return;
-      const xPix=scales.x.getPixelForValue(medianX);
-      const yPix=scales.y.getPixelForValue(medianY);
-      ctx.save();
-      ctx.strokeStyle='#E2E8F0';
-      ctx.lineWidth=1;
-      ctx.beginPath();
-      ctx.moveTo(xPix,chartArea.top); ctx.lineTo(xPix,chartArea.bottom);
-      ctx.moveTo(chartArea.left,yPix); ctx.lineTo(chartArea.right,yPix);
-      ctx.stroke();
-      ctx.font='11px Inter, system-ui, sans-serif';
-      ctx.fillStyle='#64748B';
-      const pad=10;
-      ctx.textBaseline='top';
-      ctx.textAlign='right';
-      ctx.fillText('Top performers', chartArea.right-pad, chartArea.top+pad);
-      ctx.textAlign='left';
-      ctx.fillText('Efficient closers', chartArea.left+pad, chartArea.top+pad);
-      ctx.textBaseline='bottom';
-      ctx.textAlign='right';
-      ctx.fillText('Long calls, no deals — pull recordings', chartArea.right-pad, chartArea.bottom-pad);
-      ctx.textAlign='left';
-      ctx.fillText("Can't engage", chartArea.left+pad, chartArea.bottom-pad);
-      ctx.restore();
-    }
-  };
-
-  if(window._funnelScatterChart) window._funnelScatterChart.destroy();
-  const ctx=document.getElementById('funnelScatterChart').getContext('2d');
-  window._funnelScatterChart=new Chart(ctx,{
-    type:'bubble',
-    data:{datasets},
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      interaction:{mode:'nearest',intersect:false},
-      scales:{
-        x:{min:0,max:100,title:{display:true,text:'% of calls over 5 min'},ticks:{callback:v=>v+'%'},grid:{color:'#E2E8F0'}},
-        y:{min:0,max:100,title:{display:true,text:'Conversion % on calls over 5 min'},ticks:{callback:v=>v+'%'},grid:{color:'#E2E8F0'}}
-      },
-      plugins:{
-        legend:{display:true,position:'top',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:8,padding:14}},
-        tooltip:{
-          callbacks:{
-            title:items=>items[0].raw._point.name,
-            label:item=>{
-              const p=item.raw._point;
-              return [
-                p.x.toFixed(0)+'% of calls over 5 min ('+p.over5+'/'+p.calls+')',
-                p.y.toFixed(0)+'% conversion on those ('+p.enr+' enrolled)',
-                p.calls+' total calls'
-              ];
-            }
-          }
-        }
-      }
-    },
-    plugins:[quadrantPlugin]
-  });
-}
-let _fcRoleFilter='all';
-function filterFunnelChart(type){
-  if(type){
-    _fcRoleFilter=type;
-    document.querySelectorAll('#funnelChartCard .af-btn').forEach(b=>b.classList.remove('af-active'));
-    document.getElementById('fc-'+type).classList.add('af-active');
-  }
-  const campFilter=document.getElementById('fc-camp')?.value||'';
-  const dirFilter=document.getElementById('fc-dir')?.value||'';
-  const nameFilter=(document.getElementById('fc-name')?.value||'').toLowerCase().trim();
-  function buildRows(map){
-    return Object.entries(map).map(([name,d])=>{
-      const credit=window._agentEnrollCredit?.[name.toLowerCase()]||{count:0,debt:0};
-      return {...d,name,enr:credit.count,debt:credit.debt,avg:d.calls?Math.round(d.sec/d.calls):0,shortPct:d.calls?d.short/d.calls*100:0};
-    }).sort((a,b)=>b.calls-a.calls);
-  }
-  let rows;
-  if(campFilter && window._agentCampDataMap) rows=buildRows(window._agentCampDataMap[campFilter]||{});
-  else if(dirFilter && window._agentDirMap) rows=buildRows(window._agentDirMap[dirFilter]||{});
-  else rows=window._agentAllRows||[];
-  if(_fcRoleFilter==='closer') rows=rows.filter(a=>CLOSERS.has(a.name.toLowerCase()));
-  if(_fcRoleFilter==='opener') rows=rows.filter(a=>OPENERS.has(a.name.toLowerCase()));
-  if(nameFilter) rows=rows.filter(a=>a.name.toLowerCase().includes(nameFilter));
-  renderFunnelChart(rows);
 }
 
 let _campRoleFilter='all';
@@ -2910,8 +2744,6 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   const allCamps=[...new Set(calls.map(r=>r._campaign).filter(Boolean))].sort();
   const campSel=document.getElementById('af-camp');
   if(campSel){ campSel.innerHTML='<option value="">All Campaigns</option>'+allCamps.map(c=>`<option value="${c}">${c}</option>`).join(''); }
-  const fcCampSel=document.getElementById('fc-camp');
-  if(fcCampSel){ fcCampSel.innerHTML='<option value="">All Campaigns</option>'+allCamps.map(c=>`<option value="${c}">${c}</option>`).join(''); }
   window.renderAgentBody=function renderAgentBody(rows, hourMapSrc){
     const activeHourMap=hourMapSrc||(window._agentHourMap||agentHourMap);
     const maxC=rows[0]?rows[0].calls:1;
@@ -3001,7 +2833,6 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
   }
   renderAgentBody(agentRows);
   renderLongNoDeal(agentRows);
-  renderFunnelChart(agentRows);
 
   // ── Long Calls, No Deal table column sorting ──
   (function(){
