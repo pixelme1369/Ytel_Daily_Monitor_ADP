@@ -105,7 +105,7 @@ module.exports = async (req, res) => {
     // stringifying so no stray decimal point ends up in the digit comparison.
     const crmQuery = `
       SELECT assigned_to, phone, phone2, phone3, phone4, status, enrolled_debt,
-             cordoba_enrolled_date, state
+             cordoba_enrolled_date, state, credit_score
       FROM \`${CRM_TABLE}\`
       WHERE SUBSTR(IFNULL(CAST(SAFE_CAST(phone  AS INT64) AS STRING), ''), -10) IN UNNEST(@phones)
          OR SUBSTR(IFNULL(CAST(SAFE_CAST(phone2 AS INT64) AS STRING), ''), -10) IN UNNEST(@phones)
@@ -138,7 +138,8 @@ module.exports = async (req, res) => {
       'Enrolled Debt': lead ? (lead.enrolled_debt || 0) : '',
       'Cordoba Enrolled Date': lead ? toPlainString(lead.cordoba_enrolled_date) : '',
       'Assigned To': lead ? (lead.assigned_to || '') : '',
-      'State': lead ? (lead.state || '') : ''
+      'State': lead ? (lead.state || '') : '',
+      'Credit Score': lead && lead.credit_score != null ? lead.credit_score : ''
     };
   });
 
