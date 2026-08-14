@@ -748,6 +748,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <div class="card" id="crmStatusCard">
         <div class="card-title">
           <span>📋 CRM Status Breakdown <span class="card-title-sub" id="crmStatusSub">count of unique phone numbers by CRM status in the selected date range</span></span>
+          <div id="crmStatusDirBtns" style="display:flex;align-items:center;gap:4px">
+            <button onclick="filterCrmStatus('all')"      id="cs-all"      class="af-btn af-active">All</button>
+            <button onclick="filterCrmStatus('inbound')"  id="cs-inbound"  class="af-btn">Inbound</button>
+            <button onclick="filterCrmStatus('outbound')" id="cs-outbound" class="af-btn">Outbound</button>
+          </div>
           <button class="af-btn" onclick="exportTable('crmStatusTable','crm_status_breakdown.csv')">⬇ CSV</button>
         </div>
         <div id="crmStatusList" style="max-height:320px;overflow-y:auto"></div>
@@ -1795,6 +1800,48 @@ function exportLongNoDeal(){
 }
 
 let _tlbRoleFilter='all';
+function filterCrmStatus(dir){
+  window._crmStatusDirFilter=dir;
+  document.querySelectorAll('#crmStatusDirBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
+  document.getElementById('cs-'+dir)?.classList.add('af-active');
+  renderCrmStatusBreakdown();
+}
+function renderCrmStatusBreakdown(){
+  const rawCalls=window._crmStatusRawCalls;
+  if(!rawCalls) return; // no analysis run yet
+  const dirFilter=window._crmStatusDirFilter||'all';
+  const rows=dirFilter==='all'?rawCalls:rawCalls.filter(r=>r._dir===dirFilter);
+  // Counted per unique phone, not per call row — a phone that called in twice (e.g. a real duplicate/re-dial)
+  // must not inflate its CRM status's count just because it generated two rows. Each phone is represented by
+  // its latest call among the currently filtered rows (r._ts) and that call's resolved status (resolveCrm,
+  // same fallback used everywhere else in the app). Rows with no phone number can't be deduped by phone, so
+  // they're each counted individually — the same edge case every other phone-keyed map in this file accepts.
+  const crmStatusByPhone={};
+  const crmStatusCounts={};
+  rows.forEach(r=>{
+    if(r._phone){
+      if(!crmStatusByPhone[r._phone]||r._ts>=crmStatusByPhone[r._phone].ts) crmStatusByPhone[r._phone]={status:resolveCrm(r)||'(No CRM Status)',ts:r._ts};
+    } else {
+      const k=resolveCrm(r)||'(No CRM Status)'; if(!crmStatusCounts[k]) crmStatusCounts[k]={n:0}; crmStatusCounts[k].n++;
+    }
+  });
+  Object.values(crmStatusByPhone).forEach(v=>{ if(!crmStatusCounts[v.status]) crmStatusCounts[v.status]={n:0}; crmStatusCounts[v.status].n++; });
+  const crmStatusSorted=Object.entries(crmStatusCounts).sort((a,b)=>b[1].n-a[1].n);
+  const crmStatusTotal=crmStatusSorted.reduce((s,[,d])=>s+d.n,0);
+  const maxCrm=crmStatusSorted[0]?crmStatusSorted[0][1].n:1;
+  document.getElementById('crmStatusList').innerHTML=crmStatusSorted.map(([status,d])=>`
+    <div class="dispo-row">
+      <div class="dispo-name" style="min-width:170px;max-width:260px;flex:0 0 auto">${status}</div>
+      <div class="dispo-bar-bg"><div class="dispo-bar-fill" style="width:${(d.n/maxCrm*100).toFixed(0)}%"></div></div>
+      <div class="dispo-count">${d.n}</div>
+      <div class="dispo-pct">${pct(d.n,crmStatusTotal)}</div>
+    </div>`).join('');
+  document.getElementById('crmStatusTableBody').innerHTML=crmStatusSorted.map(([status,d])=>
+    `<tr><td style="text-align:left">${status}</td><td>${d.n}</td><td>${pct(d.n,crmStatusTotal)}</td></tr>`).join('');
+  const crmStatusSub=document.getElementById('crmStatusSub');
+  const dirLabel=dirFilter==='all'?'':(dirFilter+' ');
+  if(crmStatusSub) crmStatusSub.textContent='each of '+crmStatusTotal.toLocaleString()+' unique '+dirLabel+'phone'+(crmStatusTotal===1?'':'s')+' counted once by its most recent CRM status, in the selected date range ('+(window._summary?window._summary.dateStr:'')+')';
+}
 function filterTransferLeaderboard(role){
   if(role){
     _tlbRoleFilter=role;
@@ -2597,35 +2644,11 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     </div>`).join('');
 
   // ── CRM Status breakdown (unique phones in the selected date range, by their most recent CRM Status) ──
-  // Counted per unique phone, not per call row — a phone that called in twice (e.g. a real duplicate/re-dial)
-  // must not inflate its CRM status's count just because it generated two rows. Each phone is represented by
-  // its latest call in the range (r._ts) and that call's resolved status (resolveCrm, same fallback used
-  // everywhere else in the app). Rows with no phone number can't be deduped by phone, so they're each counted
-  // individually — the same edge case every other phone-keyed map in this file accepts.
-  const crmStatusByPhone={};
-  const crmStatusCounts={};
-  calls.forEach(r=>{
-    if(r._phone){
-      if(!crmStatusByPhone[r._phone]||r._ts>=crmStatusByPhone[r._phone].ts) crmStatusByPhone[r._phone]={status:resolveCrm(r)||'(No CRM Status)',ts:r._ts};
-    } else {
-      const k=resolveCrm(r)||'(No CRM Status)'; if(!crmStatusCounts[k]) crmStatusCounts[k]={n:0}; crmStatusCounts[k].n++;
-    }
-  });
-  Object.values(crmStatusByPhone).forEach(v=>{ if(!crmStatusCounts[v.status]) crmStatusCounts[v.status]={n:0}; crmStatusCounts[v.status].n++; });
-  const crmStatusSorted=Object.entries(crmStatusCounts).sort((a,b)=>b[1].n-a[1].n);
-  const crmStatusTotal=crmStatusSorted.reduce((s,[,d])=>s+d.n,0);
-  const maxCrm=crmStatusSorted[0]?crmStatusSorted[0][1].n:1;
-  document.getElementById('crmStatusList').innerHTML=crmStatusSorted.map(([status,d])=>`
-    <div class="dispo-row">
-      <div class="dispo-name" style="min-width:170px;max-width:260px;flex:0 0 auto">${status}</div>
-      <div class="dispo-bar-bg"><div class="dispo-bar-fill" style="width:${(d.n/maxCrm*100).toFixed(0)}%"></div></div>
-      <div class="dispo-count">${d.n}</div>
-      <div class="dispo-pct">${pct(d.n,crmStatusTotal)}</div>
-    </div>`).join('');
-  document.getElementById('crmStatusTableBody').innerHTML=crmStatusSorted.map(([status,d])=>
-    `<tr><td style="text-align:left">${status}</td><td>${d.n}</td><td>${pct(d.n,crmStatusTotal)}</td></tr>`).join('');
-  const crmStatusSub=document.getElementById('crmStatusSub');
-  if(crmStatusSub) crmStatusSub.textContent='each of '+crmStatusTotal.toLocaleString()+' unique phone'+(crmStatusTotal===1?'':'s')+' counted once by its most recent CRM status, in the selected date range ('+dateStr+')';
+  // Cached here so the Inbound/Outbound filter (filterCrmStatus/renderCrmStatusBreakdown, defined near
+  // renderTransferLeaderboard) can re-render from the same date-range-filtered row set without re-running
+  // the whole analysis.
+  window._crmStatusRawCalls=calls;
+  renderCrmStatusBreakdown();
 
   // ── Agent table ──
   const agentPhoneFirstDir={};
