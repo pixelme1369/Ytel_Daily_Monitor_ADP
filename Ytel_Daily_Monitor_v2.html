@@ -766,6 +766,18 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <tbody id="crmStatusTableBody"></tbody>
         </table>
       </div>
+      <div class="card" id="crmStatusTopRepCard">
+        <div class="card-title">
+          <span>🏆 Top Sales Rep by CRM Status <span class="card-title-sub" id="crmStatusTopRepSub">which rep has the most unique phones in each CRM status</span></span>
+          <button class="af-btn" onclick="exportTable('crmStatusTopRepTable','crm_status_top_rep.csv')">⬇ CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table id="crmStatusTopRepTable">
+            <thead><tr><th style="text-align:left">CRM Status</th><th style="text-align:left">Top Rep</th><th>Count</th><th>% of Status</th></tr></thead>
+            <tbody id="crmStatusTopRepBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1835,12 +1847,27 @@ function renderCrmStatusBreakdown(){
   const crmStatusCounts={};
   rows.forEach(r=>{
     if(r._phone){
-      if(!crmStatusByPhone[r._phone]||r._ts>=crmStatusByPhone[r._phone].ts) crmStatusByPhone[r._phone]={status:resolveCrm(r)||'(No CRM Status)',ts:r._ts};
+      if(!crmStatusByPhone[r._phone]||r._ts>=crmStatusByPhone[r._phone].ts) crmStatusByPhone[r._phone]={status:resolveCrm(r)||'(No CRM Status)',ts:r._ts,agent:r._name||'',user:r._user||''};
     } else {
       const k=resolveCrm(r)||'(No CRM Status)'; if(!crmStatusCounts[k]) crmStatusCounts[k]={n:0}; crmStatusCounts[k].n++;
     }
   });
-  Object.values(crmStatusByPhone).forEach(v=>{ if(!crmStatusCounts[v.status]) crmStatusCounts[v.status]={n:0}; crmStatusCounts[v.status].n++; });
+  // Top rep per status — credited to the agent on the same representative (latest) call that decided the
+  // phone's status above, so "top rep" and "status" always describe the same call. Dialer-system rows
+  // (VDCL/VDAD) and the same TERMINATED/INACTIVE_RECENT agents excluded from every other agent-level view
+  // in the app are excluded here too, so a rep who no longer works here (or a system entry) can't show up
+  // as the "top rep" for a status — the phone itself still counts in the status total above regardless.
+  const crmStatusAgentCounts={};
+  const inactiveRecent=window._inactiveRecent||new Set();
+  Object.values(crmStatusByPhone).forEach(v=>{
+    if(!crmStatusCounts[v.status]) crmStatusCounts[v.status]={n:0};
+    crmStatusCounts[v.status].n++;
+    const nl=v.agent.toLowerCase();
+    if(v.agent&&v.agent!=='Unknown'&&!['VDCL','VDAD'].includes(v.user)&&!TERMINATED.has(nl)&&!inactiveRecent.has(nl)){
+      if(!crmStatusAgentCounts[v.status]) crmStatusAgentCounts[v.status]={};
+      crmStatusAgentCounts[v.status][v.agent]=(crmStatusAgentCounts[v.status][v.agent]||0)+1;
+    }
+  });
   const crmStatusSorted=Object.entries(crmStatusCounts).sort((a,b)=>b[1].n-a[1].n);
   const crmStatusTotal=crmStatusSorted.reduce((s,[,d])=>s+d.n,0);
   const maxCrm=crmStatusSorted[0]?crmStatusSorted[0][1].n:1;
@@ -1853,10 +1880,18 @@ function renderCrmStatusBreakdown(){
     </div>`).join('');
   document.getElementById('crmStatusTableBody').innerHTML=crmStatusSorted.map(([status,d])=>
     `<tr><td style="text-align:left">${status}</td><td>${d.n}</td><td>${pct(d.n,crmStatusTotal)}</td></tr>`).join('');
+  document.getElementById('crmStatusTopRepBody').innerHTML=crmStatusSorted.map(([status,d])=>{
+    const agentEntries=Object.entries(crmStatusAgentCounts[status]||{}).sort((a,b)=>b[1]-a[1]);
+    const [topAgent,topCount]=agentEntries[0]||['—',0];
+    return `<tr><td style="text-align:left">${status}</td><td style="text-align:left">${topAgent}</td><td>${topCount||'—'}</td><td>${topCount?pct(topCount,d.n):'—'}</td></tr>`;
+  }).join('');
   const crmStatusSub=document.getElementById('crmStatusSub');
   const dirLabel=dirFilter==='all'?'':(dirFilter+' ');
   const creditLabel=creditFilter==='pulled'?', credit pulled':creditFilter==='notpulled'?', not credit pulled':'';
-  if(crmStatusSub) crmStatusSub.textContent='each of '+crmStatusTotal.toLocaleString()+' unique '+dirLabel+'phone'+(crmStatusTotal===1?'':'s')+' counted once by its most recent CRM status'+creditLabel+', in the selected date range ('+(window._summary?window._summary.dateStr:'')+')';
+  const rangeLabel=window._summary?window._summary.dateStr:'';
+  if(crmStatusSub) crmStatusSub.textContent='each of '+crmStatusTotal.toLocaleString()+' unique '+dirLabel+'phone'+(crmStatusTotal===1?'':'s')+' counted once by its most recent CRM status'+creditLabel+', in the selected date range ('+rangeLabel+')';
+  const crmStatusTopRepSub=document.getElementById('crmStatusTopRepSub');
+  if(crmStatusTopRepSub) crmStatusTopRepSub.textContent='which rep has the most unique '+dirLabel+'phones in each CRM status'+creditLabel+' ('+rangeLabel+') — excludes terminated/inactive agents';
 }
 function filterTransferLeaderboard(role){
   if(role){
@@ -2189,6 +2224,9 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     if(ds&&(!agentLastCallDate[k]||ds>agentLastCallDate[k])) agentLastCallDate[k]=ds;
   });
   const INACTIVE_RECENT=new Set(Object.keys(agentLastCallDate).filter(k=>agentLastCallDate[k]<inactiveCutoffStr));
+  // Cached so renderCrmStatusBreakdown() can apply the same TERMINATED/INACTIVE_RECENT exclusion used by
+  // every other agent-level view, even when it re-renders later from a filter click outside buildDashboard().
+  window._inactiveRecent=INACTIVE_RECENT;
 
   // First call row per enrolled phone — enrollment is credited to that call's campaign.
   // Flag the row itself (not its timestamp) so tied timestamps can't mark two rows enrolled.
