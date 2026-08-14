@@ -283,6 +283,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <a href="#sec-alerts">Missed / DPC</a>
     <a href="#sec-transfer-lb">Agent Management Board</a>
     <a href="#sec-report-cards">Agent Report Cards</a>
+    <a href="#sec-crm-status">CRM Status Breakdown</a>
   </nav>
   <div class="sb-upload-mini">
     <div class="sb-drop-mini" id="mergedCard" title="Upload a merged Ytel+CRM file to override live BigQuery data">
@@ -736,6 +737,24 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <span>🪪 Agent Report Cards <span class="card-title-sub">one PDF per closer for the selected date range — calls, transfers received, enrolled, debt, conv% — bundled as a ZIP to share in Slack</span></span>
           <button class="af-btn" onclick="exportAgentReportCards()">⬇ Download All Agent Cards (ZIP)</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CRM STATUS BREAKDOWN -->
+  <section id="sec-crm-status">
+    <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">CRM Status Breakdown</span></div>
+    <div class="sec-body">
+      <div class="card" id="crmStatusCard">
+        <div class="card-title">
+          <span>📋 CRM Status Breakdown <span class="card-title-sub" id="crmStatusSub">count of each CRM status among calls in the selected date range</span></span>
+          <button class="af-btn" onclick="exportTable('crmStatusTable','crm_status_breakdown.csv')">⬇ CSV</button>
+        </div>
+        <div id="crmStatusList" style="max-height:320px;overflow-y:auto"></div>
+        <table id="crmStatusTable" style="display:none">
+          <thead><tr><th style="text-align:left">CRM Status</th><th>Count</th><th>%</th></tr></thead>
+          <tbody id="crmStatusTableBody"></tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -2576,6 +2595,23 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
       <div class="dispo-count">${d.n}</div>
       <div class="dispo-pct">${pct(d.n,totalLt2)}</div>
     </div>`).join('');
+
+  // ── CRM Status breakdown (calls in the selected date range, by their CRM Status) ──
+  const crmStatusCounts={};
+  calls.forEach(r=>{ const k=resolveCrm(r)||'(No CRM Status)'; if(!crmStatusCounts[k]) crmStatusCounts[k]={n:0}; crmStatusCounts[k].n++; });
+  const crmStatusSorted=Object.entries(crmStatusCounts).sort((a,b)=>b[1].n-a[1].n);
+  const maxCrm=crmStatusSorted[0]?crmStatusSorted[0][1].n:1;
+  document.getElementById('crmStatusList').innerHTML=crmStatusSorted.map(([status,d])=>`
+    <div class="dispo-row">
+      <div class="dispo-name" style="min-width:170px;max-width:260px;flex:0 0 auto">${status}</div>
+      <div class="dispo-bar-bg"><div class="dispo-bar-fill" style="width:${(d.n/maxCrm*100).toFixed(0)}%"></div></div>
+      <div class="dispo-count">${d.n}</div>
+      <div class="dispo-pct">${pct(d.n,total)}</div>
+    </div>`).join('');
+  document.getElementById('crmStatusTableBody').innerHTML=crmStatusSorted.map(([status,d])=>
+    `<tr><td style="text-align:left">${status}</td><td>${d.n}</td><td>${pct(d.n,total)}</td></tr>`).join('');
+  const crmStatusSub=document.getElementById('crmStatusSub');
+  if(crmStatusSub) crmStatusSub.textContent='count of each CRM status among '+total.toLocaleString()+' call'+(total===1?'':'s')+' in the selected date range ('+dateStr+')';
 
   // ── Agent table ──
   const agentPhoneFirstDir={};
