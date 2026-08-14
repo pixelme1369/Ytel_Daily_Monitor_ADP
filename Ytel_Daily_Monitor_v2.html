@@ -753,6 +753,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <button onclick="filterCrmStatus('inbound')"  id="cs-inbound"  class="af-btn">Inbound</button>
             <button onclick="filterCrmStatus('outbound')" id="cs-outbound" class="af-btn">Outbound</button>
           </div>
+          <div id="crmStatusCreditBtns" style="display:flex;align-items:center;gap:4px">
+            <button onclick="filterCrmStatusCredit('all')"       id="cs-credit-all"    class="af-btn af-active">All</button>
+            <button onclick="filterCrmStatusCredit('pulled')"    id="cs-credit-pulled" class="af-btn">Credit Pulled</button>
+            <button onclick="filterCrmStatusCredit('notpulled')" id="cs-credit-not"    class="af-btn">Not Credit Pulled</button>
+          </div>
           <button class="af-btn" onclick="exportTable('crmStatusTable','crm_status_breakdown.csv')">⬇ CSV</button>
         </div>
         <div id="crmStatusList" style="max-height:320px;overflow-y:auto"></div>
@@ -1806,11 +1811,21 @@ function filterCrmStatus(dir){
   document.getElementById('cs-'+dir)?.classList.add('af-active');
   renderCrmStatusBreakdown();
 }
+function filterCrmStatusCredit(val){
+  window._crmStatusCreditFilter=val;
+  document.querySelectorAll('#crmStatusCreditBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
+  const btnId={all:'cs-credit-all',pulled:'cs-credit-pulled',notpulled:'cs-credit-not'}[val];
+  document.getElementById(btnId)?.classList.add('af-active');
+  renderCrmStatusBreakdown();
+}
 function renderCrmStatusBreakdown(){
   const rawCalls=window._crmStatusRawCalls;
   if(!rawCalls) return; // no analysis run yet
   const dirFilter=window._crmStatusDirFilter||'all';
-  const rows=dirFilter==='all'?rawCalls:rawCalls.filter(r=>r._dir===dirFilter);
+  const creditFilter=window._crmStatusCreditFilter||'all';
+  let rows=dirFilter==='all'?rawCalls:rawCalls.filter(r=>r._dir===dirFilter);
+  if(creditFilter==='pulled') rows=rows.filter(r=>r._creditPulled);
+  else if(creditFilter==='notpulled') rows=rows.filter(r=>!r._creditPulled);
   // Counted per unique phone, not per call row — a phone that called in twice (e.g. a real duplicate/re-dial)
   // must not inflate its CRM status's count just because it generated two rows. Each phone is represented by
   // its latest call among the currently filtered rows (r._ts) and that call's resolved status (resolveCrm,
@@ -1840,7 +1855,8 @@ function renderCrmStatusBreakdown(){
     `<tr><td style="text-align:left">${status}</td><td>${d.n}</td><td>${pct(d.n,crmStatusTotal)}</td></tr>`).join('');
   const crmStatusSub=document.getElementById('crmStatusSub');
   const dirLabel=dirFilter==='all'?'':(dirFilter+' ');
-  if(crmStatusSub) crmStatusSub.textContent='each of '+crmStatusTotal.toLocaleString()+' unique '+dirLabel+'phone'+(crmStatusTotal===1?'':'s')+' counted once by its most recent CRM status, in the selected date range ('+(window._summary?window._summary.dateStr:'')+')';
+  const creditLabel=creditFilter==='pulled'?', credit pulled':creditFilter==='notpulled'?', not credit pulled':'';
+  if(crmStatusSub) crmStatusSub.textContent='each of '+crmStatusTotal.toLocaleString()+' unique '+dirLabel+'phone'+(crmStatusTotal===1?'':'s')+' counted once by its most recent CRM status'+creditLabel+', in the selected date range ('+(window._summary?window._summary.dateStr:'')+')';
 }
 function filterTransferLeaderboard(role){
   if(role){
@@ -2152,6 +2168,10 @@ function buildDashboard(calls, enrolledPhones, agentEnrollCredit, agentEnrollPho
     r._phone=(r['phone_number']||r['phone_number_dialed']||'').trim();
     r._debt=parseDebt(r['Enrolled Debt']||0);
     r._crmStatus=(r['CRM Status']||'').trim();
+    r._creditScore=(r['Credit Score']!=null?String(r['Credit Score']):'').trim();
+    // "Credit pulled" = a real (non-empty, non-zero) credit score is on file for this lead — matches how
+    // the CRM Status Breakdown card's Credit Pulled/Not Credit Pulled filter reads this field.
+    r._creditPulled=!!(r._creditScore&&parseFloat(r._creditScore)>0);
     r._state=stateOf(r);
     r._recording=(r['recording_location']||r['Recording Location']||r['recording_url']||'').trim();
   });
