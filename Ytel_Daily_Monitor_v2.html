@@ -768,7 +768,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       </div>
       <div class="card" id="crmStatusTopRepCard">
         <div class="card-title">
-          <span>🏆 Top Sales Rep by CRM Status <span class="card-title-sub" id="crmStatusTopRepSub">which rep has the most unique phones in each CRM status</span></span>
+          <span>🏆 Top Sales Rep by CRM Status <span class="card-title-sub" id="crmStatusTopRepSub">which closer has the most unique phones in each CRM status</span></span>
           <div id="crmStatusTopRepDirBtns" style="display:flex;align-items:center;gap:4px">
             <button onclick="filterCrmStatus('all')"      id="cstr-all"      class="af-btn af-active">All</button>
             <button onclick="filterCrmStatus('inbound')"  id="cstr-inbound"  class="af-btn">Inbound</button>
@@ -822,7 +822,7 @@ function classifyRow(r){
 }
 const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','angel esparza','logan apana','brian smith','emren salim','renato toribio','brian ballman','taha aoukal','alex tambouly','kyle keith','britt freeman','emerson gonzalez']);
 const RETENTION=new Set(['eli riano','erika ceja','daniel soldevilla','jose salgado']);
-const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','alexander tulkoff','jaiden lopez','jaiden j lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','mark carlos','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','elizabeth arredondo','mohamad dadou','keanu evaldez','saeid anvar']);
+const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','alexander tulkoff','jaiden lopez','jaiden j lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','mark carlos','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','elizabeth arredondo','mohamad dadou','keanu evaldez','saeid anvar','connor ramsdell']);
 // Terminated agents — excluded from all agent-specific views (Agent Performance, Rankings, Funnel,
 // Outcomes scatter, Long Calls No Deal, Unassigned Agents, coaching-issue callouts) but their calls
 // still count toward overall KPIs/campaign totals since those calls actually happened.
@@ -1863,14 +1863,16 @@ function renderCrmStatusBreakdown(){
   // phone's status above, so "top rep" and "status" always describe the same call. Dialer-system rows
   // (VDCL/VDAD) and the same TERMINATED/INACTIVE_RECENT agents excluded from every other agent-level view
   // in the app are excluded here too, so a rep who no longer works here (or a system entry) can't show up
-  // as the "top rep" for a status — the phone itself still counts in the status total above regardless.
+  // as the "top rep" for a status. Restricted to CLOSERS only (per user request, August 2026) — openers/
+  // retention never made the sale themselves, so they shouldn't win "top rep" credit here even if they
+  // touched the phone last. The phone itself still counts in the status total above regardless.
   const crmStatusAgentCounts={};
   const inactiveRecent=window._inactiveRecent||new Set();
   Object.values(crmStatusByPhone).forEach(v=>{
     if(!crmStatusCounts[v.status]) crmStatusCounts[v.status]={n:0};
     crmStatusCounts[v.status].n++;
     const nl=v.agent.toLowerCase();
-    if(v.agent&&v.agent!=='Unknown'&&!['VDCL','VDAD'].includes(v.user)&&!TERMINATED.has(nl)&&!inactiveRecent.has(nl)){
+    if(v.agent&&v.agent!=='Unknown'&&!['VDCL','VDAD'].includes(v.user)&&!TERMINATED.has(nl)&&!inactiveRecent.has(nl)&&CLOSERS.has(nl)){
       if(!crmStatusAgentCounts[v.status]) crmStatusAgentCounts[v.status]={};
       crmStatusAgentCounts[v.status][v.agent]=(crmStatusAgentCounts[v.status][v.agent]||0)+1;
     }
@@ -1898,7 +1900,7 @@ function renderCrmStatusBreakdown(){
   const rangeLabel=window._summary?window._summary.dateStr:'';
   if(crmStatusSub) crmStatusSub.textContent='each of '+crmStatusTotal.toLocaleString()+' unique '+dirLabel+'phone'+(crmStatusTotal===1?'':'s')+' counted once by its most recent CRM status'+creditLabel+', in the selected date range ('+rangeLabel+')';
   const crmStatusTopRepSub=document.getElementById('crmStatusTopRepSub');
-  if(crmStatusTopRepSub) crmStatusTopRepSub.textContent='which rep has the most unique '+dirLabel+'phones in each CRM status'+creditLabel+' ('+rangeLabel+') — excludes terminated/inactive agents';
+  if(crmStatusTopRepSub) crmStatusTopRepSub.textContent='which closer has the most unique '+dirLabel+'phones in each CRM status'+creditLabel+' ('+rangeLabel+') — closers only, excludes terminated/inactive agents';
 }
 function filterTransferLeaderboard(role){
   if(role){
