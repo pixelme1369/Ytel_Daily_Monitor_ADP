@@ -769,6 +769,11 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
       <div class="card" id="crmStatusTopRepCard">
         <div class="card-title">
           <span>🏆 Top Sales Rep by CRM Status <span class="card-title-sub" id="crmStatusTopRepSub">which rep has the most unique phones in each CRM status</span></span>
+          <div id="crmStatusTopRepDirBtns" style="display:flex;align-items:center;gap:4px">
+            <button onclick="filterCrmStatus('all')"      id="cstr-all"      class="af-btn af-active">All</button>
+            <button onclick="filterCrmStatus('inbound')"  id="cstr-inbound"  class="af-btn">Inbound</button>
+            <button onclick="filterCrmStatus('outbound')" id="cstr-outbound" class="af-btn">Outbound</button>
+          </div>
           <button class="af-btn" onclick="exportTable('crmStatusTopRepTable','crm_status_top_rep.csv')">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
@@ -1821,6 +1826,8 @@ function filterCrmStatus(dir){
   window._crmStatusDirFilter=dir;
   document.querySelectorAll('#crmStatusDirBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
   document.getElementById('cs-'+dir)?.classList.add('af-active');
+  document.querySelectorAll('#crmStatusTopRepDirBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
+  document.getElementById('cstr-'+dir)?.classList.add('af-active');
   renderCrmStatusBreakdown();
 }
 function filterCrmStatusCredit(val){
