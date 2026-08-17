@@ -224,6 +224,7 @@ When a user runs a report over a date range longer than ~10 days, an agent who s
   - Example: `'mark claros'` and `'mark carlos'` are both in OPENERS
   - Example: `'liz arredondo'` and `'elizabeth arredondo'` are both in OPENERS
   - Example: `'jaiden lopez'` and `'jaiden j lopez'` are both in OPENERS
+  - `'connor ramsdell'` is in OPENERS
 - When a user reports an agent is "missing from the report", check if it's a spelling mismatch before assuming the agent isn't in the set
 
 ## Enrollment Logic
