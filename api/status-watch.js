@@ -65,10 +65,12 @@ module.exports = async (req, res) => {
   const leadQuery = `
     WITH leads AS (
       SELECT assigned_to, phone, phone2, phone3, phone4, status, time_in_status, enrolled_debt, state,
+             submitted_date,
              LOWER(TRIM(REGEXP_REPLACE(status, r'[^a-zA-Z0-9]+', ' '))) AS norm_status
       FROM \`${CRM_TABLE}\`
     )
-    SELECT assigned_to, phone, phone2, phone3, phone4, status, time_in_status, enrolled_debt, state
+    SELECT assigned_to, phone, phone2, phone3, phone4, status, time_in_status, enrolled_debt, state,
+           submitted_date
     FROM leads
     WHERE (
         norm_status = 'on hold nsf'
@@ -100,7 +102,8 @@ module.exports = async (req, res) => {
       daysInStatus: isNaN(daysInStatus) ? null : daysInStatus,
       assignedTo: (lead.assigned_to || '').trim(),
       enrolledDebt: lead.enrolled_debt || 0,
-      state: (lead.state || '').trim()
+      state: (lead.state || '').trim(),
+      submittedDate: toPlainString(lead.submitted_date) || ''
     };
   }).filter(l => l.phones.length && l.daysInStatus != null);
 
@@ -157,6 +160,7 @@ module.exports = async (req, res) => {
       assignedTo: lead.assignedTo,
       enrolledDebt: lead.enrolledDebt,
       state: lead.state,
+      submittedDate: lead.submittedDate,
       outboundCount: afterEntry.length,
       calls: afterEntry.map(c => ({
         call_date: toPlainString(c.call_date),

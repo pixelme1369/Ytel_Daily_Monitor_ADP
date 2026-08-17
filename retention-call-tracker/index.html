@@ -82,8 +82,9 @@ footer{margin-top:16px;font-size:11px;color:var(--gray-400);text-align:center}
           <th>Outbound Calls Since Status</th>
           <th>Enrolled Debt</th>
           <th>State</th>
+          <th>Submitted Date</th>
         </tr></thead>
-        <tbody id="statusWatchBody"><tr><td colspan="7" style="color:var(--text-muted)">Loading…</td></tr></tbody>
+        <tbody id="statusWatchBody"><tr><td colspan="8" style="color:var(--text-muted)">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -181,7 +182,7 @@ async function fetchStatusWatch(){
     _statusWatchRows=data.rows||[];
     document.getElementById('updatedAt').textContent='Updated '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   }catch(err){
-    if(body) body.innerHTML='<tr><td colspan="7" style="color:var(--red)">Failed to load: '+err.message+'</td></tr>';
+    if(body) body.innerHTML='<tr><td colspan="8" style="color:var(--red)">Failed to load: '+err.message+'</td></tr>';
     if(sub) sub.textContent='Failed to load — click 🔄 Refresh to try again';
     return;
   }
@@ -202,7 +203,7 @@ function renderStatusWatch(){
   const rows=all.filter(r=>statusMatchesFilter(r.status,_statusWatchFilter))
     .sort((a,b)=>b.outboundCount-a.outboundCount);
   if(!rows.length){
-    body.innerHTML='<tr><td colspan="7" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
+    body.innerHTML='<tr><td colspan="8" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
   }else{
     body.innerHTML=rows.map(r=>{
       const records=(r.calls||[]).map(c=>({
@@ -218,6 +219,7 @@ function renderStatusWatch(){
         <td>${records.length?`<span class="enroll-click" style="font-weight:700" onclick='showFlaggedPhones(${attrJson(records)},${attrJson(r.phone+' — Outbound Since '+r.status)})'>${r.outboundCount}</span>`:r.outboundCount}</td>
         <td>${r.enrolledDebt>0?fmt$(r.enrolledDebt):'—'}</td>
         <td>${r.state||'—'}</td>
+        <td>${r.submittedDate?String(r.submittedDate).slice(0,10):'—'}</td>
       </tr>`;
     }).join('');
   }
