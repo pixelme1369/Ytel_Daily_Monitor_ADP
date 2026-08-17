@@ -38,6 +38,10 @@ tbody tr:hover{background:var(--gray-50)}
 .enroll-click{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
 .enroll-click:hover{opacity:.8}
 .pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px}
+.note-ta{width:100%;min-width:200px;font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;resize:vertical;white-space:pre-wrap;font-family:var(--font)}
+.note-ta:focus{outline:none;border-color:var(--accent)}
+.note-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:3px}
+.note-status{font-size:10px;color:var(--text-muted)}
 .updated{font-size:11px;color:var(--text-muted)}
 #enrollModal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;align-items:center;justify-content:center;padding:20px}
 #enrollModal.open{display:flex}
@@ -68,7 +72,7 @@ footer{margin-top:16px;font-size:11px;color:var(--gray-400);text-align:center}
         <button onclick="filterStatusWatch('cancelled')"            id="sw-cancelled" class="af-btn">Cancelled</button>
       </div>
       <div class="btn-row">
-        <button class="af-btn" onclick="fetchStatusWatch()">🔄 Refresh</button>
+        <button class="af-btn" onclick="refreshAll()">🔄 Refresh</button>
         <button class="af-btn" onclick="exportTable('statusWatchTable','status_watch.csv')">⬇ CSV</button>
       </div>
     </div>
@@ -83,8 +87,9 @@ footer{margin-top:16px;font-size:11px;color:var(--gray-400);text-align:center}
           <th>Enrolled Debt</th>
           <th>State</th>
           <th>Submitted Date</th>
+          <th style="text-align:left">Notes</th>
         </tr></thead>
-        <tbody id="statusWatchBody"><tr><td colspan="8" style="color:var(--text-muted)">Loading…</td></tr></tbody>
+        <tbody id="statusWatchBody"><tr><td colspan="9" style="color:var(--text-muted)">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -113,6 +118,7 @@ function fmtDur(s){
 }
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
 function attrJson(v){ return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
+function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function normStatusMatch(s){ return String(s||'').replace(/[^a-zA-Z0-9]+/g,' ').trim().toLowerCase(); }
 // "Pending Cancellation" is a token match, not exact — the real CRM value has been confirmed to
 // vary in what sits between the two words (e.g. "Pending Affiliate Cancellation"), same reasoning
@@ -182,7 +188,7 @@ async function fetchStatusWatch(){
     _statusWatchRows=data.rows||[];
     document.getElementById('updatedAt').textContent='Updated '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   }catch(err){
-    if(body) body.innerHTML='<tr><td colspan="8" style="color:var(--red)">Failed to load: '+err.message+'</td></tr>';
+    if(body) body.innerHTML='<tr><td colspan="9" style="color:var(--red)">Failed to load: '+err.message+'</td></tr>';
     if(sub) sub.textContent='Failed to load — click 🔄 Refresh to try again';
     return;
   }
@@ -203,7 +209,7 @@ function renderStatusWatch(){
   const rows=all.filter(r=>statusMatchesFilter(r.status,_statusWatchFilter))
     .sort((a,b)=>b.outboundCount-a.outboundCount);
   if(!rows.length){
-    body.innerHTML='<tr><td colspan="8" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
+    body.innerHTML='<tr><td colspan="9" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
   }else{
     body.innerHTML=rows.map(r=>{
       const records=(r.calls||[]).map(c=>({
@@ -220,6 +226,13 @@ function renderStatusWatch(){
         <td>${r.enrolledDebt>0?fmt$(r.enrolledDebt):'—'}</td>
         <td>${r.state||'—'}</td>
         <td>${r.submittedDate?String(r.submittedDate).slice(0,10):'—'}</td>
+        <td style="text-align:left">
+          <textarea class="note-ta" id="note-ta-${r.phone}" rows="2" placeholder="Add a note…" onblur="saveNote('${r.phone}',this)">${escapeHtml((_notesData[r.phone]&&_notesData[r.phone].text)||'')}</textarea>
+          <div class="note-row">
+            <button class="af-btn" style="padding:2px 8px;font-size:10px" onclick="saveNote('${r.phone}',document.getElementById('note-ta-${r.phone}'))">💾 Save</button>
+            <span class="note-status" id="note-status-${r.phone}">${_notesData[r.phone]&&_notesData[r.phone].updatedAt?'Saved '+new Date(_notesData[r.phone].updatedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''}</span>
+          </div>
+        </td>
       </tr>`;
     }).join('');
   }
@@ -227,7 +240,50 @@ function renderStatusWatch(){
     +(_statusWatchFilter!=='all'?' ('+STATUS_WATCH_LABELS[_statusWatchFilter]+' only)':'');
 }
 
-fetchStatusWatch();
+// ══ NOTES ═════════════════════════════════════════════════════════════════
+// Shared, persistent per-phone notes so the customer service team can leave a note on a lead and
+// see it again on any later visit (any device/rep) — not per-browser like localStorage would be.
+// Backed by /api/notes, a single JSON blob keyed by phone (retention-call-tracker/api/notes.js).
+let _notesData={};
+
+async function fetchNotes(){
+  try{
+    const resp=await fetch('/api/notes');
+    const data=await resp.json().catch(()=>({}));
+    if(resp.ok) _notesData=data.notes||{};
+  }catch(err){
+    // Non-fatal — the table still renders, notes just start out blank instead of prefilled.
+  }
+}
+function refreshAll(){
+  fetchNotes().then(fetchStatusWatch);
+}
+async function saveNote(phone, textareaEl){
+  if(!textareaEl) return;
+  const text=textareaEl.value;
+  const prevText=(_notesData[phone]&&_notesData[phone].text)||'';
+  if(text===prevText) return; // nothing changed since last save
+  const statusEl=document.getElementById('note-status-'+phone);
+  if(statusEl) statusEl.textContent='Saving…';
+  // Optimistic local update first, so switching filters (which fully re-renders the table from
+  // _notesData) can't lose an edit that's already in flight to the server.
+  if(text) _notesData[phone]={text,updatedAt:new Date().toISOString()};
+  else delete _notesData[phone];
+  try{
+    const resp=await fetch('/api/notes',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone,text})
+    });
+    const data=await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(data.error||('Request failed ('+resp.status+')'));
+    if(statusEl) statusEl.textContent=text?'Saved '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Cleared';
+  }catch(err){
+    if(statusEl) statusEl.textContent='⚠ Failed to save — try again';
+  }
+}
+
+fetchNotes().then(fetchStatusWatch);
 </script>
 </body>
 </html>
