@@ -1864,6 +1864,11 @@ function exportLongNoDeal(){
 // entered the status (approximated as now − time_in_status days, since VW_SAMAN doesn't expose an
 // actual status-change timestamp). See api/status-watch.js for the full query.
 const STATUS_WATCH_LABELS={'pending cancellation':'Pending Cancellation','on hold nsf':'On Hold NSF','cancelled':'Cancelled'};
+// Same normalization as the SQL side (api/status-watch.js) — the real CRM value is "On Hold - NSF"
+// (a dash), not "On Hold NSF", so an exact-string filter match silently matched nothing. Collapsing
+// any run of non-alphanumeric characters to a single space before comparing makes the filter buttons
+// match regardless of dashes/extra spacing, consistent with how the backend query now matches too.
+function normStatusMatch(s){ return String(s||'').replace(/[^a-zA-Z0-9]+/g,' ').trim().toLowerCase(); }
 async function fetchStatusWatch(){
   const sub=document.getElementById('statusWatchSub');
   const body=document.getElementById('statusWatchBody');
@@ -1893,7 +1898,7 @@ function renderStatusWatch(){
   if(!body) return;
   const filter=window._statusWatchFilter||'all';
   const all=window._statusWatchRows||[];
-  const rows=all.filter(r=>filter==='all'||(r.status||'').trim().toLowerCase()===filter)
+  const rows=all.filter(r=>filter==='all'||normStatusMatch(r.status)===filter)
     .sort((a,b)=>b.outboundCount-a.outboundCount);
   if(!rows.length){
     body.innerHTML='<tr><td colspan="7" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
