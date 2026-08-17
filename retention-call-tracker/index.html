@@ -113,6 +113,15 @@ function fmtDur(s){
 function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
 function attrJson(v){ return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
 function normStatusMatch(s){ return String(s||'').replace(/[^a-zA-Z0-9]+/g,' ').trim().toLowerCase(); }
+// "Pending Cancellation" is a token match, not exact — the real CRM value has been confirmed to
+// vary in what sits between the two words (e.g. "Pending Affiliate Cancellation"), same reasoning
+// as api/status-watch.js's REGEXP_CONTAINS bucket. "on hold nsf"/"cancelled" stay exact matches.
+function statusMatchesFilter(rawStatus, filter){
+  if(filter==='all') return true;
+  const norm=normStatusMatch(rawStatus);
+  if(filter==='pending cancellation') return /\bpending\b/.test(norm)&&/\bcancellation\b/.test(norm);
+  return norm===filter;
+}
 
 function showFlaggedPhones(records, label){
   const uniquePhones=new Set(records.map(r=>r.phone)).size;
@@ -190,7 +199,7 @@ function renderStatusWatch(){
   const sub=document.getElementById('statusWatchSub');
   if(!body) return;
   const all=_statusWatchRows||[];
-  const rows=all.filter(r=>_statusWatchFilter==='all'||normStatusMatch(r.status)===_statusWatchFilter)
+  const rows=all.filter(r=>statusMatchesFilter(r.status,_statusWatchFilter))
     .sort((a,b)=>b.outboundCount-a.outboundCount);
   if(!rows.length){
     body.innerHTML='<tr><td colspan="7" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
