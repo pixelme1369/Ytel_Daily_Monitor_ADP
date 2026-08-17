@@ -38,10 +38,11 @@ tbody tr:hover{background:var(--gray-50)}
 .enroll-click{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
 .enroll-click:hover{opacity:.8}
 .pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px}
-.note-ta{width:100%;min-width:200px;font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;resize:vertical;white-space:pre-wrap;font-family:var(--font)}
+.note-wrap{display:flex;align-items:stretch;gap:6px;min-width:240px}
+.note-ta{flex:1;min-width:180px;font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;resize:vertical;white-space:pre-wrap;font-family:var(--font)}
 .note-ta:focus{outline:none;border-color:var(--accent)}
-.note-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:3px}
-.note-status{font-size:10px;color:var(--text-muted)}
+.note-side{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.note-status{font-size:9.5px;color:var(--text-muted);text-align:center;white-space:normal;max-width:70px}
 .updated{font-size:11px;color:var(--text-muted)}
 #enrollModal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;align-items:center;justify-content:center;padding:20px}
 #enrollModal.open{display:flex}
@@ -227,10 +228,12 @@ function renderStatusWatch(){
         <td>${r.state||'—'}</td>
         <td>${r.submittedDate?String(r.submittedDate).slice(0,10):'—'}</td>
         <td style="text-align:left">
-          <textarea class="note-ta" id="note-ta-${r.phone}" rows="2" placeholder="Add a note…" onblur="saveNote('${r.phone}',this)">${escapeHtml((_notesData[r.phone]&&_notesData[r.phone].text)||'')}</textarea>
-          <div class="note-row">
-            <button class="af-btn" style="padding:2px 8px;font-size:10px" onclick="saveNote('${r.phone}',document.getElementById('note-ta-${r.phone}'))">💾 Save</button>
-            <span class="note-status" id="note-status-${r.phone}">${_notesData[r.phone]&&_notesData[r.phone].updatedAt?'Saved '+new Date(_notesData[r.phone].updatedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''}</span>
+          <div class="note-wrap">
+            <textarea class="note-ta" id="note-ta-${r.phone}" rows="2" placeholder="Add a note…" onblur="saveNote('${r.phone}',this)">${escapeHtml((_notesData[r.phone]&&_notesData[r.phone].text)||'')}</textarea>
+            <div class="note-side">
+              <button class="af-btn" style="padding:4px 10px;font-size:10px;white-space:nowrap" onclick="saveNote('${r.phone}',document.getElementById('note-ta-${r.phone}'))">💾 Save</button>
+              <span class="note-status" id="note-status-${r.phone}">${_notesData[r.phone]&&_notesData[r.phone].updatedAt?'Saved '+new Date(_notesData[r.phone].updatedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''}</span>
+            </div>
           </div>
         </td>
       </tr>`;
