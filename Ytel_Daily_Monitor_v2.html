@@ -284,6 +284,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
     <a href="#sec-transfer-lb">Agent Management Board</a>
     <a href="#sec-report-cards">Agent Report Cards</a>
     <a href="#sec-crm-status">CRM Status Breakdown</a>
+    <a href="#sec-status-watch">Status Watch</a>
   </nav>
   <div class="sb-upload-mini">
     <div class="sb-drop-mini" id="mergedCard" title="Upload a merged Ytel+CRM file to override live BigQuery data">
@@ -780,6 +781,40 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
           <table id="crmStatusTopRepTable">
             <thead><tr><th style="text-align:left">CRM Status</th><th style="text-align:left">Top Rep</th><th>Count</th><th>% of Status</th></tr></thead>
             <tbody id="crmStatusTopRepBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATUS WATCH: pending cancellation / on hold NSF / cancelled files, time-in-status < 10 days -->
+  <section id="sec-status-watch">
+    <div class="sec-header"><span class="sec-tog">▼</span><span class="sec-title">Status Watch</span></div>
+    <div class="sec-body">
+      <div class="card" id="statusWatchCard">
+        <div class="card-title">
+          <span>⏳ Pending Cancellation / On Hold NSF / Cancelled <span class="card-title-sub" id="statusWatchSub">leads under 10 days in status, with outbound calls made since they entered it — independent of the date range above</span></span>
+          <div id="statusWatchBtns" style="display:flex;align-items:center;gap:4px">
+            <button onclick="filterStatusWatch('all')"                    id="sw-all"       class="af-btn af-active">All</button>
+            <button onclick="filterStatusWatch('pending cancellation')"   id="sw-pending"   class="af-btn">Pending Cancellation</button>
+            <button onclick="filterStatusWatch('on hold nsf')"            id="sw-onhold"    class="af-btn">On Hold NSF</button>
+            <button onclick="filterStatusWatch('cancelled')"              id="sw-cancelled" class="af-btn">Cancelled</button>
+          </div>
+          <button class="af-btn" onclick="fetchStatusWatch()" title="Re-query BigQuery for current status/time-in-status — not tied to the date range picker">🔄 Refresh</button>
+          <button class="af-btn" onclick="exportTable('statusWatchTable','status_watch.csv')">⬇ CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table id="statusWatchTable">
+            <thead><tr>
+              <th style="text-align:left">Phone</th>
+              <th style="text-align:left">CRM Status</th>
+              <th>Days in Status</th>
+              <th style="text-align:left">Assigned To</th>
+              <th>Outbound Calls Since Status</th>
+              <th>Enrolled Debt</th>
+              <th>State</th>
+            </tr></thead>
+            <tbody id="statusWatchBody"><tr><td colspan="7" style="color:var(--text-muted)">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1821,6 +1856,70 @@ function exportLongNoDeal(){
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
 }
 
+// ══ STATUS WATCH (Pending Cancellation / On Hold NSF / Cancelled) ═══════════
+// Independent of the fromDate/toDate range picker by design (per user request: "no matter what
+// call date I choose") — queries /api/status-watch, which itself queries VW_SAMAN directly for
+// leads currently at one of the 3 watched statuses with under 10 days elapsed in that status
+// (BigQuery's time_in_status column), then counts each phone's outbound Ytel calls made since it
+// entered the status (approximated as now − time_in_status days, since VW_SAMAN doesn't expose an
+// actual status-change timestamp). See api/status-watch.js for the full query.
+const STATUS_WATCH_LABELS={'pending cancellation':'Pending Cancellation','on hold nsf':'On Hold NSF','cancelled':'Cancelled'};
+async function fetchStatusWatch(){
+  const sub=document.getElementById('statusWatchSub');
+  const body=document.getElementById('statusWatchBody');
+  if(sub) sub.textContent='Loading…';
+  try{
+    const resp=await fetch('/api/status-watch');
+    const data=await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(data.error||('Request failed ('+resp.status+')'));
+    window._statusWatchRows=data.rows||[];
+  }catch(err){
+    if(body) body.innerHTML='<tr><td colspan="7" style="color:var(--red)">Failed to load: '+err.message+'</td></tr>';
+    if(sub) sub.textContent='Failed to load — click 🔄 Refresh to try again';
+    return;
+  }
+  renderStatusWatch();
+}
+function filterStatusWatch(status){
+  window._statusWatchFilter=status;
+  document.querySelectorAll('#statusWatchBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
+  const idMap={'all':'sw-all','pending cancellation':'sw-pending','on hold nsf':'sw-onhold','cancelled':'sw-cancelled'};
+  document.getElementById(idMap[status])?.classList.add('af-active');
+  renderStatusWatch();
+}
+function renderStatusWatch(){
+  const body=document.getElementById('statusWatchBody');
+  const sub=document.getElementById('statusWatchSub');
+  if(!body) return;
+  const filter=window._statusWatchFilter||'all';
+  const all=window._statusWatchRows||[];
+  const rows=all.filter(r=>filter==='all'||(r.status||'').trim().toLowerCase()===filter)
+    .sort((a,b)=>b.outboundCount-a.outboundCount);
+  if(!rows.length){
+    body.innerHTML='<tr><td colspan="7" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
+  }else{
+    body.innerHTML=rows.map(r=>{
+      const records=(r.calls||[]).map(c=>({
+        phone:r.phone, sec:c.length_in_sec||0, recording:c.recording_location||'',
+        crmStatus:r.status||'', ytelStatus:c.status_name||c.status||'', dir:'outbound'
+      }));
+      const daysTxt=Number.isInteger(r.daysInStatus)?r.daysInStatus:r.daysInStatus.toFixed(1);
+      return `<tr>
+        <td style="text-align:left;font-family:monospace">${r.phone}</td>
+        <td style="text-align:left">${r.status}</td>
+        <td>${daysTxt}</td>
+        <td style="text-align:left">${r.assignedTo||'—'}</td>
+        <td>${records.length?`<span class="enroll-click" style="font-weight:700" onclick='showFlaggedPhones(${attrJson(records)},${attrJson(r.phone+' — Outbound Since '+r.status)})'>${r.outboundCount}</span>`:r.outboundCount}</td>
+        <td>${r.enrolledDebt>0?fmt$(r.enrolledDebt):'—'}</td>
+        <td>${r.state||'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+  if(sub) sub.textContent=rows.length+' lead'+(rows.length===1?'':'s')+' under 10 days in status'
+    +(filter!=='all'?' ('+STATUS_WATCH_LABELS[filter]+' only)':'')
+    +' — independent of the date range above';
+}
+
 let _tlbRoleFilter='all';
 function filterCrmStatus(dir){
   window._crmStatusDirFilter=dir;
@@ -2089,6 +2188,10 @@ async function runAnalysis(force){
   const toStr=document.getElementById('toDate').value;
   if(!fromStr||!toStr){ showToast('Pick a date range'); return; }
   if(fromStr>toStr){ showToast('From date must be ≤ To date'); return; }
+
+  // Status Watch is deliberately independent of fromStr/toStr (always "under 10 days in status,
+  // as of now") — fire-and-forget alongside the main fetch; fetchStatusWatch() catches its own errors.
+  if(force) fetchStatusWatch();
 
   // No uploaded file → pull live from BigQuery (Ytel + CRM already merged server-side).
   // Skipped if the last live fetch already covers this exact range AND this isn't an explicit
@@ -3461,6 +3564,9 @@ renderThresholdEditor();
 initCollapse();
 initNav();
 initSidebarAutoHide();
+// Status Watch is independent of the date-range picker, so it loads on page open (not gated
+// behind a Run Analysis click) — see fetchStatusWatch()/api/status-watch.js.
+fetchStatusWatch();
 // Shared-data auto-load removed (would silently override the new live-BigQuery default with a stale
 // manually-uploaded file) — the mini upload drop at the bottom of the sidebar still works manually.
 </script>
