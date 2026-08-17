@@ -3,7 +3,9 @@ const { BigQuery } = require('@google-cloud/bigquery');
 const YTEL_TABLE = 'amity-one-debt-sys.aod_ytel_call_log.call_log';
 const CRM_TABLE = 'amity-one-call-data.aod_forth_data.VW_SAMAN';
 
-// The 3 "at-risk" CRM statuses this report watches, lowercased for the SQL-side match.
+// The 3 "at-risk" CRM statuses this report watches. "On Hold NSF" and "Cancelled" are exact
+// (post dash/space normalization) matches; "Pending Cancellation" is a token match (see leadQuery
+// below) since the real CRM value has been confirmed to vary in what sits between the two words.
 const TARGET_STATUSES = ['pending cancellation', 'on hold nsf', 'cancelled'];
 // Per user request: only leads whose CURRENT time in that status is under 10 days —
 // always, regardless of whatever date range is selected elsewhere in the dashboard.
@@ -52,12 +54,27 @@ module.exports = async (req, res) => {
   //    entire status bucket never appeared even for real leads confirmed 5 days into it. Fixed by
   //    collapsing any run of non-alphanumeric characters (dashes, extra spaces) to a single space
   //    before comparing -- "On Hold - NSF", "On Hold  NSF", and "On Hold NSF" all now normalize to
-  //    the same 'on hold nsf' target. Exact equality (not LIKE) is kept so a status like
-  //    "Cancelled - Refund Pending" still can't accidentally match "cancelled".
+  //    the same 'on hold nsf' target. "Cancelled" stays an exact match (not LIKE) so a status like
+  //    "Cancelled - Refund Pending" still can't accidentally match it.
+  //    Bug fixed (August 2026): "Pending Cancellation" also matched zero real leads -- a confirmed
+  //    real example reads "Pending Affiliate Cancellation" (a whole extra word in between, not just
+  //    punctuation). Per user confirmation, this bucket is now a token match -- the normalized status
+  //    just needs to contain both the word "pending" and the word "cancellation" somewhere in it,
+  //    regardless of what's between them or their order -- so "Pending Affiliate Cancellation", a
+  //    plain "Pending Cancellation", or any other similar variant all match automatically.
   const leadQuery = `
+    WITH leads AS (
+      SELECT assigned_to, phone, phone2, phone3, phone4, status, time_in_status, enrolled_debt, state,
+             LOWER(TRIM(REGEXP_REPLACE(status, r'[^a-zA-Z0-9]+', ' '))) AS norm_status
+      FROM \`${CRM_TABLE}\`
+    )
     SELECT assigned_to, phone, phone2, phone3, phone4, status, time_in_status, enrolled_debt, state
-    FROM \`${CRM_TABLE}\`
-    WHERE LOWER(TRIM(REGEXP_REPLACE(status, r'[^a-zA-Z0-9]+', ' '))) IN UNNEST(@statuses)
+    FROM leads
+    WHERE (
+        norm_status = 'on hold nsf'
+        OR norm_status = 'cancelled'
+        OR (REGEXP_CONTAINS(norm_status, r'\\bpending\\b') AND REGEXP_CONTAINS(norm_status, r'\\bcancellation\\b'))
+      )
       AND time_in_status < @maxDays
   `;
 
@@ -65,7 +82,7 @@ module.exports = async (req, res) => {
   try {
     const [rows] = await bigquery.query({
       query: leadQuery,
-      params: { statuses: TARGET_STATUSES, maxDays: MAX_DAYS_IN_STATUS }
+      params: { maxDays: MAX_DAYS_IN_STATUS }
     });
     leadRows = rows;
   } catch (e) {

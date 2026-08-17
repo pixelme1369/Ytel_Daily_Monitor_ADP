@@ -1869,6 +1869,15 @@ const STATUS_WATCH_LABELS={'pending cancellation':'Pending Cancellation','on hol
 // any run of non-alphanumeric characters to a single space before comparing makes the filter buttons
 // match regardless of dashes/extra spacing, consistent with how the backend query now matches too.
 function normStatusMatch(s){ return String(s||'').replace(/[^a-zA-Z0-9]+/g,' ').trim().toLowerCase(); }
+// "Pending Cancellation" is a token match, not exact — the real CRM value has been confirmed to
+// vary in what sits between the two words (e.g. "Pending Affiliate Cancellation"), same reasoning
+// as api/status-watch.js's REGEXP_CONTAINS bucket. "on hold nsf"/"cancelled" stay exact matches.
+function statusMatchesFilter(rawStatus, filter){
+  if(filter==='all') return true;
+  const norm=normStatusMatch(rawStatus);
+  if(filter==='pending cancellation') return /\bpending\b/.test(norm)&&/\bcancellation\b/.test(norm);
+  return norm===filter;
+}
 async function fetchStatusWatch(){
   const sub=document.getElementById('statusWatchSub');
   const body=document.getElementById('statusWatchBody');
@@ -1898,7 +1907,7 @@ function renderStatusWatch(){
   if(!body) return;
   const filter=window._statusWatchFilter||'all';
   const all=window._statusWatchRows||[];
-  const rows=all.filter(r=>filter==='all'||normStatusMatch(r.status)===filter)
+  const rows=all.filter(r=>statusMatchesFilter(r.status,filter))
     .sort((a,b)=>b.outboundCount-a.outboundCount);
   if(!rows.length){
     body.innerHTML='<tr><td colspan="7" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
