@@ -47,10 +47,17 @@ module.exports = async (req, res) => {
   // 1. Every CRM lead currently sitting at one of the 3 watched statuses, under 10 days in that status.
   //    time_in_status is a number (days already elapsed at that status, as of "now" in BigQuery) --
   //    NULL fails the "< @maxDays" comparison, so leads with no known time-in-status are naturally excluded.
+  //    Bug fixed (August 2026): the real CRM value is "On Hold - NSF" (a dash), not "On Hold NSF" --
+  //    an exact LOWER(TRIM(status)) match against 'on hold nsf' silently matched nothing, so this
+  //    entire status bucket never appeared even for real leads confirmed 5 days into it. Fixed by
+  //    collapsing any run of non-alphanumeric characters (dashes, extra spaces) to a single space
+  //    before comparing -- "On Hold - NSF", "On Hold  NSF", and "On Hold NSF" all now normalize to
+  //    the same 'on hold nsf' target. Exact equality (not LIKE) is kept so a status like
+  //    "Cancelled - Refund Pending" still can't accidentally match "cancelled".
   const leadQuery = `
     SELECT assigned_to, phone, phone2, phone3, phone4, status, time_in_status, enrolled_debt, state
     FROM \`${CRM_TABLE}\`
-    WHERE LOWER(TRIM(status)) IN UNNEST(@statuses)
+    WHERE LOWER(TRIM(REGEXP_REPLACE(status, r'[^a-zA-Z0-9]+', ' '))) IN UNNEST(@statuses)
       AND time_in_status < @maxDays
   `;
 
