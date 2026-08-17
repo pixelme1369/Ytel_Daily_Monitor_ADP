@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retention Call Tracker</title>
+<style>
+:root{
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --accent:#6366F1; --accent-dk:#4F46E5;
+  --green:#10B981; --green-lt:#D1FAE5; --green-dk:#065F46;
+  --red:#EF4444; --red-lt:#FEE2E2; --red-dk:#7F1D1D;
+  --amber:#F59E0B; --amber-lt:#FEF3C7; --amber-dk:#78350F;
+  --blue:#6366F1; --blue-lt:#EEF2FF; --blue-dk:#4F46E5;
+  --gray-50:#F8FAFC; --gray-100:#F1F5F9; --gray-200:#E2E8F0;
+  --gray-400:#94A3B8; --gray-500:#64748B;
+  --text:#1E293B; --text-muted:#64748B; --surface:#FFFFFF; --bg:#F1F5F9;
+  --border:#E2E8F0; --radius:8px; --radius-lg:12px;
+}
+*{box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;margin:0;padding:24px}
+.wrap{max-width:1200px;margin:0 auto}
+.hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.hdr h1{font-size:20px;margin:0;display:flex;align-items:center;gap:8px}
+.hdr .sub{font-size:12px;color:var(--text-muted);margin-top:4px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.card-title-sub{font-size:11px;font-weight:400;color:var(--text-muted)}
+.af-btn{font-size:11px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--gray-100);color:var(--text-muted);cursor:pointer;transition:all .15s;font-family:var(--font)}
+.af-btn:hover{background:var(--gray-200)}
+.af-btn.af-active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:right;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--gray-500);padding:8px 10px;border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+tbody tr:hover{background:var(--gray-50)}
+.enroll-click{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+.enroll-click:hover{opacity:.8}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px}
+.updated{font-size:11px;color:var(--text-muted)}
+#enrollModal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;align-items:center;justify-content:center;padding:20px}
+#enrollModal.open{display:flex}
+#enrollModalBox{background:var(--surface);border-radius:var(--radius-lg);padding:18px;max-width:560px;width:90vw;max-height:80vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+#enrollModalTitle{font-weight:700;font-size:14px}
+#enrollModalList{display:flex;flex-direction:column;gap:8px}
+.close-x{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-muted);line-height:1}
+footer{margin-top:16px;font-size:11px;color:var(--gray-400);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div>
+      <h1>📞 Retention Call Tracker</h1>
+      <div class="sub">Pending Cancellation · On Hold NSF · Cancelled — leads under 10 days in status, with outbound calls made since they entered it</div>
+    </div>
+    <div class="updated" id="updatedAt"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>⏳ Status Watch <span class="card-title-sub" id="statusWatchSub">Loading…</span></span>
+      <div class="btn-row" id="statusWatchBtns">
+        <button onclick="filterStatusWatch('all')"                  id="sw-all"       class="af-btn af-active">All</button>
+        <button onclick="filterStatusWatch('pending cancellation')" id="sw-pending"   class="af-btn">Pending Cancellation</button>
+        <button onclick="filterStatusWatch('on hold nsf')"          id="sw-onhold"    class="af-btn">On Hold NSF</button>
+        <button onclick="filterStatusWatch('cancelled')"            id="sw-cancelled" class="af-btn">Cancelled</button>
+      </div>
+      <div class="btn-row">
+        <button class="af-btn" onclick="fetchStatusWatch()">🔄 Refresh</button>
+        <button class="af-btn" onclick="exportTable('statusWatchTable','status_watch.csv')">⬇ CSV</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="statusWatchTable">
+        <thead><tr>
+          <th style="text-align:left">Phone</th>
+          <th style="text-align:left">CRM Status</th>
+          <th>Days in Status</th>
+          <th style="text-align:left">Assigned To</th>
+          <th>Outbound Calls Since Status</th>
+          <th>Enrolled Debt</th>
+          <th>State</th>
+        </tr></thead>
+        <tbody id="statusWatchBody"><tr><td colspan="7" style="color:var(--text-muted)">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Data reloads fresh from BigQuery every time this page is opened or refreshed.</footer>
+</div>
+
+<div id="enrollModal" onclick="if(event.target===this)closeEnrolledPhones()">
+  <div id="enrollModalBox">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div id="enrollModalTitle"></div>
+      <button onclick="closeEnrolledPhones()" class="close-x">×</button>
+    </div>
+    <div id="enrollModalList"></div>
+  </div>
+</div>
+
+<script>
+// ══ UTILS ═══════════════════════════════════════════════════════════════════
+function fmtDur(s){
+  s=Math.round(+s||0);
+  if(s<60) return s+'s';
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;
+  if(h) return h+'h '+String(m).padStart(2,'0')+'m';
+  return m+'m '+String(sc).padStart(2,'0')+'s';
+}
+function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
+function attrJson(v){ return JSON.stringify(v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
+function normStatusMatch(s){ return String(s||'').replace(/[^a-zA-Z0-9]+/g,' ').trim().toLowerCase(); }
+
+function showFlaggedPhones(records, label){
+  const uniquePhones=new Set(records.map(r=>r.phone)).size;
+  document.getElementById('enrollModalTitle').textContent=(label||'Calls')+' ('+uniquePhones+')';
+  document.getElementById('enrollModalList').innerHTML=records.map(r=>{
+    const hasRec=!!r.recording;
+    return `<div style="padding:8px;border-radius:6px;background:var(--gray-100);display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="font-size:13px;font-family:monospace">${r.phone}</b>
+          ${r.dir?`<span class="pill" style="background:${r.dir==='inbound'?'var(--blue-lt)':'var(--amber-lt)'};color:${r.dir==='inbound'?'var(--blue-dk)':'var(--amber-dk)'};text-transform:uppercase" title="Call direction">${r.dir==='inbound'?'Inbound':'Outbound'}</span>`:''}
+          ${r.ytelStatus?`<span class="pill" style="background:var(--gray-200);color:var(--blue)" title="Ytel status">${r.ytelStatus}</span>`:''}
+          ${r.crmStatus?`<span class="pill" style="background:var(--gray-200);color:var(--text-muted)" title="CRM status">${r.crmStatus}</span>`:''}
+        </span>
+        <span style="font-size:11px;color:var(--text-muted)">${fmtDur(r.sec)}</span>
+      </div>
+      ${hasRec
+        ?`<audio controls preload="none" src="${r.recording}" style="width:100%;height:44px"></audio>
+        <a href="${r.recording}" download style="font-size:11px;color:var(--accent);text-decoration:none;align-self:flex-end">⬇ Download recording</a>`
+        :`<div style="font-size:11px;color:var(--text-muted);font-style:italic">No recording available</div>`}
+    </div>`;
+  }).join('')||'<div style="color:var(--text-muted);font-size:11px;padding:4px 0">None</div>';
+  document.getElementById('enrollModal').classList.add('open');
+}
+function closeEnrolledPhones(){
+  document.getElementById('enrollModal').classList.remove('open');
+}
+function exportTable(tableId, filename){
+  const table=document.getElementById(tableId);
+  if(!table) return;
+  const rows=[...table.querySelectorAll('tr')].map(tr=>
+    [...tr.querySelectorAll('th,td')].map(cell=>'"'+cell.textContent.trim().replace(/"/g,'""')+'"').join(',')
+  );
+  const csv=rows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=filename.endsWith('.csv')?filename:filename+'.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+
+// ══ STATUS WATCH ══════════════════════════════════════════════════════════
+// Standalone extraction of Ytel_Daily_Monitor_v2.html's "Status Watch" section (#sec-status-watch) —
+// shares no code/localStorage with the main dashboard, just the same /api/status-watch response shape.
+// Always reflects "right now" (time_in_status < 10 days), not any selected date range, and always
+// re-queries BigQuery fresh on every page load/refresh — no client-side caching of the fetched rows.
+const STATUS_WATCH_LABELS={'pending cancellation':'Pending Cancellation','on hold nsf':'On Hold NSF','cancelled':'Cancelled'};
+let _statusWatchRows=null, _statusWatchFilter='all';
+
+async function fetchStatusWatch(){
+  const sub=document.getElementById('statusWatchSub');
+  const body=document.getElementById('statusWatchBody');
+  if(sub) sub.textContent='Loading…';
+  try{
+    const resp=await fetch('/api/status-watch');
+    const data=await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(data.error||('Request failed ('+resp.status+')'));
+    _statusWatchRows=data.rows||[];
+    document.getElementById('updatedAt').textContent='Updated '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  }catch(err){
+    if(body) body.innerHTML='<tr><td colspan="7" style="color:var(--red)">Failed to load: '+err.message+'</td></tr>';
+    if(sub) sub.textContent='Failed to load — click 🔄 Refresh to try again';
+    return;
+  }
+  renderStatusWatch();
+}
+function filterStatusWatch(status){
+  _statusWatchFilter=status;
+  document.querySelectorAll('#statusWatchBtns .af-btn').forEach(b=>b.classList.remove('af-active'));
+  const idMap={'all':'sw-all','pending cancellation':'sw-pending','on hold nsf':'sw-onhold','cancelled':'sw-cancelled'};
+  document.getElementById(idMap[status])?.classList.add('af-active');
+  renderStatusWatch();
+}
+function renderStatusWatch(){
+  const body=document.getElementById('statusWatchBody');
+  const sub=document.getElementById('statusWatchSub');
+  if(!body) return;
+  const all=_statusWatchRows||[];
+  const rows=all.filter(r=>_statusWatchFilter==='all'||normStatusMatch(r.status)===_statusWatchFilter)
+    .sort((a,b)=>b.outboundCount-a.outboundCount);
+  if(!rows.length){
+    body.innerHTML='<tr><td colspan="7" style="color:var(--text-muted)">None currently under 10 days in status</td></tr>';
+  }else{
+    body.innerHTML=rows.map(r=>{
+      const records=(r.calls||[]).map(c=>({
+        phone:r.phone, sec:c.length_in_sec||0, recording:c.recording_location||'',
+        crmStatus:r.status||'', ytelStatus:c.status_name||c.status||'', dir:'outbound'
+      }));
+      const daysTxt=Number.isInteger(r.daysInStatus)?r.daysInStatus:r.daysInStatus.toFixed(1);
+      return `<tr>
+        <td style="text-align:left;font-family:monospace">${r.phone}</td>
+        <td style="text-align:left">${r.status}</td>
+        <td>${daysTxt}</td>
+        <td style="text-align:left">${r.assignedTo||'—'}</td>
+        <td>${records.length?`<span class="enroll-click" style="font-weight:700" onclick='showFlaggedPhones(${attrJson(records)},${attrJson(r.phone+' — Outbound Since '+r.status)})'>${r.outboundCount}</span>`:r.outboundCount}</td>
+        <td>${r.enrolledDebt>0?fmt$(r.enrolledDebt):'—'}</td>
+        <td>${r.state||'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+  if(sub) sub.textContent=rows.length+' lead'+(rows.length===1?'':'s')+' under 10 days in status'
+    +(_statusWatchFilter!=='all'?' ('+STATUS_WATCH_LABELS[_statusWatchFilter]+' only)':'');
+}
+
+fetchStatusWatch();
+</script>
+</body>
+</html>
