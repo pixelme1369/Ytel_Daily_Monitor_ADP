@@ -74,7 +74,6 @@ footer{margin-top:16px;font-size:11px;color:var(--gray-400);text-align:center}
       </div>
       <div class="btn-row">
         <button class="af-btn" onclick="refreshAll()">🔄 Refresh</button>
-        <button class="af-btn" onclick="exportTable('statusWatchTable','status_watch.csv')">⬇ CSV</button>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -157,19 +156,6 @@ function showFlaggedPhones(records, label){
 function closeEnrolledPhones(){
   document.getElementById('enrollModal').classList.remove('open');
 }
-function exportTable(tableId, filename){
-  const table=document.getElementById(tableId);
-  if(!table) return;
-  const rows=[...table.querySelectorAll('tr')].map(tr=>
-    [...tr.querySelectorAll('th,td')].map(cell=>'"'+cell.textContent.trim().replace(/"/g,'""')+'"').join(',')
-  );
-  const csv=rows.join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=filename.endsWith('.csv')?filename:filename+'.csv'; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
-}
-
 // ══ STATUS WATCH ══════════════════════════════════════════════════════════
 // Standalone extraction of Ytel_Daily_Monitor_v2.html's "Status Watch" section (#sec-status-watch) —
 // shares no code/localStorage with the main dashboard, just the same /api/status-watch response shape.
