@@ -1967,9 +1967,11 @@ function renderCrmStatusBreakdown(){
   // they're each counted individually — the same edge case every other phone-keyed map in this file accepts.
   const crmStatusByPhone={};
   const crmStatusCounts={};
+  const crmStatusPhoneDebt={};
   rows.forEach(r=>{
     if(r._phone){
       if(!crmStatusByPhone[r._phone]||r._ts>=crmStatusByPhone[r._phone].ts) crmStatusByPhone[r._phone]={status:resolveCrm(r)||'(No CRM Status)',ts:r._ts,agent:r._name||'',user:r._user||''};
+      if(r._debt>0) crmStatusPhoneDebt[r._phone]=Math.max(crmStatusPhoneDebt[r._phone]||0,r._debt);
     } else {
       const k=resolveCrm(r)||'(No CRM Status)'; if(!crmStatusCounts[k]) crmStatusCounts[k]={n:0}; crmStatusCounts[k].n++;
     }
@@ -1993,13 +1995,25 @@ function renderCrmStatusBreakdown(){
   const crmStatusSorted=Object.entries(crmStatusCounts).sort((a,b)=>b[1].n-a[1].n);
   const crmStatusTotal=crmStatusSorted.reduce((s,[,d])=>s+d.n,0);
   const maxCrm=crmStatusSorted[0]?crmStatusSorted[0][1].n:1;
-  document.getElementById('crmStatusList').innerHTML=crmStatusSorted.map(([status,d])=>`
+  // Per-status phone list (phone + its debt + its CRM status) for the count's click-through — grouped from
+  // the same crmStatusByPhone dedup pass above, so it always agrees with the count shown next to it. Rows
+  // with no phone number (counted in crmStatusCounts directly above) have nothing to list and are omitted.
+  const crmStatusPhones={};
+  Object.entries(crmStatusByPhone).forEach(([phone,v])=>{
+    if(!crmStatusPhones[v.status]) crmStatusPhones[v.status]=[];
+    crmStatusPhones[v.status].push({phone,crmStatus:v.status,debt:crmStatusPhoneDebt[phone]||0});
+  });
+  document.getElementById('crmStatusList').innerHTML=crmStatusSorted.map(([status,d])=>{
+    const phones=crmStatusPhones[status]||[];
+    const countHtml=phones.length?`<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(phones)},${attrJson(status+' — Phone Numbers')})'>${d.n}</span>`:d.n;
+    return `
     <div class="dispo-row">
       <div class="dispo-name" style="min-width:170px;max-width:260px;flex:0 0 auto">${status}</div>
       <div class="dispo-bar-bg"><div class="dispo-bar-fill" style="width:${(d.n/maxCrm*100).toFixed(0)}%"></div></div>
-      <div class="dispo-count">${d.n}</div>
+      <div class="dispo-count">${countHtml}</div>
       <div class="dispo-pct">${pct(d.n,crmStatusTotal)}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   document.getElementById('crmStatusTableBody').innerHTML=crmStatusSorted.map(([status,d])=>
     `<tr><td style="text-align:left">${status}</td><td>${d.n}</td><td>${pct(d.n,crmStatusTotal)}</td></tr>`).join('');
   document.getElementById('crmStatusTopRepBody').innerHTML=crmStatusSorted.map(([status,d])=>{
