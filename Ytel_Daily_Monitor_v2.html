@@ -760,6 +760,7 @@ tbody td:first-child{text-align:left;font-weight:600;color:var(--text)}
             <button onclick="filterCrmStatusCredit('notpulled')" id="cs-credit-not"    class="af-btn">Not Credit Pulled</button>
           </div>
           <button class="af-btn" onclick="exportTable('crmStatusTable','crm_status_breakdown.csv')">⬇ CSV</button>
+          <button class="af-btn" onclick="exportCrmStatusPhonesXlsx()" title="One tab per CRM status, each listing that status's phone numbers and debt amounts">⬇ Excel (phones by status)</button>
         </div>
         <div id="crmStatusList" style="max-height:320px;overflow-y:auto"></div>
         <table id="crmStatusTable" style="display:none">
@@ -856,9 +857,9 @@ function classifyRow(r){
   if(MKT.has(cid)) return 'Marketing';
   return 'Other';
 }
-const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','angel esparza','logan apana','brian smith','emren salim','renato toribio','brian ballman','taha aoukal','alex tambouly','kyle keith','britt freeman','emerson gonzalez']);
+const CLOSERS=new Set(['peter godwin','adam elqaza','diego acuna','alon yomorta','abed al serwan','josh hallwork','toha serwan','parth desai','robert whitmer','alexander wahlberg','artin namjoo','omar tayara','aj valipour','tyler mason','neka bullock','don bell','faisal habhab','amir moayeri','daniel arreola','shayan bakhoda','chuvar maestas','eileen beeson','logan insuaste','paul simms','john tade','dylan gallagher','lindsey magnusen','angel espraza','angel esparza','logan apana','brian smith','emren salim','renato toribio','brian ballman','taha aoukal','alex tambouly','kyle keith','britt freeman','emerson gonzalez','mario cabrera','tylan cabrera']);
 const RETENTION=new Set(['eli riano','erika ceja','daniel soldevilla','jose salgado']);
-const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','alexander tulkoff','jaiden lopez','jaiden j lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','mark carlos','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','elizabeth arredondo','mohamad dadou','keanu evaldez','saeid anvar']);
+const OPENERS=new Set(['tabitha jaggers','mercy morse','joselyn lorenzo','alex tulkoff','alexander tulkoff','jaiden lopez','jaiden j lopez','stanley randolph','spencer porterfield','jon stultz','jon stults','walter urbina','mark claros','mark carlos','jennifer saldana','riley malone','joseph nassif','darrin ford','abdelrhaman nianaa','liz arredondo','elizabeth arredondo','mohamad dadou','keanu evaldez','saeid anvar','connor ramsdell','ian puzantian','lan puzantian','nadim diab']);
 // Terminated agents — excluded from all agent-specific views (Agent Performance, Rankings, Funnel,
 // Outcomes scatter, Long Calls No Deal, Unassigned Agents, coaching-issue callouts) but their calls
 // still count toward overall KPIs/campaign totals since those calls actually happened.
@@ -1071,6 +1072,33 @@ function exportTable(tableId, filename){
   a.download=filename+'.csv';
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+// CRM Status Breakdown — "one tab per status" export (per user request). A plain CSV can't hold multiple
+// tabs, so this builds a real .xlsx workbook (SheetJS, already loaded for file upload) with one sheet per
+// CRM status, each listing that status's Phone Number + Debt Amount — sourced from window._crmStatusPhones/
+// window._crmStatusSorted, the exact same per-status phone/debt data cached by renderCrmStatusBreakdown()
+// for the on-screen count's click-through, so the export always matches what's currently shown (including
+// the active Inbound/Outbound and Credit Pulled filters).
+function exportCrmStatusPhonesXlsx(){
+  const sorted=window._crmStatusSorted||[];
+  const phonesByStatus=window._crmStatusPhones||{};
+  if(!sorted.length) return;
+  if(typeof XLSX==='undefined'||!XLSX.utils||!XLSX.writeFile){ alert('Excel export library failed to load — try refreshing the page.'); return; }
+  const wb=XLSX.utils.book_new();
+  const usedNames=new Set();
+  sorted.forEach(([status])=>{
+    const phones=phonesByStatus[status]||[];
+    const aoa=[['Phone Number','Debt Amount']].concat(phones.map(p=>[p.phone,p.debt||0]));
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    // Excel sheet names: max 31 chars, no \ / ? * [ ] : — and must be unique within the workbook.
+    let name=(status||'Unknown').replace(/[\\/?*\[\]:]/g,' ').trim().slice(0,31)||'Status';
+    let n=2;
+    while(usedNames.has(name)){ name=(status.slice(0,25)+'_'+n).slice(0,31); n++; }
+    usedNames.add(name);
+    XLSX.utils.book_append_sheet(wb,ws,name);
+  });
+  const rangeSlug=(window._summary&&window._summary.dateStr||'').replace(/[^\w-]+/g,'_').replace(/^_+|_+$/g,'');
+  XLSX.writeFile(wb,'crm_status_breakdown_by_status'+(rangeSlug?'_'+rangeSlug:'')+'.xlsx');
 }
 // Agent Performance table Compact/Full column view toggle (see .compact-cols CSS note). Pure
 // display state -- doesn't touch agentMap/agentRows or re-run any analysis, so switching views is
@@ -2003,6 +2031,10 @@ function renderCrmStatusBreakdown(){
     if(!crmStatusPhones[v.status]) crmStatusPhones[v.status]=[];
     crmStatusPhones[v.status].push({phone,crmStatus:v.status,debt:crmStatusPhoneDebt[phone]||0});
   });
+  // Cached so exportCrmStatusPhonesXlsx() (the "Excel, one tab per status" export) can read the exact
+  // same per-status phone/debt breakdown and status order shown on screen, without recomputing it.
+  window._crmStatusPhones=crmStatusPhones;
+  window._crmStatusSorted=crmStatusSorted;
   document.getElementById('crmStatusList').innerHTML=crmStatusSorted.map(([status,d])=>{
     const phones=crmStatusPhones[status]||[];
     const countHtml=phones.length?`<span class="enroll-click" onclick='showPhoneCrmList(${attrJson(phones)},${attrJson(status+' — Phone Numbers')})'>${d.n}</span>`:d.n;
