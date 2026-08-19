@@ -228,7 +228,7 @@ When a user runs a report over a date range longer than ~10 days, an agent who s
   - Example: `'jaiden lopez'` and `'jaiden j lopez'` are both in OPENERS
   - Example: `'ian puzantian'` and `'lan puzantian'` are both in OPENERS (added August 2026 — user's own typed spelling was `lan Puzantian`; kept alongside the likely-intended `ian puzantian` rather than guessing which one the data uses)
 - When a user reports an agent is "missing from the report", check if it's a spelling mismatch before assuming the agent isn't in the set
-- **Agents added August 2026**: `'connor ramsdell'`, `'ian puzantian'`/`'lan puzantian'`, `'nadim diab'` → OPENERS; `'mario cabrera'`, `'tylan cabrera'` → CLOSERS
+- **Agents added August 2026**: `'connor ramsdell'`, `'ian puzantian'`/`'lan puzantian'`, `'nadim diab'` → OPENERS; `'mario cabrera'`, `'tylan cabrera'`, `'zach renderos'` → CLOSERS
 
 ## Enrollment Logic
 
