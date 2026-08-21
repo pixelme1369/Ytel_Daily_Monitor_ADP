@@ -1032,8 +1032,8 @@ function getMsValues(id){
 }
 function onMsAll(id,onchange){
   const panel=document.getElementById(id+'-panel');
-  panel.querySelectorAll('input:not([value=""])').forEach(cb=>cb.checked=true);
-  panel.querySelector('input[value=""]').checked=true;
+  const allCb=panel.querySelector('input[value=""]');
+  panel.querySelectorAll('input:not([value=""])').forEach(cb=>cb.checked=allCb.checked);
   updateMsLabel(id);
   if(onchange&&window[onchange]) window[onchange]();
 }
@@ -1051,7 +1051,8 @@ function updateMsLabel(id){
   const items=[...panel.querySelectorAll('input:not([value=""])')];
   const checked=items.filter(cb=>cb.checked);
   const unchecked=items.length-checked.length;
-  if(unchecked===0||checked.length===0) lbl.textContent='All Campaigns';
+  if(checked.length===0) lbl.textContent='None selected';
+  else if(unchecked===0) lbl.textContent='All Campaigns';
   else if(unchecked===1) lbl.textContent='All except 1';
   else lbl.textContent='All except '+unchecked;
 }
